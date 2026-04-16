@@ -1,36 +1,131 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 💰 Sistema de Controle Financeiro
 
-## Getting Started
+Um sistema profissional de gestão financeira pessoal e empresarial, desenvolvido com foco em performance, experiência do usuário (UX) e segurança.
 
-First, run the development server:
+---
+
+## 🚀 Tecnologias Utilizadas
+
+- **Core**: [Next.js 15+](https://nextjs.org/) (App Router)
+- **Linguagem**: [TypeScript](https://www.typescriptlang.org/)
+- **Estilização**: [Tailwind CSS](https://tailwindcss.com/) & [Shadcn/UI](https://ui.shadcn.com/)
+- **Banco de Dados**: [PostgreSQL](https://www.postgresql.org/) com [Prisma ORM 7+](https://www.prisma.io/)
+- **Autenticação**: [NextAuth.js](https://next-auth.js.org/)
+- **Gerenciamento de Estado**: [Zustand](https://docs.pmnd.rs/zustand/getting-started/introduction)
+- **Formulários**: [React Hook Form](https://react-hook-form.com/) & [Zod](https://zod.dev/)
+- **Tabelas**: [@tanstack/react-table](https://tanstack.com/table/v8)
+- **Animações**: [Framer Motion](https://www.framer.com/motion/)
+
+---
+
+## 🛠️ Como Iniciar o Projeto
+
+Existem duas formas principais de rodar o projeto: via Docker (recomendado) ou localmente.
+
+### 1. Pré-requisitos
+
+- **Node.js**: v20 ou superior
+- **Docker & Docker Compose** (opcional, mas recomendado)
+- **NPM** ou **PNPM**
+
+### 2. Configuração de Ambiente
+
+Crie um arquivo `.env` na raiz do projeto baseado no `.env.example`:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Certifique-se de configurar as variáveis de banco de dados e o `NEXTAUTH_SECRET`. Para gerar um segredo rápido:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+openssl rand -base64 32
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+### 🐳 Opção A: Rodando com Docker (Recomendado)
 
-To learn more about Next.js, take a look at the following resources:
+Esta opção já configura o banco de dados e a aplicação automaticamente.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Inicie os containers:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   ```bash
+   npm run docker:dev
+   ```
 
-## Deploy on Vercel
+2. O sistema estará disponível em: [http://localhost:3000](http://localhost:3000)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 💻 Opção B: Rodando Localmente
+
+Se preferir rodar sem Docker, você precisará de um banco PostgreSQL ativo.
+
+1. Instale as dependências:
+
+   ```bash
+   npm install
+   ```
+
+2. Configure o banco de dados com Prisma:
+
+   ```bash
+   npx prisma generate
+   npx prisma migrate dev
+   ```
+
+3. (Opcional) Popular o banco de dados com dados iniciais:
+
+   ```bash
+   npx prisma db seed
+   ```
+
+4. Inicie o servidor de desenvolvimento:
+   ```bash
+   npm run dev
+   ```
+
+---
+
+## 📜 Scripts Disponíveis
+
+| Comando                   | Descrição                                        |
+| :------------------------ | :----------------------------------------------- |
+| `npm run dev`             | Inicia o servidor de desenvolvimento local.      |
+| `npm run build`           | Cria o build de produção da aplicação.           |
+| `npm run start`           | Inicia a aplicação em modo produção.             |
+| `npm run lint`            | Executa o linter para verificar erros de código. |
+| `npm run docker:dev`      | Sobe o ambiente completo via Docker Compose.     |
+| `npm run docker:dev:down` | Para e remove os containers do Docker.           |
+
+---
+
+## 🎨 Padrões de Desenvolvimento
+
+Para manter a consistência do projeto, siga estas diretrizes:
+
+### ✅ Validação e Formulários
+
+- **Validação Antecipada**: Todos os campos obrigatórios devem ser validados antes do envio.
+- **Feedback Visual**: Exibir mensagens de erro/sucesso claras e immediatas (loading states).
+- **Máscaras**: Aplicar máscaras em campos como CPF, Telefone, CEP e Valores Monetários.
+- **Sanitização**: Inputs devem ser sanitizados para evitar XSS e SQL Injection.
+
+### 🧩 UI/UX (Aesthetics)
+
+- **Visual Premium**: Priorize designs modernos com gradientes suaves, micro-animações e dark mode.
+- **Responsividade**: O sistema deve ser totalmente funcional em dispositivos móveis.
+- **Padrão Shadcn**: Utilize os componentes base do Shadcn/UI customizados para manter a identidade visual.
+
+### 🏗️ Arquitetura de Dados
+
+- **Prisma**: Todas as interações com o banco devem passar pelo Prisma Client.
+- **Tipagem**: Utilize as tipagens geradas automaticamente pelo Prisma e interfaces TypeScript rigorosas.
+- **Idempotência**: Garanta que requisições de criação/edição sejam seguras contra repetições acidentais.
+
+---
+
+## 📄 Licença
+
+Este projeto é privado e de uso exclusivo.

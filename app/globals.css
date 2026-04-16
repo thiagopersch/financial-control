@@ -81,6 +81,32 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --income: oklch(0.508 0.118 165.612);
+  --expense: oklch(0.577 0.245 27.325);
+  --income-foreground: oklch(0.979 0.021 166.113);
+  --expense-foreground: oklch(0.979 0.021 166.113);
+  --pending: oklch(0.577 0.245 27.325);
+  --pending-foreground: oklch(0.979 0.021 166.113);
+  --paid: oklch(0.508 0.118 165.612);
+  --paid-foreground: oklch(0.979 0.021 166.113);
+  --overdue: oklch(0.577 0.245 27.325);
+  --overdue-foreground: oklch(0.979 0.021 166.113);
+  --cancelled: oklch(0.577 0.245 27.325);
+  --cancelled-foreground: oklch(0.979 0.021 166.113);
+  --open: oklch(0.508 0.118 165.612);
+  --open-foreground: oklch(0.979 0.021 166.113);
+  --closed: oklch(0.508 0.118 165.612);
+  --closed-foreground: oklch(0.979 0.021 166.113);
+  --bank-account: oklch(0.508 0.118 165.612);
+  --bank-account-foreground: oklch(0.979 0.021 166.113);
+  --credit-card: oklch(0.508 0.118 165.612);
+  --credit-card-foreground: oklch(0.979 0.021 166.113);
+  --cash: oklch(0.508 0.118 165.612);
+  --cash-foreground: oklch(0.979 0.021 166.113);
+  --pix: oklch(0.508 0.118 165.612);
+  --pix-foreground: oklch(0.979 0.021 166.113);
+  --debit-card: oklch(0.508 0.118 165.612);
+  --debit-card-foreground: oklch(0.979 0.021 166.113);
 }
 
 .dark {
