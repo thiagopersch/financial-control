@@ -99,13 +99,25 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
       }
 
       if (result.success) {
-        toast.success(isEditing ? "Usuário atualizado!" : "Usuário criado com sucesso!");
+        toast.success(isEditing ? "Usuário atualizado!" : "Usuário criado com sucesso!", {
+          description: isEditing ? "O usuário foi atualizado." : "O usuário foi criado.",
+          position: "bottom-center",
+          richColors: true,
+        });
         onClose();
       } else {
-        toast.error(result.error);
+        toast.error(result.error, {
+          description: isEditing ? "Erro ao atualizar usuário." : "Erro ao criar usuário.",
+          position: "bottom-center",
+          richColors: true,
+        });
       }
     } catch {
-      toast.error("Erro inesperado.");
+      toast.error("Erro inesperado.", {
+        description: "Erro ao criar ou atualizar usuário.",
+        position: "bottom-center",
+        richColors: true,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -137,7 +149,7 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
                 <FormItem>
                   <FormLabel>Nome completo</FormLabel>
                   <FormControl>
-                    <Input placeholder="João Silva" {...field} />
+                    <Input placeholder="Jhon doe" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -152,7 +164,7 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
                     <FormItem>
                       <FormLabel>E-mail</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="joao@empresa.com" {...field} />
+                        <Input type="email" placeholder="jhondoe@example.com" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -165,7 +177,12 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
                     <FormItem>
                       <FormLabel>Senha provisória</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="Mínimo 6 caracteres" {...field} />
+                        <Input
+                          type="password"
+                          placeholder="••••••••"
+                          disabled={isLoading}
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

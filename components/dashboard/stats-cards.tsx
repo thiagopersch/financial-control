@@ -25,9 +25,9 @@ export function StatsCards({ stats, isFullYear }: StatsCardsProps) {
 
     const ratio = stats.totalExpense / stats.totalIncome;
 
-    if (ratio > 0.9) return { color: "text-amber-600", bg: "bg-amber-100" }; // Muito próximos
-    if (ratio > 0.7) return { color: "text-blue-600", bg: "bg-blue-100" }; // Um pouco mais longe
-    return { color: "text-emerald-600", bg: "bg-emerald-100" }; // Valores positivos / Saudável
+    if (ratio > 0.9) return { color: "text-amber-600", bg: "bg-amber-100" };
+    if (ratio > 0.7) return { color: "text-blue-600", bg: "bg-blue-100" };
+    return { color: "text-emerald-600", bg: "bg-emerald-100" };
   };
 
   const balanceColors = getBalanceColors();

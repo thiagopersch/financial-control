@@ -21,8 +21,8 @@ export default async function RulesPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <RulesHeader categories={categories} />
-      <RulesList rules={rules} categories={categories} />
+      <RulesHeader categories={categories} userRole={session.user.role} />
+      <RulesList rules={rules} categories={categories} userRole={session.user.role} />
     </div>
   );
 }

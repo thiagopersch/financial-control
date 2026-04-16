@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 
-import { MonthSelector } from "@/components/dashboard/month-selector";
+import { MonthSelector } from "@/components/month-selector";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TransactionStatus } from "@prisma/client";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import { Download, Plus, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -22,12 +22,23 @@ import { TransactionModal } from "./transaction-modal";
 interface TransactionsHeaderProps {
   categories: { id: string; name: string; type: string; color: string }[];
   suppliers: any[];
+  availableRange?: {
+    minDate: Date | string | null;
+    maxDate: Date | string | null;
+  };
+  userRole?: string;
 }
 
-export function TransactionsHeader({ categories, suppliers }: TransactionsHeaderProps) {
+export function TransactionsHeader({
+  categories,
+  suppliers,
+  availableRange,
+  userRole,
+}: TransactionsHeaderProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isEditing = userRole && userRole !== "VIEWER";
 
   const handleFilterChange = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams);
@@ -70,32 +81,41 @@ export function TransactionsHeader({ categories, suppliers }: TransactionsHeader
           </p>
         </div>
         <div className="flex flex-col gap-2 max-md:flex-col-reverse max-md:gap-3 sm:items-center md:flex-row">
-          <Button variant="outline" size="lg" onClick={exportCSV} className="w-full sm:w-auto">
-            <Download className="h-4 w-4" />
-            Exportar
-          </Button>
-          <Button
-            size="lg"
-            onClick={() => setIsModalOpen(true)}
-            className="w-full transition-all sm:w-auto"
-          >
-            <Plus className="h-4 w-4" />
-            Nova Transação
-          </Button>
+          {isEditing && (
+            <>
+              <Button variant="outline" size="lg" onClick={exportCSV} className="w-full sm:w-auto">
+                <Download className="h-4 w-4" />
+                Exportar
+              </Button>
+
+              <Button
+                size="lg"
+                onClick={() => setIsModalOpen(true)}
+                className="w-full transition-all sm:w-auto"
+              >
+                <Plus className="h-4 w-4" />
+                Nova Transação
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 items-end gap-4 rounded-xl border bg-white p-4 shadow-sm md:grid-cols-4 lg:grid-cols-7 dark:bg-slate-900">
+      <div className="dark:bg-accent dark:text-accent-foreground text-foreground grid grid-cols-1 items-end gap-4 rounded-xl border bg-white p-4 shadow-sm md:grid-cols-4 lg:grid-cols-7">
         <div className="flex flex-col gap-1.5">
           <span className="text-muted-foreground ml-1 text-xs font-semibold uppercase">
             Mês de Referência
           </span>
-          <MonthSelector />
+          <MonthSelector availableRange={availableRange} />
         </div>
         <div className="flex flex-col gap-1.5">
           <span className="text-muted-foreground ml-1 text-xs font-semibold uppercase">Início</span>
           <DatePicker
-            date={searchParams.get("from") ? new Date(searchParams.get("from")!) : undefined}
+            date={
+              searchParams.get("from")
+                ? parse(searchParams.get("from")!, "yyyy-MM-dd", new Date())
+                : undefined
+            }
             setDate={(date) => {
               if (date) {
                 handleFilterChange("from", format(date, "yyyy-MM-dd"));
@@ -108,7 +128,11 @@ export function TransactionsHeader({ categories, suppliers }: TransactionsHeader
         <div className="flex flex-col gap-1.5">
           <span className="text-muted-foreground ml-1 text-xs font-semibold uppercase">Fim</span>
           <DatePicker
-            date={searchParams.get("to") ? new Date(searchParams.get("to")!) : undefined}
+            date={
+              searchParams.get("to")
+                ? parse(searchParams.get("to")!, "yyyy-MM-dd", new Date())
+                : undefined
+            }
             setDate={(date) => {
               if (date) {
                 handleFilterChange("to", format(date, "yyyy-MM-dd"));
@@ -205,7 +229,7 @@ export function TransactionsHeader({ categories, suppliers }: TransactionsHeader
             <Button
               variant="ghost"
               onClick={handleClearFilters}
-              className="w-full border-2 border-dashed font-medium text-red-500 transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-500 disabled:cursor-not-allowed dark:hover:border-red-500 dark:hover:bg-red-500"
+              className="w-full border-2 border-dashed font-medium text-red-500 transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-500 disabled:cursor-not-allowed dark:hover:border-red-500 dark:hover:bg-red-500/10"
               disabled={!searchParams.toString()}
             >
               <X className="h-4 w-4" />

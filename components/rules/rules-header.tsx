@@ -7,10 +7,12 @@ import { RuleModal } from "./rule-modal";
 
 interface RulesHeaderProps {
   categories: { id: string; name: string; type: string; color: string }[];
+  userRole?: string;
 }
 
-export function RulesHeader({ categories }: RulesHeaderProps) {
+export function RulesHeader({ categories, userRole }: RulesHeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const canModify = userRole !== "VIEWER";
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -18,13 +20,15 @@ export function RulesHeader({ categories }: RulesHeaderProps) {
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Regras</h1>
         <p className="text-muted-foreground">Automatize a categorização de transações.</p>
       </div>
-      <Button
-        onClick={() => setIsOpen(true)}
-        className="w-full bg-indigo-600 shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 sm:w-auto dark:shadow-none"
-      >
-        <Plus className="mr-2 h-4 w-4" />
-        Nova Regra
-      </Button>
+      {canModify && (
+        <Button
+          onClick={() => setIsOpen(true)}
+          className="w-full bg-indigo-600 shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 sm:w-auto dark:shadow-none"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Nova Regra
+        </Button>
+      )}
       <RuleModal isOpen={isOpen} onClose={() => setIsOpen(false)} categories={categories} />
     </div>
   );

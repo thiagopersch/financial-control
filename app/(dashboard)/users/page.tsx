@@ -15,8 +15,8 @@ export default async function UsersPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <UsersHeader />
-      <UserList users={users} currentUserId={session.user.id} />
+      <UsersHeader userRole={session.user.role} />
+      <UserList users={users} currentUserId={session.user.id} userRole={session.user.role} />
     </div>
   );
 }

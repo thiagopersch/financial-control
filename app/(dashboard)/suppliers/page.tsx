@@ -18,8 +18,8 @@ export default async function SuppliersPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <SupplierHeader />
-      <SupplierList suppliers={suppliers} />
+      <SupplierHeader userRole={session?.user?.role} />
+      <SupplierList suppliers={suppliers} userRole={session?.user?.role} />
     </div>
   );
 }

@@ -1,39 +1,32 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/ui/data-table";
 import { Supplier } from "@prisma/client";
 import {
   ColumnDef,
   SortingState,
-  flexRender,
   getCoreRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, ChevronLeft, ChevronRight, Edit, Trash, User } from "lucide-react";
+import { ArrowUpDown, Edit, Trash, User } from "lucide-react";
 import { useState } from "react";
 import { DeleteConfirmModal } from "./delete-confirm-modal";
 import { SupplierModal } from "./supplier-modal";
 
 interface SupplierListProps {
   suppliers: Supplier[];
+  userRole?: string;
 }
 
-export function SupplierList({ suppliers }: SupplierListProps) {
+export function SupplierList({ suppliers, userRole }: SupplierListProps) {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  const columns: ColumnDef<Supplier>[] = [
+  const initialColumns: ColumnDef<Supplier>[] = [
     {
       accessorKey: "name",
       header: ({ column }) => (
@@ -111,6 +104,8 @@ export function SupplierList({ suppliers }: SupplierListProps) {
     },
   ];
 
+  const columns = initialColumns.filter((col) => col.id !== "actions" || userRole !== "VIEWER");
+
   const table = useReactTable({
     data: suppliers,
     columns,
@@ -130,76 +125,12 @@ export function SupplierList({ suppliers }: SupplierListProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:bg-slate-900">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="bg-slate-50/50 dark:bg-slate-800/50">
-                  {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="text-muted-foreground py-10 text-center"
-                  >
-                    Nenhum fornecedor cadastrado.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between px-2">
-        <div className="text-muted-foreground text-sm">
-          Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        data={suppliers}
+        emptyMessage="Nenhum fornecedor cadastrado."
+        getRowClassName={(row) => (row.id === deletingId ? "bg-rose-50 dark:bg-rose-900/20" : "")}
+      />
 
       <SupplierModal
         isOpen={!!editingSupplier}

@@ -12,13 +12,14 @@ import { DeleteConfirmModal } from "./delete-confirm-modal";
 
 interface CategoryListProps {
   categories: Category[];
+  userRole?: string;
 }
 
-export function CategoryList({ categories }: CategoryListProps) {
+export function CategoryList({ categories, userRole }: CategoryListProps) {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const columns: ColumnDef<Category>[] = [
+  const initialColumns: ColumnDef<Category>[] = [
     {
       accessorKey: "color",
       header: "Cor",
@@ -96,6 +97,8 @@ export function CategoryList({ categories }: CategoryListProps) {
       ),
     },
   ];
+
+  const columns = initialColumns.filter((col) => col.id !== "actions" || userRole !== "VIEWER");
 
   return (
     <div className="flex flex-col gap-4">

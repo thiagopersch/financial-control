@@ -2,6 +2,7 @@ import { TransactionsHeader } from "@/components/transactions/transactions-heade
 import { TransactionsTable } from "@/components/transactions/transactions-table";
 import { authOptions } from "@/lib/auth-options";
 import prisma from "@/lib/prisma";
+import { getAvailableRange } from "@/lib/queries/dashboard";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { endOfMonth, startOfMonth } from "date-fns";
 import { getServerSession } from "next-auth";
@@ -20,32 +21,38 @@ export default async function TransactionsPage({
 }) {
   const searchParams = await searchParamsPromise;
   const session = await getServerSession(authOptions);
+  const availableRange = await getAvailableRange();
 
   if (!session) return null;
 
-  let from = startOfMonth(new Date());
-  let to = endOfMonth(new Date());
-
-  if (searchParams.month === "year") {
-    const currentYear = new Date().getFullYear();
-    from = startOfMonth(new Date(currentYear, 0));
-    to = endOfMonth(new Date(currentYear, 11));
-  } else if (searchParams.month) {
-    const [year, m] = searchParams.month.split("-").map(Number);
-    from = startOfMonth(new Date(year, m - 1));
-    to = endOfMonth(new Date(year, m - 1));
-  }
-
-  if (searchParams.from) from = new Date(searchParams.from);
-  if (searchParams.to) to = new Date(searchParams.to);
-
   const where: any = {
     workspaceId: session.user.workspaceId,
-    date: {
+  };
+
+  if (searchParams.month === "all") {
+    // Sem filtro de data
+  } else {
+    let from = startOfMonth(new Date());
+    let to = endOfMonth(new Date());
+
+    if (searchParams.month === "year") {
+      const currentYear = new Date().getFullYear();
+      from = startOfMonth(new Date(currentYear, 0));
+      to = endOfMonth(new Date(currentYear, 11));
+    } else if (searchParams.month) {
+      const [year, m] = searchParams.month.split("-").map(Number);
+      from = startOfMonth(new Date(year, m - 1));
+      to = endOfMonth(new Date(year, m - 1));
+    }
+
+    if (searchParams.from) from = new Date(searchParams.from);
+    if (searchParams.to) to = new Date(searchParams.to);
+
+    where.date = {
       gte: from,
       lte: to,
-    },
-  };
+    };
+  }
 
   if (searchParams.type) where.type = searchParams.type as TransactionType;
   if (searchParams.status) where.status = searchParams.status as TransactionStatus;
@@ -70,6 +77,7 @@ export default async function TransactionsPage({
       where: { workspaceId: session.user.workspaceId },
       orderBy: { name: "asc" },
     }),
+    getAvailableRange(),
   ]);
 
   const transactions = rawTransactions.map((transaction) => ({
@@ -78,12 +86,18 @@ export default async function TransactionsPage({
   }));
 
   return (
-    <div className="animate-in fade-in space-y-6 duration-700">
-      <TransactionsHeader categories={categories} suppliers={suppliers} />
+    <div className="animate-in fade-in space-y-6 duration-300">
+      <TransactionsHeader
+        categories={categories}
+        suppliers={suppliers}
+        availableRange={availableRange}
+        userRole={session.user.role}
+      />
       <TransactionsTable
         transactions={transactions}
         categories={categories}
         suppliers={suppliers}
+        userRole={session.user.role}
       />
     </div>
   );

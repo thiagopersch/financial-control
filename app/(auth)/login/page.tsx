@@ -104,7 +104,6 @@ function LoginForm() {
                       placeholder="jhondoe@email.com"
                       type="email"
                       disabled={isLoading}
-                      className="bg-white/50 dark:bg-slate-800/50"
                       {...field}
                     />
                   </FormControl>
@@ -124,7 +123,6 @@ function LoginForm() {
                       placeholder="••••••••"
                       type="password"
                       disabled={isLoading}
-                      className="bg-white/50 dark:bg-slate-800/50"
                       {...field}
                     />
                   </FormControl>

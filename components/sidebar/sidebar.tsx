@@ -1,68 +1,14 @@
 "use client";
 
+import { routes } from "@/components/sidebar/routes";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { cn } from "@/lib/utils";
-import {
-  ChevronLeft,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  Settings,
-  Tag,
-  Truck,
-  Users,
-  Wallet,
-  Zap,
-} from "lucide-react";
+import { ChevronLeft, LogOut, Menu, Wallet } from "lucide-react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-
-const routes = [
-  {
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    href: "/dashboard",
-    color: "text-sky-500",
-  },
-  {
-    label: "Transações",
-    icon: Wallet,
-    href: "/transactions",
-    color: "text-violet-500",
-  },
-  {
-    label: "Categorias",
-    icon: Tag,
-    href: "/categories",
-    color: "text-pink-700",
-  },
-  {
-    label: "Fornecedores",
-    icon: Truck,
-    href: "/suppliers",
-    color: "text-orange-700",
-  },
-  {
-    label: "Usuários",
-    icon: Users,
-    href: "/users",
-    color: "text-emerald-500",
-  },
-  {
-    label: "Regras",
-    icon: Zap,
-    href: "/rules",
-    color: "text-yellow-500",
-  },
-  {
-    label: "Perfil",
-    icon: Settings,
-    href: "/profiles",
-  },
-];
 
 export function Sidebar({ isMobile }: { isMobile?: boolean }) {
   const pathname = usePathname();
@@ -82,7 +28,7 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
       onMouseEnter={() => !isMobile && setIsHovered(true)}
       onMouseLeave={() => !isMobile && setIsHovered(false)}
       className={cn(
-        "bg-background text-foreground flex h-full flex-col border-r shadow-sm transition-all duration-400",
+        "bg-background text-foreground flex h-full flex-col border-r shadow-sm transition-all duration-300",
         !isMobile && "fixed top-0 left-0 z-100 hidden md:flex",
         showFullSidebar ? "w-auto" : "w-[72px]",
         isMobile && "w-full border-none shadow-none",
@@ -156,7 +102,7 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
           }}
           variant="ghost"
           className={cn(
-            "w-full justify-start bg-red-600/25 text-red-600 hover:bg-red-600/40 hover:text-red-600",
+            "w-full justify-start text-red-600 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-600",
             !showFullSidebar ? "justify-center px-0" : "px-4",
           )}
         >

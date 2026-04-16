@@ -12,15 +12,16 @@ import { RuleModal } from "./rule-modal";
 interface RulesListProps {
   rules: any[];
   categories: { id: string; name: string; type: string; color: string }[];
+  userRole?: string;
 }
 
-export function RulesList({ rules, categories }: RulesListProps) {
+export function RulesList({ rules, categories, userRole }: RulesListProps) {
   const [editingRule, setEditingRule] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const getCategoryById = (id: string) => categories.find((c) => c.id === id);
 
-  const columns: ColumnDef<any>[] = [
+  const initialColumns: ColumnDef<any>[] = [
     {
       accessorKey: "keyword",
       header: ({ column }) => (
@@ -36,7 +37,7 @@ export function RulesList({ rules, categories }: RulesListProps) {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-yellow-500" />
-          <code className="rounded bg-slate-100 px-2 py-1 font-mono text-sm dark:bg-slate-800">
+          <code className="rounded bg-slate-100 px-2 py-1 font-mono text-sm dark:bg-yellow-500/10 dark:font-bold">
             {row.original.keyword}
           </code>
         </div>
@@ -103,6 +104,8 @@ export function RulesList({ rules, categories }: RulesListProps) {
       ),
     },
   ];
+
+  const columns = initialColumns.filter((col) => col.id !== "actions" || userRole !== "VIEWER");
 
   return (
     <div className="flex flex-col gap-4">

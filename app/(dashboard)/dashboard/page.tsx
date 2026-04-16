@@ -1,9 +1,10 @@
 import { CategoryPieChart } from "@/components/dashboard/category-pie-chart";
-import { MonthSelector } from "@/components/dashboard/month-selector";
 import { OverviewChart } from "@/components/dashboard/overview-chart";
 import { RecentTransactions } from "@/components/dashboard/recent-transactions";
 import { StatsCards } from "@/components/dashboard/stats-cards";
+import { MonthSelector } from "@/components/month-selector";
 import {
+  getAvailableRange,
   getCategoryData,
   getChartData,
   getDashboardStats,
@@ -14,11 +15,15 @@ import { endOfMonth, parse, startOfMonth } from "date-fns";
 export default async function DashboardPage(props: { searchParams: Promise<{ month?: string }> }) {
   const searchParams = await props.searchParams;
 
-  let startDate: Date;
-  let endDate: Date;
+  let startDate: Date | undefined;
+  let endDate: Date | undefined;
   let selectedMonth: Date;
 
-  if (searchParams.month === "year") {
+  if (searchParams.month === "all") {
+    startDate = undefined;
+    endDate = undefined;
+    selectedMonth = new Date();
+  } else if (searchParams.month === "year") {
     const currentYear = new Date().getFullYear();
     startDate = startOfMonth(new Date(currentYear, 0));
     endDate = endOfMonth(new Date(currentYear, 11));
@@ -33,13 +38,14 @@ export default async function DashboardPage(props: { searchParams: Promise<{ mon
     endDate = endOfMonth(selectedMonth);
   }
 
-  const isFullYear = searchParams.month === "year";
+  const isFullYear = searchParams.month === "year" || searchParams.month === "all";
 
   // Pass both start and end dates to queries to support flexible periods (monthly or yearly)
   const stats = await getDashboardStats(startDate, endDate);
   const chartData = await getChartData(selectedMonth, isFullYear);
   const categoryData = await getCategoryData(startDate, endDate);
   const recentTransactions = await getRecentTransactions(startDate, endDate);
+  const availableRange = await getAvailableRange();
 
   return (
     <div className="animate-in fade-in space-y-8 duration-700">
@@ -50,7 +56,7 @@ export default async function DashboardPage(props: { searchParams: Promise<{ mon
           </h1>
           <p className="text-muted-foreground">Bem-vindo ao seu controle financeiro.</p>
         </div>
-        <MonthSelector />
+        <MonthSelector availableRange={availableRange} />
       </div>
 
       <StatsCards stats={stats} isFullYear={isFullYear} />

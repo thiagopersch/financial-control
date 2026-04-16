@@ -5,17 +5,21 @@ import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getServerSession } from "next-auth";
 
-export async function getDashboardStats(start: Date, end: Date) {
+export async function getDashboardStats(start?: Date, end?: Date) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error("Unauthorized");
 
   const transactions = await prisma.transaction.findMany({
     where: {
       workspaceId: session.user.workspaceId,
-      date: {
-        gte: start,
-        lte: end,
-      },
+      ...(start && end
+        ? {
+            date: {
+              gte: start,
+              lte: end,
+            },
+          }
+        : {}),
     },
   });
 
@@ -41,17 +45,21 @@ export async function getDashboardStats(start: Date, end: Date) {
   };
 }
 
-export async function getRecentTransactions(start: Date, end: Date) {
+export async function getRecentTransactions(start?: Date, end?: Date) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error("Unauthorized");
 
   return await prisma.transaction.findMany({
     where: {
       workspaceId: session.user.workspaceId,
-      date: {
-        gte: start,
-        lte: end,
-      },
+      ...(start && end
+        ? {
+            date: {
+              gte: start,
+              lte: end,
+            },
+          }
+        : {}),
     },
     take: 10,
     orderBy: {
@@ -113,7 +121,7 @@ export async function getChartData(month: Date, isFullYear: boolean = false) {
   return chartData;
 }
 
-export async function getCategoryData(start: Date, end: Date) {
+export async function getCategoryData(start?: Date, end?: Date) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error("Unauthorized");
 
@@ -121,10 +129,14 @@ export async function getCategoryData(start: Date, end: Date) {
     where: {
       workspaceId: session.user.workspaceId,
       type: TransactionType.EXPENSE,
-      date: {
-        gte: start,
-        lte: end,
-      },
+      ...(start && end
+        ? {
+            date: {
+              gte: start,
+              lte: end,
+            },
+          }
+        : {}),
     },
     include: {
       category: true,
@@ -146,4 +158,26 @@ export async function getCategoryData(start: Date, end: Date) {
     value: data.value,
     color: data.color,
   }));
+}
+
+export async function getAvailableRange() {
+  const session = await getServerSession(authOptions);
+  if (!session) return { minDate: null, maxDate: null };
+
+  const result = await prisma.transaction.aggregate({
+    where: {
+      workspaceId: session.user.workspaceId,
+    },
+    _min: {
+      date: true,
+    },
+    _max: {
+      date: true,
+    },
+  });
+
+  return {
+    minDate: result._min.date?.toISOString() || null,
+    maxDate: result._max.date?.toISOString() || null,
+  };
 }

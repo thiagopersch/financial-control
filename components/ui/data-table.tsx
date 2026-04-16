@@ -59,12 +59,12 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:bg-slate-900">
+      <div className="dark:bg-accent overflow-hidden rounded-xl border bg-white shadow-sm">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="bg-slate-50/50 dark:bg-slate-800/50">
+                <TableRow key={headerGroup.id} className="dark:bg-accent bg-slate-50/50">
                   {headerGroup.headers.map((header) => {
                     return (
                       <TableHead key={header.id}>
@@ -84,7 +84,7 @@ export function DataTable<TData, TValue>({
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
                     className={cn(
-                      "transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50",
+                      "transition-colors hover:bg-neutral-300/30 dark:hover:bg-neutral-300/30",
                       getRowClassName?.(row.original),
                     )}
                   >

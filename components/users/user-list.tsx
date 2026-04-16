@@ -16,6 +16,7 @@ import { UserModal } from "./user-modal";
 interface UserListProps {
   users: User[];
   currentUserId: string;
+  userRole?: string;
 }
 
 const roleConfig: Record<Role, { label: string; className: string }> = {
@@ -33,7 +34,7 @@ const roleConfig: Record<Role, { label: string; className: string }> = {
   },
 };
 
-export function UserList({ users, currentUserId }: UserListProps) {
+export function UserList({ users, currentUserId, userRole }: UserListProps) {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -42,7 +43,7 @@ export function UserList({ users, currentUserId }: UserListProps) {
     setMounted(true);
   }, []);
 
-  const columns: ColumnDef<User>[] = [
+  const initialColumns: ColumnDef<User>[] = [
     {
       accessorKey: "name",
       header: ({ column }) => (
@@ -162,6 +163,8 @@ export function UserList({ users, currentUserId }: UserListProps) {
       },
     },
   ];
+
+  const columns = initialColumns.filter((col) => col.id !== "actions" || userRole !== "VIEWER");
 
   return (
     <div className="flex flex-col gap-4">

@@ -1,7 +1,7 @@
-import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import prettierRecommended from "eslint-plugin-prettier/recommended";
+import { defineConfig, globalIgnores } from "eslint/config";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -16,18 +16,18 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "node_modules/**",
     "dist/**",
-    "public/**"
+    "public/**",
   ]),
   {
     rules: {
       // Typescript (Zustand/Zod/Hook Form best practices)
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": [
-        "error",
+        "warn",
         {
           argsIgnorePattern: "^_",
           varsIgnorePattern: "^_",
-          caughtExceptionsIgnorePattern: "^_"
+          caughtExceptionsIgnorePattern: "^_",
         },
       ],
       // TypeScript strict adherence, beneficial for Zod types

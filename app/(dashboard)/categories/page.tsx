@@ -18,8 +18,8 @@ export default async function CategoriesPage() {
 
   return (
     <div className="animate-in fade-in space-y-6 duration-700">
-      <CategoryHeader />
-      <CategoryList categories={categories} />
+      <CategoryHeader userRole={session?.user?.role} />
+       <CategoryList categories={categories} userRole={session?.user?.role} />
     </div>
   );
 }

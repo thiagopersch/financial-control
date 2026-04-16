@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   Category,
@@ -30,6 +31,7 @@ import {
   CheckCircle,
   Clock,
   Edit,
+  RepeatIcon,
   Trash,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -40,19 +42,27 @@ type SerializedTransaction = Omit<Transaction, "amount"> & {
   amount: number;
   category: Category;
   supplier: Supplier | null;
+  isRecurring: boolean;
+  recurrenceType: string | null;
 };
 
 interface TransactionsTableProps {
   transactions: SerializedTransaction[];
   categories: Category[];
   suppliers: Supplier[];
+  userRole?: string;
 }
 
 function OverdueBadge({ transaction }: { transaction: SerializedTransaction }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  if (!mounted) return <div className="h-6 w-16 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />;
+  if (!mounted)
+    return <div className="h-6 w-16 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />;
+
+  if (transaction.type === TransactionType.INCOME) {
+    return <div className="text-muted-foreground ml-4">--</div>;
+  }
 
   if (transaction.status === TransactionStatus.PAID) {
     return (
@@ -101,7 +111,12 @@ function OverdueBadge({ transaction }: { transaction: SerializedTransaction }) {
   );
 }
 
-export function TransactionsTable({ transactions, categories, suppliers }: TransactionsTableProps) {
+export function TransactionsTable({
+  transactions,
+  categories,
+  suppliers,
+  userRole,
+}: TransactionsTableProps) {
   const [editingTransaction, setEditingTransaction] = useState<SerializedTransaction | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([{ id: "date", desc: true }]);
@@ -133,7 +148,7 @@ export function TransactionsTable({ transactions, categories, suppliers }: Trans
     },
   };
 
-  const columns: ColumnDef<SerializedTransaction>[] = [
+  const initialColumns: ColumnDef<SerializedTransaction>[] = [
     {
       accessorKey: "category.name",
       header: ({ column }) => {
@@ -173,6 +188,16 @@ export function TransactionsTable({ transactions, categories, suppliers }: Trans
                   style={{ backgroundColor: t.category.color }}
                 />
                 {t.category.name}
+                {t.isRecurring && (
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <RepeatIcon className="text-muted-foreground h-3 w-3 animate-pulse" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Transação recorrente</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
               {t.notes && (
                 <div className="text-muted-foreground line-clamp-1 text-xs">{t.notes}</div>
@@ -217,6 +242,11 @@ export function TransactionsTable({ transactions, categories, suppliers }: Trans
       },
       cell: ({ row }) => {
         const t = row.original;
+
+        if (t.type === TransactionType.INCOME && t.status === TransactionStatus.PENDING) {
+          return <div className="text-muted-foreground ml-4">--</div>;
+        }
+
         return (
           <div className="border-none text-sm whitespace-nowrap" suppressHydrationWarning>
             <div>{mounted ? format(new Date(t.date), "dd/MM/yyyy", { locale: ptBR }) : "-"}</div>
@@ -273,8 +303,14 @@ export function TransactionsTable({ transactions, categories, suppliers }: Trans
           </Button>
         );
       },
-      cell: ({ row, column }) => {
-        const status = row.original.status;
+      cell: ({ row }) => {
+        const t = row.original;
+        const status = t.status;
+
+        if (t.type === TransactionType.INCOME && status === TransactionStatus.PENDING) {
+          return <div className="text-muted-foreground ml-4">--</div>;
+        }
+
         return (
           <Badge variant="secondary" className={cn("border-none", statusMap[status].className)}>
             {statusMap[status].label}
@@ -316,6 +352,8 @@ export function TransactionsTable({ transactions, categories, suppliers }: Trans
     },
   ];
 
+  const columns = initialColumns.filter((col) => col.id !== "actions" || userRole !== "VIEWER");
+
   const table = useReactTable({
     data: transactions,
     columns,
@@ -340,7 +378,7 @@ export function TransactionsTable({ transactions, categories, suppliers }: Trans
         data={transactions}
         emptyMessage="Nenhuma transação encontrada."
         getRowClassName={(transaction) =>
-          transaction.id === deletingId ? "bg-rose-50/30 dark:bg-rose-950/10" : ""
+          transaction.id === deletingId ? "bg-red-50/30 dark:bg-red-950/10" : ""
         }
       />
 

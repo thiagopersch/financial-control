@@ -5,8 +5,13 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { UserModal } from "./user-modal";
 
-export function UsersHeader() {
+interface UsersHeaderProps {
+  userRole?: string;
+}
+
+export function UsersHeader({ userRole }: UsersHeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const canModify = userRole !== "VIEWER";
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -16,13 +21,15 @@ export function UsersHeader() {
         </h1>
         <p className="text-muted-foreground">Gerencie os acessos e permissões do sistema.</p>
       </div>
-      <Button
-        onClick={() => setIsOpen(true)}
-        className="w-full bg-indigo-600 shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 sm:w-auto dark:shadow-none"
-      >
-        <Plus className="mr-2 h-4 w-4" />
-        Novo Usuário
-      </Button>
+      {canModify && (
+        <Button
+          onClick={() => setIsOpen(true)}
+          className="w-full bg-indigo-600 shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 sm:w-auto dark:shadow-none"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Novo Usuário
+        </Button>
+      )}
       <UserModal isOpen={isOpen} onClose={() => setIsOpen(false)} />
     </div>
   );

@@ -12,7 +12,14 @@ import { ptBR } from "date-fns/locale";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-export function MonthSelector() {
+interface MonthSelectorProps {
+  availableRange?: {
+    minDate: Date | string | null;
+    maxDate: Date | string | null;
+  };
+}
+
+export function MonthSelector({ availableRange }: MonthSelectorProps) {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -33,14 +40,29 @@ export function MonthSelector() {
   };
 
   const currentYear = new Date().getFullYear();
+  const minDate = availableRange?.minDate ? new Date(availableRange.minDate) : new Date();
+  const maxDate = availableRange?.maxDate ? new Date(availableRange.maxDate) : new Date();
 
-  const months = Array.from({ length: 12 }).map((_, i) => {
-    const date = new Date(currentYear, i, 1);
-    return {
-      value: format(date, "yyyy-MM"),
-      label: format(date, "MMMM yyyy", { locale: ptBR }),
-    };
-  });
+  const startYear = Math.min(minDate.getFullYear(), currentYear);
+  const endYear = Math.max(maxDate.getFullYear(), currentYear);
+
+  const months = [];
+  for (let year = startYear; year <= endYear; year++) {
+    // Para o ano atual ou anos anteriores, mostramos todos os meses (11 = Dezembro)
+    // Para anos futuros, mostramos apenas até o mês da última transação registrada
+    const endMonth = year <= currentYear ? 11 : year === endYear ? maxDate.getMonth() : 11;
+
+    for (let month = 0; month <= endMonth; month++) {
+      const date = new Date(year, month, 1);
+      months.push({
+        value: format(date, "yyyy-MM"),
+        label: format(date, "MMMM yyyy", { locale: ptBR }),
+      });
+    }
+  }
+
+  // Ordenar do mais recente para o mais antigo e garantir que o mês atual e futuros apareçam
+  months.sort((a, b) => b.value.localeCompare(a.value));
 
   return (
     <div className="flex items-center gap-2 max-md:w-full">
@@ -48,10 +70,11 @@ export function MonthSelector() {
         Período:
       </span>
       <Select value={currentMonth} onValueChange={onChange}>
-        <SelectTrigger className="w-full border-none bg-white shadow-sm dark:bg-slate-900">
+        <SelectTrigger className="w-full cursor-pointer border shadow-sm">
           <SelectValue placeholder="Selecione o mês" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="all">Todo o Período</SelectItem>
           <SelectItem value="year">Ano Completo {currentYear}</SelectItem>
           {months.map((month) => (
             <SelectItem key={month.value} value={month.value}>

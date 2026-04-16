@@ -30,6 +30,11 @@ enum Frequency {
   YEARLY
 }
 
+enum RecurrenceType {
+  CONTINUOUS
+  INSTALLMENTS
+}
+
 model Workspace {
   id        String   @id @default(cuid())
   name      String
@@ -112,6 +117,13 @@ model Transaction {
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  isRecurring         Boolean         @default(false)
+  recurrenceType      RecurrenceType?
+  installments        Int?
+  parentTransactionId String?
+  parentTransaction   Transaction?    @relation("TransactionRecurrence", fields: [parentTransactionId], references: [id])
+  childTransactions   Transaction[]   @relation("TransactionRecurrence")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
