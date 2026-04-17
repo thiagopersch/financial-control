@@ -23,6 +23,12 @@ export async function getDashboardStats(start?: Date, end?: Date) {
     },
   });
 
+  const accounts = await prisma.account.findMany({
+    where: { workspaceId: session.user.workspaceId },
+  });
+
+  const totalBalance = accounts.reduce((acc, a) => acc + Number(a.balance), 0);
+
   const totalIncome = transactions
     .filter((t) => t.type === TransactionType.INCOME)
     .reduce((acc, t) => acc + Number(t.amount), 0);
@@ -40,9 +46,68 @@ export async function getDashboardStats(start?: Date, end?: Date) {
   return {
     totalIncome,
     totalExpense,
+    totalBalance,
     balance,
     pendingToPay,
   };
+}
+
+export async function getBudgetData(month: number, year: number) {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error("Unauthorized");
+
+  const budgets = await prisma.budget.findMany({
+    where: {
+      workspaceId: session.user.workspaceId,
+      month,
+      year,
+    },
+    include: {
+      category: true,
+    },
+  });
+
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      workspaceId: session.user.workspaceId,
+      type: TransactionType.EXPENSE,
+      date: {
+        gte: startOfMonth(new Date(year, month - 1)),
+        lte: endOfMonth(new Date(year, month - 1)),
+      },
+    },
+  });
+
+  return budgets.map((budget) => {
+    const spent = transactions
+      .filter((t) => t.categoryId === budget.categoryId)
+      .reduce((acc, t) => acc + Number(t.amount), 0);
+
+    return {
+      ...budget,
+      amount: Number(budget.amount),
+      spent,
+      percent: (spent / Number(budget.amount)) * 100,
+    };
+  });
+}
+
+export async function getGoalsData() {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error("Unauthorized");
+
+  const goals = await prisma.goal.findMany({
+    where: {
+      workspaceId: session.user.workspaceId,
+    },
+  });
+
+  return goals.map((goal) => ({
+    ...goal,
+    targetAmount: Number(goal.targetAmount),
+    currentAmount: Number(goal.currentAmount),
+    percent: (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100,
+  }));
 }
 
 export async function getRecentTransactions(start?: Date, end?: Date) {

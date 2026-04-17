@@ -42,6 +42,7 @@ type SerializedTransaction = Omit<Transaction, "amount"> & {
   amount: number;
   category: Category;
   supplier: Supplier | null;
+  account: any | null;
   isRecurring: boolean;
   recurrenceType: string | null;
 };
@@ -50,6 +51,7 @@ interface TransactionsTableProps {
   transactions: SerializedTransaction[];
   categories: Category[];
   suppliers: Supplier[];
+  accounts: any[];
   userRole?: string;
 }
 
@@ -115,6 +117,7 @@ export function TransactionsTable({
   transactions,
   categories,
   suppliers,
+  accounts,
   userRole,
 }: TransactionsTableProps) {
   const [editingTransaction, setEditingTransaction] = useState<SerializedTransaction | null>(null);
@@ -260,6 +263,31 @@ export function TransactionsTable({
       },
     },
     {
+      accessorKey: "account.name",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="h-8"
+          >
+            Conta
+            <ArrowUpDown className="ml-2 h-3 w-3" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const acc = row.original.account;
+        if (!acc) return "-";
+        return (
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: acc.color || "#94a3b8" }} />
+            {acc.name}
+          </div>
+        );
+      },
+    },
+    {
       accessorKey: "amount",
       header: ({ column }) => {
         return (
@@ -388,6 +416,7 @@ export function TransactionsTable({
         initialData={editingTransaction}
         categories={categories}
         suppliers={suppliers}
+        accounts={accounts}
       />
 
       <DeleteConfirmModal

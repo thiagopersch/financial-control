@@ -1,4 +1,15 @@
-import { LayoutDashboard, Settings, Tag, Truck, Users, Wallet, Zap } from "lucide-react";
+import {
+  Landmark,
+  LayoutDashboard,
+  PieChart,
+  Settings,
+  Tag,
+  Target,
+  Truck,
+  Users,
+  Wallet,
+  Zap,
+} from "lucide-react";
 
 const routes = [
   {
@@ -12,6 +23,24 @@ const routes = [
     icon: Wallet,
     href: "/transactions",
     color: "text-violet-500",
+  },
+  {
+    label: "Contas",
+    icon: Landmark,
+    href: "/accounts",
+    color: "text-blue-500",
+  },
+  {
+    label: "Orçamentos",
+    icon: PieChart,
+    href: "/budgets",
+    color: "text-rose-500",
+  },
+  {
+    label: "Metas",
+    icon: Target,
+    href: "/goals",
+    color: "text-amber-500",
   },
   {
     label: "Categorias",

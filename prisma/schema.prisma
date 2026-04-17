@@ -15,6 +15,7 @@ enum Role {
 enum TransactionType {
   INCOME
   EXPENSE
+  TRANSFER
 }
 
 enum TransactionStatus {
@@ -35,6 +36,23 @@ enum RecurrenceType {
   INSTALLMENTS
 }
 
+enum AccountType {
+  WALLET
+  BANK
+  CREDIT_CARD
+  DEBIT_CARD
+  PIX
+  INVESTMENT
+  CRYPTO
+  OTHERS
+}
+
+enum InvoiceStatus {
+  OPEN
+  CLOSED
+  PAID
+}
+
 model Workspace {
   id        String   @id @default(cuid())
   name      String
@@ -42,11 +60,18 @@ model Workspace {
   updatedAt DateTime @updatedAt
 
   users                 User[]
+  accounts              Account[]
   categories            Category[]
   suppliers             Supplier[]
   transactions          Transaction[]
   recurringTransactions RecurringTransaction[]
   rules                 CategorizationRule[]
+  transfers             Transfer[]
+  budgets               Budget[]
+  goals                 Goal[]
+  debts                 Debt[]
+  costCenters           CostCenter[]
+  tags                  Tag[]
 }
 
 model User {
@@ -72,6 +97,59 @@ model Profile {
   avatar String?
 }
 
+model Account {
+  id          String      @id @default(cuid())
+  name        String
+  type        AccountType @default(BANK)
+  balance     Decimal     @default(0) @db.Decimal(10, 2)
+  color       String?     @default("#000000")
+  workspaceId String
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  transactions         Transaction[]
+  transfersFrom        Transfer[]    @relation("TransferFrom")
+  transfersTo          Transfer[]    @relation("TransferTo")
+  creditCardDetails    CreditCard?
+}
+
+model CreditCard {
+  id         String   @id @default(cuid())
+  accountId  String   @unique
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  limit      Decimal  @db.Decimal(10, 2)
+  closingDay Int
+  dueDay     Int
+  invoices   Invoice[]
+}
+
+model Invoice {
+  id           String        @id @default(cuid())
+  creditCardId String
+  creditCard   CreditCard    @relation(fields: [creditCardId], references: [id], onDelete: Cascade)
+  month        Int
+  year         Int
+  amount       Decimal       @default(0) @db.Decimal(10, 2)
+  status       InvoiceStatus @default(OPEN)
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Transfer {
+  id            String   @id @default(cuid())
+  amount        Decimal  @db.Decimal(10, 2)
+  date          DateTime @default(now())
+  description   String?
+  fromAccountId String
+  fromAccount   Account  @relation("TransferFrom", fields: [fromAccountId], references: [id])
+  toAccountId   String
+  toAccount     Account  @relation("TransferTo", fields: [toAccountId], references: [id])
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
 model Category {
   id          String          @id @default(cuid())
   name        String
@@ -83,6 +161,7 @@ model Category {
   updatedAt   DateTime        @updatedAt
 
   transactions Transaction[]
+  budgets      Budget[]
 }
 
 model Supplier {
@@ -112,11 +191,22 @@ model Transaction {
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
 
+  accountId  String?
+  account    Account? @relation(fields: [accountId], references: [id])
+
+  invoiceId  String?
+  invoice    Invoice? @relation(fields: [invoiceId], references: [id])
+
+  costCenterId String?
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
   supplierId String?
   supplier   Supplier? @relation(fields: [supplierId], references: [id])
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  tags        Tag[]
 
   isRecurring         Boolean         @default(false)
   recurrenceType      RecurrenceType?
@@ -156,6 +246,53 @@ model CategorizationRule {
   updatedAt DateTime @updatedAt
 }
 
+model Budget {
+  id          String   @id @default(cuid())
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  amount      Decimal  @db.Decimal(10, 2)
+  month       Int
+  year        Int
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model Goal {
+  id           String   @id @default(cuid())
+  name         String
+  targetAmount Decimal  @db.Decimal(10, 2)
+  currentAmount Decimal @default(0) @db.Decimal(10, 2)
+  deadline     DateTime?
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model Debt {
+  id           String   @id @default(cuid())
+  name         String
+  initialValue Decimal  @db.Decimal(10, 2)
+  currentValue Decimal  @db.Decimal(10, 2)
+  interestRate Decimal? @db.Decimal(5, 2)
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model CostCenter {
+  id          String   @id @default(cuid())
+  name        String
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+}
+
+model Tag {
+  id          String   @id @default(cuid())
+  name        String
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+}
+
 model AuditLog {
   id        String   @id @default(cuid())
   action    String
@@ -166,3 +303,4 @@ model AuditLog {
   details   Json?
   createdAt DateTime @default(now())
 }
+

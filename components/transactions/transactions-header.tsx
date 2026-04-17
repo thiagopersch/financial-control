@@ -13,15 +13,18 @@ import {
 } from "@/components/ui/select";
 import { TransactionStatus } from "@prisma/client";
 import { format, parse } from "date-fns";
-import { Download, Plus, X } from "lucide-react";
+import { ArrowRightLeft, Download, Plus, Search, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { TransactionModal } from "./transaction-modal";
+import { TransferModal } from "./transfer-modal";
+import { Input } from "@/components/ui/input";
 
 interface TransactionsHeaderProps {
   categories: { id: string; name: string; type: string; color: string }[];
   suppliers: any[];
+  accounts: any[];
   availableRange?: {
     minDate: Date | string | null;
     maxDate: Date | string | null;
@@ -32,10 +35,12 @@ interface TransactionsHeaderProps {
 export function TransactionsHeader({
   categories,
   suppliers,
+  accounts,
   availableRange,
   userRole,
 }: TransactionsHeaderProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isEditing = userRole && userRole !== "VIEWER";
@@ -49,6 +54,16 @@ export function TransactionsHeader({
       if (key === "from" || key === "to") {
         params.delete("month");
       }
+    }
+    router.push(`${window.location.pathname}?${params.toString()}`);
+  };
+
+  const handleSearch = (value: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (!value) {
+      params.delete("q");
+    } else {
+      params.set("q", value);
     }
     router.push(`${window.location.pathname}?${params.toString()}`);
   };
@@ -89,6 +104,16 @@ export function TransactionsHeader({
               </Button>
 
               <Button
+                variant="outline"
+                size="lg"
+                onClick={() => setIsTransferModalOpen(true)}
+                className="w-full transition-all sm:w-auto"
+              >
+                <ArrowRightLeft className="h-4 w-4" />
+                Transferir
+              </Button>
+
+              <Button
                 size="lg"
                 onClick={() => setIsModalOpen(true)}
                 className="w-full transition-all sm:w-auto"
@@ -98,6 +123,22 @@ export function TransactionsHeader({
               </Button>
             </>
           )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por descrição, categoria ou fornecedor..."
+            className="pl-8"
+            defaultValue={searchParams.get("q") || ""}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleSearch(e.currentTarget.value);
+              }
+            }}
+          />
         </div>
       </div>
 
@@ -224,6 +265,27 @@ export function TransactionsHeader({
             </SelectContent>
           </Select>
         </div>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-muted-foreground ml-1 text-xs font-semibold uppercase">
+            Conta
+          </span>
+          <Select
+            onValueChange={(v) => handleFilterChange("account", v)}
+            defaultValue={searchParams.get("account") || "all"}
+          >
+            <SelectTrigger className="h-10 w-full">
+              <SelectValue placeholder="Todas as contas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as contas</SelectItem>
+              {accounts.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         {searchParams.toString() && (
           <div className="flex flex-col gap-1.5">
             <Button
@@ -244,6 +306,13 @@ export function TransactionsHeader({
         onClose={() => setIsModalOpen(false)}
         categories={categories}
         suppliers={suppliers}
+        accounts={accounts}
+      />
+
+      <TransferModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        accounts={accounts}
       />
     </div>
   );

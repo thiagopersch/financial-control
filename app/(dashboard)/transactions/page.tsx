@@ -17,6 +17,8 @@ export default async function TransactionsPage({
     type?: string;
     status?: string;
     category?: string;
+    account?: string;
+    q?: string;
   }>;
 }) {
   const searchParams = await searchParamsPromise;
@@ -57,13 +59,23 @@ export default async function TransactionsPage({
   if (searchParams.type) where.type = searchParams.type as TransactionType;
   if (searchParams.status) where.status = searchParams.status as TransactionStatus;
   if (searchParams.category) where.categoryId = searchParams.category;
+  if (searchParams.account) where.accountId = searchParams.account;
 
-  const [rawTransactions, categories, suppliers] = await Promise.all([
+  if (searchParams.q) {
+    where.OR = [
+      { notes: { contains: searchParams.q, mode: 'insensitive' } },
+      { category: { name: { contains: searchParams.q, mode: 'insensitive' } } },
+      { supplier: { name: { contains: searchParams.q, mode: 'insensitive' } } }
+    ];
+  }
+
+  const [rawTransactions, categories, suppliers, accounts] = await Promise.all([
     prisma.transaction.findMany({
       where,
       include: {
         category: true,
         supplier: true,
+        account: true,
       },
       orderBy: {
         date: "desc",
@@ -77,12 +89,25 @@ export default async function TransactionsPage({
       where: { workspaceId: session.user.workspaceId },
       orderBy: { name: "asc" },
     }),
+    prisma.account.findMany({
+      where: { workspaceId: session.user.workspaceId },
+      orderBy: { name: "asc" },
+    }),
     getAvailableRange(),
   ]);
 
   const transactions = rawTransactions.map((transaction) => ({
     ...transaction,
     amount: transaction.amount.toNumber(),
+    account: transaction.account ? {
+      ...transaction.account,
+      balance: transaction.account.balance.toNumber()
+    } : null
+  }));
+
+  const formattedAccounts = accounts.map(a => ({
+    ...a,
+    balance: a.balance.toNumber()
   }));
 
   return (
@@ -90,6 +115,7 @@ export default async function TransactionsPage({
       <TransactionsHeader
         categories={categories}
         suppliers={suppliers}
+        accounts={formattedAccounts}
         availableRange={availableRange}
         userRole={session.user.role}
       />
@@ -97,6 +123,7 @@ export default async function TransactionsPage({
         transactions={transactions}
         categories={categories}
         suppliers={suppliers}
+        accounts={formattedAccounts}
         userRole={session.user.role}
       />
     </div>

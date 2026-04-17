@@ -38,6 +38,8 @@ const transactionSchema = z.object({
   dueDate: z.coerce.date().nullable().optional(),
   status: z.enum([TransactionStatus.PAID, TransactionStatus.PENDING, TransactionStatus.OVERDUE]),
   categoryId: z.string().min(1, "Categoria é obrigatória"),
+  accountId: z.string().min(1, "Conta é obrigatória"),
+  costCenterId: z.string().nullable().optional(),
   supplierId: z.string().nullable().optional(),
   notes: z.string().optional(),
   isRecurring: z.boolean().default(false),
@@ -52,6 +54,8 @@ interface TransactionModalProps {
   onClose: () => void;
   categories: { id: string; name: string; type: string; color: string }[];
   suppliers: { id: string; name: string }[];
+  accounts: { id: string; name: string; balance: number }[];
+  costCenters?: { id: string; name: string }[];
   initialData?: any;
 }
 
@@ -60,6 +64,8 @@ export function TransactionModal({
   onClose,
   categories,
   suppliers,
+  accounts,
+  costCenters = [],
   initialData,
 }: TransactionModalProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -72,6 +78,8 @@ export function TransactionModal({
       date: new Date(),
       status: TransactionStatus.PENDING,
       categoryId: "",
+      accountId: "",
+      costCenterId: null,
       supplierId: null,
       notes: "",
       isRecurring: false,
@@ -105,6 +113,8 @@ export function TransactionModal({
         dueDate: parseDate(initialData.dueDate),
         status: initialData.status,
         categoryId: initialData.categoryId,
+        accountId: initialData.accountId || "",
+        costCenterId: initialData.costCenterId || null,
         supplierId: initialData.supplierId,
         notes: initialData.notes || "",
         isRecurring: initialData.isRecurring || false,
@@ -118,6 +128,8 @@ export function TransactionModal({
         date: new Date(),
         status: TransactionStatus.PENDING,
         categoryId: "",
+        accountId: "",
+        costCenterId: null,
         supplierId: null,
         notes: "",
         isRecurring: false,
@@ -249,6 +261,33 @@ export function TransactionModal({
           />
 
           <Controller
+            name="accountId"
+            control={form.control}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="accountId">Conta</FieldLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  value={field.value}
+                >
+                  <SelectTrigger id="accountId">
+                    <SelectValue placeholder="Selecione a conta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((acc) => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError errors={[form.formState.errors.accountId]} />
+              </Field>
+            )}
+          />
+
+          <Controller
             name="categoryId"
             control={form.control}
             render={({ field }) => (
@@ -300,6 +339,30 @@ export function TransactionModal({
                 <FieldLabel htmlFor="date">Data</FieldLabel>
                 <DatePicker date={field.value} setDate={field.onChange} />
                 <FieldError errors={[form.formState.errors.date]} />
+              </Field>
+            )}
+          />
+
+          <Controller
+            name="costCenterId"
+            control={form.control}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="costCenterId">Centro de Custo (opcional)</FieldLabel>
+                <Select onValueChange={field.onChange} value={field.value || "none"}>
+                  <SelectTrigger id="costCenterId">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {costCenters.map((cc) => (
+                      <SelectItem key={cc.id} value={cc.id}>
+                        {cc.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError errors={[form.formState.errors.costCenterId]} />
               </Field>
             )}
           />

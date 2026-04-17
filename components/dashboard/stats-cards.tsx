@@ -1,10 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowDownCircle, ArrowUpCircle, Ban, Wallet } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Wallet } from "lucide-react";
 
 interface StatsCardsProps {
   stats: {
     totalIncome: number;
     totalExpense: number;
+    totalBalance: number;
     balance: number;
     pendingToPay: number;
   };
@@ -19,26 +20,19 @@ export function StatsCards({ stats, isFullYear }: StatsCardsProps) {
     }).format(value);
   };
 
-  const getBalanceColors = () => {
-    if (stats.balance < 0) return { color: "text-rose-600", bg: "bg-rose-100" };
-    if (stats.totalIncome === 0) return { color: "text-indigo-600", bg: "bg-indigo-100" };
-
-    const ratio = stats.totalExpense / stats.totalIncome;
-
-    if (ratio > 0.9) return { color: "text-amber-600", bg: "bg-amber-100" };
-    if (ratio > 0.7) return { color: "text-blue-600", bg: "bg-blue-100" };
+  const getBalanceColors = (val: number) => {
+    if (val < 0) return { color: "text-rose-600", bg: "bg-rose-100" };
     return { color: "text-emerald-600", bg: "bg-emerald-100" };
   };
 
-  const balanceColors = getBalanceColors();
-
   const cards = [
     {
-      title: "Saldo Atual",
-      value: formatCurrency(stats.balance),
+      title: "Patrimônio Total",
+      value: formatCurrency(stats.totalBalance),
       icon: Wallet,
-      color: balanceColors.color,
-      bg: balanceColors.bg,
+      color: "text-primary",
+      bg: "bg-primary/10",
+      description: "Soma de todas as contas",
     },
     {
       title: "Total Receitas",
@@ -46,6 +40,7 @@ export function StatsCards({ stats, isFullYear }: StatsCardsProps) {
       icon: ArrowUpCircle,
       color: "text-emerald-600",
       bg: "bg-emerald-100",
+      description: isFullYear ? "Este ano" : "Este mês",
     },
     {
       title: "Total Despesas",
@@ -53,13 +48,15 @@ export function StatsCards({ stats, isFullYear }: StatsCardsProps) {
       icon: ArrowDownCircle,
       color: "text-rose-600",
       bg: "bg-rose-100",
+      description: isFullYear ? "Este ano" : "Este mês",
     },
     {
-      title: "A Vencer",
-      value: formatCurrency(stats.pendingToPay),
-      icon: Ban,
-      color: "text-amber-600",
-      bg: "bg-amber-100",
+      title: "Resultado Líquido",
+      value: formatCurrency(stats.balance),
+      icon: stats.balance >= 0 ? ArrowUpCircle : ArrowDownCircle,
+      color: stats.balance >= 0 ? "text-emerald-600" : "text-rose-600",
+      bg: stats.balance >= 0 ? "bg-emerald-100" : "bg-rose-100",
+      description: "Receitas - Despesas",
     },
   ];
 
@@ -80,9 +77,7 @@ export function StatsCards({ stats, isFullYear }: StatsCardsProps) {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${card.color}`}>{card.value}</div>
-            <p className="text-muted-foreground mt-1 text-xs">
-              {isFullYear ? "Este ano" : "Este mês"}
-            </p>
+            <p className="text-muted-foreground mt-1 text-xs">{card.description}</p>
           </CardContent>
         </Card>
       ))}

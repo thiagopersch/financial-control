@@ -15,6 +15,8 @@ const transactionSchema = z.object({
   dueDate: z.coerce.date().nullable().optional(),
   status: z.nativeEnum(TransactionStatus),
   categoryId: z.string().min(1, "Categoria é obrigatória"),
+  accountId: z.string().min(1, "Conta é obrigatória"),
+  costCenterId: z.string().nullable().optional(),
   supplierId: z.string().nullable().optional(),
   notes: z.string().optional(),
   isRecurring: z.boolean().default(false),
@@ -31,7 +33,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
 
     if (validated.isRecurring && validated.recurrenceType) {
       let count =
-        validated.recurrenceType === "INSTALLMENTS" ? validated.installments || 1 : 12; // Limite de 12 meses conforme pedido
+        validated.recurrenceType === "INSTALLMENTS" ? validated.installments || 1 : 12;
 
       let baseAmount = validated.amount;
       let installmentAmount = baseAmount;
@@ -40,84 +42,117 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
         installmentAmount = Number((baseAmount / count).toFixed(2));
       }
 
-      // Criar a primeira transação (pai)
-      const parentTransaction = await prisma.transaction.create({
-        data: {
-          type: validated.type,
-          amount: installmentAmount,
-          date: validated.date,
-          dueDate: validated.dueDate,
-          status: validated.status,
-          categoryId: validated.categoryId,
-          supplierId: validated.supplierId,
-          notes: validated.notes,
-          workspaceId: session.user.workspaceId,
-          isRecurring: true,
-          recurrenceType: validated.recurrenceType,
-          installments: validated.installments,
-        },
-      });
+      const result = await prisma.$transaction(async (tx) => {
+        // Criar a primeira transação (pai)
+        const parentTransaction = await tx.transaction.create({
+          data: {
+            type: validated.type,
+            amount: installmentAmount,
+            date: validated.date,
+            dueDate: validated.dueDate,
+            status: validated.status,
+            categoryId: validated.categoryId,
+            accountId: validated.accountId,
+            costCenterId: validated.costCenterId,
+            supplierId: validated.supplierId,
+            notes: validated.notes,
+            workspaceId: session.user.workspaceId,
+            isRecurring: true,
+            recurrenceType: validated.recurrenceType,
+            installments: validated.installments,
+          },
+        });
 
-      const futureTransactions = [];
-      for (let i = 1; i < count; i++) {
-        let currentInstallmentAmount = installmentAmount;
-
-        // Ajuste de centavos na última parcela para financiamentos
-        if (validated.recurrenceType === "INSTALLMENTS" && i === count - 1) {
-          currentInstallmentAmount = Number(
-            (baseAmount - installmentAmount * (count - 1)).toFixed(2),
-          );
+        // Atualizar saldo se estiver pago
+        if (validated.status === TransactionStatus.PAID) {
+          const amountChange = validated.type === TransactionType.INCOME ? installmentAmount : -installmentAmount;
+          await tx.account.update({
+            where: { id: validated.accountId },
+            data: { balance: { increment: amountChange } },
+          });
         }
 
-        futureTransactions.push({
-          type: validated.type,
-          amount: currentInstallmentAmount,
-          date: addMonths(validated.date, i),
-          dueDate: validated.dueDate ? addMonths(validated.dueDate, i) : null,
-          status: TransactionStatus.PENDING, // Futuras começam como pendente
-          categoryId: validated.categoryId,
-          supplierId: validated.supplierId,
-          notes: `${validated.notes || ""} (${i + 1}/${count})`,
-          workspaceId: session.user.workspaceId,
-          isRecurring: true,
-          recurrenceType: validated.recurrenceType,
-          parentTransactionId: parentTransaction.id,
-        });
-      }
+        const futureTransactions = [];
+        for (let i = 1; i < count; i++) {
+          let currentInstallmentAmount = installmentAmount;
 
-      if (futureTransactions.length > 0) {
-        await prisma.transaction.createMany({
-          data: futureTransactions,
-        });
-      }
+          if (validated.recurrenceType === "INSTALLMENTS" && i === count - 1) {
+            currentInstallmentAmount = Number(
+              (baseAmount - installmentAmount * (count - 1)).toFixed(2),
+            );
+          }
+
+          futureTransactions.push({
+            type: validated.type,
+            amount: currentInstallmentAmount,
+            date: addMonths(validated.date, i),
+            dueDate: validated.dueDate ? addMonths(validated.dueDate, i) : null,
+            status: TransactionStatus.PENDING,
+            categoryId: validated.categoryId,
+            accountId: validated.accountId,
+            costCenterId: validated.costCenterId,
+            supplierId: validated.supplierId,
+            notes: `${validated.notes || ""} (${i + 1}/${count})`,
+            workspaceId: session.user.workspaceId,
+            isRecurring: true,
+            recurrenceType: validated.recurrenceType,
+            parentTransactionId: parentTransaction.id,
+          });
+        }
+
+        if (futureTransactions.length > 0) {
+          await tx.transaction.createMany({
+            data: futureTransactions,
+          });
+        }
+
+        return parentTransaction;
+      });
 
       revalidatePath("/transactions");
       revalidatePath("/dashboard");
+      revalidatePath("/accounts");
       return { success: true };
     }
 
     // Fluxo normal (não recorrente)
-    const transaction = await prisma.transaction.create({
-      data: {
-        type: validated.type,
-        amount: validated.amount,
-        date: validated.date,
-        dueDate: validated.dueDate,
-        status: validated.status,
-        categoryId: validated.categoryId,
-        supplierId: validated.supplierId,
-        notes: validated.notes,
-        workspaceId: session.user.workspaceId,
-      },
+    const transaction = await prisma.$transaction(async (tx) => {
+      const t = await tx.transaction.create({
+        data: {
+          type: validated.type,
+          amount: validated.amount,
+          date: validated.date,
+          dueDate: validated.dueDate,
+          status: validated.status,
+          categoryId: validated.categoryId,
+          accountId: validated.accountId,
+          costCenterId: validated.costCenterId,
+          supplierId: validated.supplierId,
+          notes: validated.notes,
+          workspaceId: session.user.workspaceId,
+        },
+      });
+
+      // Atualizar saldo se estiver pago
+      if (validated.status === TransactionStatus.PAID) {
+        const amountChange = validated.type === TransactionType.INCOME ? validated.amount : -validated.amount;
+        await tx.account.update({
+          where: { id: validated.accountId },
+          data: { balance: { increment: amountChange } },
+        });
+      }
+
+      return t;
     });
 
     revalidatePath("/transactions");
     revalidatePath("/dashboard");
+    revalidatePath("/accounts");
     return {
       success: true,
       data: {
         ...transaction,
-        amount: transaction.amount.toNumber(),
+        amount: Number(transaction.amount),
       },
     };
   } catch (error) {
@@ -132,24 +167,55 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
 
   try {
     const validated = transactionSchema.parse(data);
-    const transaction = await prisma.transaction.update({
-      where: {
-        id,
-        workspaceId: session.user.workspaceId,
-      },
-      data: {
-        type: validated.type,
-        amount: validated.amount,
-        date: validated.date,
-        dueDate: validated.dueDate,
-        status: validated.status,
-        categoryId: validated.categoryId,
-        supplierId: validated.supplierId,
-        notes: validated.notes,
-        isRecurring: validated.isRecurring,
-        recurrenceType: validated.recurrenceType,
-        installments: validated.installments,
-      },
+
+    // Precisamos saber o estado anterior para ajustar o saldo corretamente
+    const oldTransaction = await prisma.transaction.findUnique({
+      where: { id, workspaceId: session.user.workspaceId },
+    });
+
+    if (!oldTransaction) return { success: false, error: "Transação não encontrada" };
+
+    const transaction = await prisma.$transaction(async (tx) => {
+      // 1. Reverter saldo anterior se estava pago
+      if (oldTransaction.status === TransactionStatus.PAID) {
+        const oldAmount = Number(oldTransaction.amount);
+        const reverseChange = oldTransaction.type === TransactionType.INCOME ? -oldAmount : oldAmount;
+        await tx.account.update({
+          where: { id: oldTransaction.accountId! },
+          data: { balance: { increment: reverseChange } },
+        });
+      }
+
+      // 2. Atualizar transação
+      const updated = await tx.transaction.update({
+        where: { id },
+        data: {
+          type: validated.type,
+          amount: validated.amount,
+          date: validated.date,
+          dueDate: validated.dueDate,
+          status: validated.status,
+          categoryId: validated.categoryId,
+          accountId: validated.accountId,
+          costCenterId: validated.costCenterId,
+          supplierId: validated.supplierId,
+          notes: validated.notes,
+          isRecurring: validated.isRecurring,
+          recurrenceType: validated.recurrenceType,
+          installments: validated.installments,
+        },
+      });
+
+      // 3. Aplicar novo saldo se está pago
+      if (validated.status === TransactionStatus.PAID) {
+        const amountChange = validated.type === TransactionType.INCOME ? validated.amount : -validated.amount;
+        await tx.account.update({
+          where: { id: validated.accountId },
+          data: { balance: { increment: amountChange } },
+        });
+      }
+
+      return updated;
     });
 
     revalidatePath("/transactions");
@@ -172,17 +238,33 @@ export async function deleteTransaction(id: string) {
   if (!session) return { success: false, error: "Não autorizado" };
 
   try {
-    await prisma.transaction.delete({
-      where: {
-        id,
-        workspaceId: session.user.workspaceId,
-      },
+    const transaction = await prisma.transaction.findUnique({
+      where: { id, workspaceId: session.user.workspaceId },
+    });
+
+    if (!transaction) return { success: false, error: "Transação não encontrada" };
+
+    await prisma.$transaction(async (tx) => {
+      // Reverter saldo se estava pago
+      if (transaction.status === TransactionStatus.PAID) {
+        const amountChange = transaction.type === TransactionType.INCOME ? -Number(transaction.amount) : Number(transaction.amount);
+        await tx.account.update({
+          where: { id: transaction.accountId! },
+          data: { balance: { increment: amountChange } },
+        });
+      }
+
+      await tx.transaction.delete({
+        where: { id },
+      });
     });
 
     revalidatePath("/transactions");
     revalidatePath("/dashboard");
+    revalidatePath("/accounts");
     return { success: true };
   } catch (error) {
+    console.error("Error deleting transaction:", error);
     return { success: false, error: "Erro ao excluir transação" };
   }
 }

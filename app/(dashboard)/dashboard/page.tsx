@@ -1,13 +1,17 @@
+import { BudgetWidget } from "@/components/dashboard/budget-widget";
 import { CategoryPieChart } from "@/components/dashboard/category-pie-chart";
+import { GoalsWidget } from "@/components/dashboard/goals-widget";
 import { OverviewChart } from "@/components/dashboard/overview-chart";
 import { RecentTransactions } from "@/components/dashboard/recent-transactions";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { MonthSelector } from "@/components/month-selector";
 import {
   getAvailableRange,
+  getBudgetData,
   getCategoryData,
   getChartData,
   getDashboardStats,
+  getGoalsData,
   getRecentTransactions,
 } from "@/lib/queries/dashboard";
 import { endOfMonth, parse, startOfMonth } from "date-fns";
@@ -47,6 +51,9 @@ export default async function DashboardPage(props: { searchParams: Promise<{ mon
   const recentTransactions = await getRecentTransactions(startDate, endDate);
   const availableRange = await getAvailableRange();
 
+  const budgetData = await getBudgetData(selectedMonth.getMonth() + 1, selectedMonth.getFullYear());
+  const goalsData = await getGoalsData();
+
   return (
     <div className="animate-in fade-in space-y-8 duration-700">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -61,16 +68,17 @@ export default async function DashboardPage(props: { searchParams: Promise<{ mon
 
       <StatsCards stats={stats} isFullYear={isFullYear} />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="lg:col-span-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <div className="space-y-4 lg:col-span-4">
           <OverviewChart data={chartData} isFullYear={isFullYear} />
+          <RecentTransactions transactions={recentTransactions} />
         </div>
-        <div className="lg:col-span-3">
+        <div className="space-y-4 lg:col-span-3">
           <CategoryPieChart data={categoryData} isFullYear={isFullYear} />
+          <BudgetWidget budgets={budgetData} />
+          <GoalsWidget goals={goalsData} />
         </div>
       </div>
-
-      <RecentTransactions transactions={recentTransactions} />
     </div>
   );
 }
