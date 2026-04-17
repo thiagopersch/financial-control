@@ -1,14 +1,12 @@
 "use client";
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -19,7 +17,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -27,15 +24,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AccountType } from "@prisma/client";
 import { createAccount, updateAccount } from "@/lib/actions/accounts";
-import { toast } from "sonner";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { AccountType } from "@prisma/client";
 import { Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import * as z from "zod";
+
+const accountType: { value: AccountType; label: string }[] = [
+  { value: AccountType.PIX, label: "PIX" },
+  { value: AccountType.CREDIT_CARD, label: "Cartão de Crédito" },
+  { value: AccountType.DEBIT_CARD, label: "Cartão de Débito" },
+  { value: AccountType.BANK, label: "Banco" },
+  { value: AccountType.WALLET, label: "Carteira" },
+  { value: AccountType.INVESTMENT, label: "Investimento" },
+  { value: AccountType.CRYPTO, label: "Cripto" },
+  { value: AccountType.OTHERS, label: "Outros" },
+];
 
 const accountSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
-  type: z.nativeEnum(AccountType),
+  type: z.enum(AccountType),
   balance: z.coerce.number(),
   color: z.string().optional().default("#000000"),
 });
@@ -55,7 +66,7 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
     resolver: zodResolver(accountSchema) as any,
     defaultValues: {
       name: "",
-      type: AccountType.BANK,
+      type: AccountType.PIX,
       balance: 0,
       color: "#000000",
     },
@@ -72,7 +83,7 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
     } else {
       form.reset({
         name: "",
-        type: AccountType.BANK,
+        type: AccountType.PIX,
         balance: 0,
         color: "#000000",
       });
@@ -85,22 +96,42 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
       if (account) {
         const result = await updateAccount(account.id, values);
         if (result.success) {
-          toast.success("Conta atualizada com sucesso");
+          toast.success("Conta atualizada com sucesso", {
+            description: "A conta foi atualizada com sucesso",
+            position: "bottom-center",
+            richColors: true,
+          });
           onClose();
         } else {
-          toast.error(result.error || "Erro ao atualizar conta");
+          toast.error(result.error || "Erro ao atualizar conta", {
+            description: "A conta não foi atualizada",
+            position: "bottom-center",
+            richColors: true,
+          });
         }
       } else {
         const result = await createAccount(values);
         if (result.success) {
-          toast.success("Conta criada com sucesso");
+          toast.success("Conta criada com sucesso", {
+            description: "A conta foi criada com sucesso",
+            position: "bottom-center",
+            richColors: true,
+          });
           onClose();
         } else {
-          toast.error(result.error || "Erro ao criar conta");
+          toast.error(result.error || "Erro ao criar conta", {
+            description: "A conta não foi criada",
+            position: "bottom-center",
+            richColors: true,
+          });
         }
       }
     } catch (error) {
-      toast.error("Ocorreu um erro inesperado");
+      toast.error("Ocorreu um erro inesperado", {
+        description: "Ocorreu um erro inesperado",
+        position: "bottom-center",
+        richColors: true,
+      });
     } finally {
       setLoading(false);
     }
@@ -111,9 +142,7 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
       <DialogContent className="sm:max-width-[425px]">
         <DialogHeader>
           <DialogTitle>{account ? "Editar Conta" : "Nova Conta"}</DialogTitle>
-          <DialogDescription>
-            Insira os detalhes da conta abaixo.
-          </DialogDescription>
+          <DialogDescription>Insira os detalhes da conta abaixo.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -124,7 +153,7 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
                 <FormItem>
                   <FormLabel>Nome</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Nubank, Carteira Principal" {...field} />
+                    <Input placeholder="Ex: Nubank, Banco do Brasil, Sicoob" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -139,18 +168,16 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
                     <FormLabel>Tipo</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue placeholder="Selecione o tipo" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value={AccountType.BANK}>Banco</SelectItem>
-                        <SelectItem value={AccountType.WALLET}>Carteira</SelectItem>
-                        <SelectItem value={AccountType.CREDIT_CARD}>Cartão de Crédito</SelectItem>
-                        <SelectItem value={AccountType.INVESTMENT}>Investimento</SelectItem>
-                        <SelectItem value={AccountType.CRYPTO}>Cripto</SelectItem>
-                        <SelectItem value={AccountType.PIX}>PIX</SelectItem>
-                        <SelectItem value={AccountType.OTHERS}>Outros</SelectItem>
+                        {accountType.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -179,8 +206,8 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
                   <FormLabel>Cor</FormLabel>
                   <FormControl>
                     <div className="flex items-center gap-2">
-                      <Input type="color" className="p-1 h-10 w-20" {...field} />
-                      <span className="text-xs text-muted-foreground">Identificador visual</span>
+                      <Input type="color" className="h-10 w-20 p-1" {...field} />
+                      <span className="text-muted-foreground text-xs">Identificador visual</span>
                     </div>
                   </FormControl>
                   <FormMessage />

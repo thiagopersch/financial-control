@@ -1,22 +1,29 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Plus, Wallet, Building2, CreditCard, Landmark, Coins, TrendingUp } from "lucide-react";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AccountType } from "@prisma/client";
-import { useState } from "react";
-import { AccountModal } from "./account-modal";
 import { deleteAccount } from "@/lib/actions/accounts";
+import {
+  Building2,
+  Coins,
+  CreditCard,
+  Landmark,
+  MoreHorizontal,
+  Plus,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { formatCurrency } from "@/lib/utils";
+import { AccountModal } from "./account-modal";
 
 interface AccountsListProps {
   accounts: any[];
@@ -87,15 +94,21 @@ export function AccountsList({ accounts }: AccountsListProps) {
         {accounts.map((account) => {
           const Icon = typeIcons[account.type] || Wallet;
           return (
-            <Card key={account.id} className="overflow-hidden transition-all hover:shadow-md border-l-4" style={{ borderLeftColor: account.color || "#000000" }}>
+            <Card
+              key={account.id}
+              className="overflow-hidden border-l-4 transition-all hover:shadow-md"
+              style={{ borderLeftColor: account.color || "#000000" }}
+            >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 bg-muted rounded-lg">
-                    <Icon className="h-5 w-5 text-primary" />
+                  <div className="bg-muted rounded-lg p-2">
+                    <Icon className="text-primary h-5 w-5" />
                   </div>
                   <div>
                     <CardTitle className="text-base font-semibold">{account.name}</CardTitle>
-                    <CardDescription className="text-xs">{typeLabels[account.type]}</CardDescription>
+                    <CardDescription className="text-xs">
+                      {typeLabels[account.type]}
+                    </CardDescription>
                   </div>
                 </div>
                 <DropdownMenu>
@@ -110,7 +123,7 @@ export function AccountsList({ accounts }: AccountsListProps) {
                       Editar
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       onClick={() => handleDelete(account.id)}
                       className="text-destructive focus:text-destructive"
                     >
@@ -121,9 +134,13 @@ export function AccountsList({ accounts }: AccountsListProps) {
               </CardHeader>
               <CardContent>
                 <div className="mt-4">
-                  <span className="text-xs text-muted-foreground block">Saldo Atual</span>
-                  <div className={`text-2xl font-bold ${account.balance < 0 ? "text-destructive" : "text-foreground"}`}>
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(account.balance)}
+                  <span className="text-muted-foreground block text-xs">Saldo Atual</span>
+                  <div
+                    className={`text-2xl font-bold ${account.balance < 0 ? "text-destructive" : "text-foreground"}`}
+                  >
+                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                      account.balance,
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -132,21 +149,23 @@ export function AccountsList({ accounts }: AccountsListProps) {
         })}
 
         {accounts.length === 0 && (
-          <div className="col-span-full py-12 flex flex-col items-center justify-center border-2 border-dashed rounded-xl bg-muted/30">
-            <div className="p-4 bg-background rounded-full mb-4 shadow-sm">
-              <Plus className="h-8 w-8 text-muted-foreground" />
+          <div className="bg-muted/30 col-span-full flex flex-col items-center justify-center rounded-xl border-2 border-dashed py-12">
+            <div className="bg-background mb-4 rounded-full p-4 shadow-sm">
+              <Plus className="text-muted-foreground h-8 w-8" />
             </div>
             <h3 className="text-lg font-medium">Nenhuma conta encontrada</h3>
-            <p className="text-muted-foreground mb-4">Comece adicionando sua primeira conta de banco ou carteira.</p>
+            <p className="text-muted-foreground mb-4">
+              Comece adicionando sua primeira conta de banco ou carteira.
+            </p>
             <Button onClick={openCreateModal}>Adicionar Conta</Button>
           </div>
         )}
       </div>
 
-      <AccountModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        account={selectedAccount} 
+      <AccountModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        account={selectedAccount}
       />
     </div>
   );

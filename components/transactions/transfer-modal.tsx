@@ -1,14 +1,12 @@
 "use client";
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -19,7 +17,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -28,9 +25,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createTransfer } from "@/lib/actions/transfers";
-import { toast } from "sonner";
-import { Loader2, ArrowRightLeft } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowRightLeft, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import * as z from "zod";
 
 const transferSchema = z.object({
   amount: z.coerce.number().positive("Valor deve ser maior que zero"),
@@ -82,10 +82,10 @@ export function TransferModal({ isOpen, onClose, accounts }: TransferModalProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ArrowRightLeft className="h-5 w-5 text-primary" />
+            <ArrowRightLeft className="text-primary h-5 w-5" />
             Nova Transferência
           </DialogTitle>
           <DialogDescription>
@@ -110,7 +110,12 @@ export function TransferModal({ isOpen, onClose, accounts }: TransferModalProps)
                       <SelectContent>
                         {accounts.map((acc) => (
                           <SelectItem key={acc.id} value={acc.id}>
-                            {acc.name} ({new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(acc.balance)})
+                            {acc.name} (
+                            {new Intl.NumberFormat("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            }).format(acc.balance)}
+                            )
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -120,9 +125,9 @@ export function TransferModal({ isOpen, onClose, accounts }: TransferModalProps)
                 )}
               />
 
-              <div className="flex justify-center -my-2">
-                <div className="p-1 bg-muted rounded-full">
-                  <ArrowRightLeft className="h-4 w-4 text-muted-foreground rotate-90" />
+              <div className="-my-2 flex justify-center">
+                <div className="bg-muted rounded-full p-1">
+                  <ArrowRightLeft className="text-muted-foreground h-4 w-4 rotate-90" />
                 </div>
               </div>
 
@@ -141,7 +146,12 @@ export function TransferModal({ isOpen, onClose, accounts }: TransferModalProps)
                       <SelectContent>
                         {accounts.map((acc) => (
                           <SelectItem key={acc.id} value={acc.id}>
-                            {acc.name} ({new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(acc.balance)})
+                            {acc.name} (
+                            {new Intl.NumberFormat("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            }).format(acc.balance)}
+                            )
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -173,7 +183,15 @@ export function TransferModal({ isOpen, onClose, accounts }: TransferModalProps)
                   <FormItem>
                     <FormLabel>Data</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} value={field.value instanceof Date ? field.value.toISOString().split('T')[0] : field.value} />
+                      <Input
+                        type="date"
+                        {...field}
+                        value={
+                          field.value instanceof Date
+                            ? field.value.toISOString().split("T")[0]
+                            : field.value
+                        }
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

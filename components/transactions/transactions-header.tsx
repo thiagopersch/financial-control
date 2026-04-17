@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 
 import { MonthSelector } from "@/components/month-selector";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -19,7 +20,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { TransactionModal } from "./transaction-modal";
 import { TransferModal } from "./transfer-modal";
-import { Input } from "@/components/ui/input";
 
 interface TransactionsHeaderProps {
   categories: { id: string; name: string; type: string; color: string }[];
@@ -126,9 +126,9 @@ export function TransactionsHeader({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 mb-4">
+      <div className="mb-4 flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
           <Input
             placeholder="Buscar por descrição, categoria ou fornecedor..."
             className="pl-8"
@@ -149,6 +149,7 @@ export function TransactionsHeader({
           </span>
           <MonthSelector availableRange={availableRange} />
         </div>
+
         <div className="flex flex-col gap-1.5">
           <span className="text-muted-foreground ml-1 text-xs font-semibold uppercase">Início</span>
           <DatePicker
@@ -166,6 +167,7 @@ export function TransactionsHeader({
             }}
           />
         </div>
+
         <div className="flex flex-col gap-1.5">
           <span className="text-muted-foreground ml-1 text-xs font-semibold uppercase">Fim</span>
           <DatePicker
@@ -183,6 +185,7 @@ export function TransactionsHeader({
             }}
           />
         </div>
+
         <div className="flex flex-col gap-1.5">
           <span className="text-muted-foreground ml-1 text-xs font-semibold uppercase">Tipo</span>
           <Select
@@ -209,6 +212,7 @@ export function TransactionsHeader({
             </SelectContent>
           </Select>
         </div>
+
         <div className="flex flex-col gap-1.5">
           <span className="text-muted-foreground ml-1 text-xs font-semibold uppercase">Status</span>
           <Select
@@ -241,6 +245,7 @@ export function TransactionsHeader({
             </SelectContent>
           </Select>
         </div>
+
         <div className="flex flex-col gap-1.5 lg:col-span-1">
           <span className="text-muted-foreground ml-1 text-xs font-semibold uppercase">
             Categoria
@@ -265,10 +270,9 @@ export function TransactionsHeader({
             </SelectContent>
           </Select>
         </div>
+
         <div className="flex flex-col gap-1.5">
-          <span className="text-muted-foreground ml-1 text-xs font-semibold uppercase">
-            Conta
-          </span>
+          <span className="text-muted-foreground ml-1 text-xs font-semibold uppercase">Conta</span>
           <Select
             onValueChange={(v) => handleFilterChange("account", v)}
             defaultValue={searchParams.get("account") || "all"}
@@ -286,8 +290,9 @@ export function TransactionsHeader({
             </SelectContent>
           </Select>
         </div>
+
         {searchParams.toString() && (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col items-center justify-center gap-1.5">
             <Button
               variant="ghost"
               onClick={handleClearFilters}

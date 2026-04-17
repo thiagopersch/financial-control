@@ -10,5 +10,5 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/login");
   }
 
-  return <DashboardShell userName={session.user.name}>{children}</DashboardShell>;
+  return <DashboardShell>{children}</DashboardShell>;
 }

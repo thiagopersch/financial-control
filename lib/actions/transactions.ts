@@ -2,6 +2,7 @@
 
 import { authOptions } from "@/lib/auth-options";
 import prisma from "@/lib/prisma";
+import { createAuditLog } from "@/lib/services/audit";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { addMonths } from "date-fns";
 import { getServerSession } from "next-auth";
@@ -32,8 +33,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
     const validated = transactionSchema.parse(data);
 
     if (validated.isRecurring && validated.recurrenceType) {
-      let count =
-        validated.recurrenceType === "INSTALLMENTS" ? validated.installments || 1 : 12;
+      let count = validated.recurrenceType === "INSTALLMENTS" ? validated.installments || 1 : 12;
 
       let baseAmount = validated.amount;
       let installmentAmount = baseAmount;
@@ -65,7 +65,8 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
 
         // Atualizar saldo se estiver pago
         if (validated.status === TransactionStatus.PAID) {
-          const amountChange = validated.type === TransactionType.INCOME ? installmentAmount : -installmentAmount;
+          const amountChange =
+            validated.type === TransactionType.INCOME ? installmentAmount : -installmentAmount;
           await tx.account.update({
             where: { id: validated.accountId },
             data: { balance: { increment: amountChange } },
@@ -109,6 +110,13 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
         return parentTransaction;
       });
 
+      await createAuditLog({
+        action: "CREATE_RECURRING_TRANSACTION",
+        entity: "Transaction",
+        entityId: result.id,
+        newValue: validated,
+      });
+
       revalidatePath("/transactions");
       revalidatePath("/dashboard");
       revalidatePath("/accounts");
@@ -135,7 +143,8 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
 
       // Atualizar saldo se estiver pago
       if (validated.status === TransactionStatus.PAID) {
-        const amountChange = validated.type === TransactionType.INCOME ? validated.amount : -validated.amount;
+        const amountChange =
+          validated.type === TransactionType.INCOME ? validated.amount : -validated.amount;
         await tx.account.update({
           where: { id: validated.accountId },
           data: { balance: { increment: amountChange } },
@@ -143,6 +152,13 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
       }
 
       return t;
+    });
+
+    await createAuditLog({
+      action: "CREATE_TRANSACTION",
+      entity: "Transaction",
+      entityId: transaction.id,
+      newValue: validated,
     });
 
     revalidatePath("/transactions");
@@ -179,7 +195,8 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
       // 1. Reverter saldo anterior se estava pago
       if (oldTransaction.status === TransactionStatus.PAID) {
         const oldAmount = Number(oldTransaction.amount);
-        const reverseChange = oldTransaction.type === TransactionType.INCOME ? -oldAmount : oldAmount;
+        const reverseChange =
+          oldTransaction.type === TransactionType.INCOME ? -oldAmount : oldAmount;
         await tx.account.update({
           where: { id: oldTransaction.accountId! },
           data: { balance: { increment: reverseChange } },
@@ -208,7 +225,8 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
 
       // 3. Aplicar novo saldo se está pago
       if (validated.status === TransactionStatus.PAID) {
-        const amountChange = validated.type === TransactionType.INCOME ? validated.amount : -validated.amount;
+        const amountChange =
+          validated.type === TransactionType.INCOME ? validated.amount : -validated.amount;
         await tx.account.update({
           where: { id: validated.accountId },
           data: { balance: { increment: amountChange } },
@@ -216,6 +234,13 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
       }
 
       return updated;
+    });
+
+    await createAuditLog({
+      action: "UPDATE_TRANSACTION",
+      entity: "Transaction",
+      entityId: transaction.id,
+      newValue: validated,
     });
 
     revalidatePath("/transactions");
@@ -247,7 +272,10 @@ export async function deleteTransaction(id: string) {
     await prisma.$transaction(async (tx) => {
       // Reverter saldo se estava pago
       if (transaction.status === TransactionStatus.PAID) {
-        const amountChange = transaction.type === TransactionType.INCOME ? -Number(transaction.amount) : Number(transaction.amount);
+        const amountChange =
+          transaction.type === TransactionType.INCOME
+            ? -Number(transaction.amount)
+            : Number(transaction.amount);
         await tx.account.update({
           where: { id: transaction.accountId! },
           data: { balance: { increment: amountChange } },
@@ -257,6 +285,12 @@ export async function deleteTransaction(id: string) {
       await tx.transaction.delete({
         where: { id },
       });
+    });
+
+    await createAuditLog({
+      action: "DELETE_TRANSACTION",
+      entity: "Transaction",
+      entityId: id,
     });
 
     revalidatePath("/transactions");

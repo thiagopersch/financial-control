@@ -2,6 +2,7 @@
 
 import { authOptions } from "@/lib/auth-options";
 import prisma from "@/lib/prisma";
+import { createAuditLog } from "@/lib/services/audit";
 import { AccountType } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
@@ -28,6 +29,13 @@ export async function createAccount(data: z.infer<typeof accountSchema>) {
       },
     });
 
+    await createAuditLog({
+      action: "CREATE_ACCOUNT",
+      entity: "Account",
+      entityId: account.id,
+      newValue: validated,
+    });
+
     revalidatePath("/accounts");
     return { success: true, data: account };
   } catch (error) {
@@ -51,6 +59,13 @@ export async function updateAccount(id: string, data: z.infer<typeof accountSche
       data: validated,
     });
 
+    await createAuditLog({
+      action: "UPDATE_ACCOUNT",
+      entity: "Account",
+      entityId: account.id,
+      newValue: validated,
+    });
+
     revalidatePath("/accounts");
     return { success: true, data: account };
   } catch (error) {
@@ -70,7 +85,10 @@ export async function deleteAccount(id: string) {
     });
 
     if (hasTransactions) {
-      return { success: false, error: "Esta conta possui transações vinculadas e não pode ser excluída." };
+      return {
+        success: false,
+        error: "Esta conta possui transações vinculadas e não pode ser excluída.",
+      };
     }
 
     await prisma.account.delete({
@@ -78,6 +96,12 @@ export async function deleteAccount(id: string) {
         id,
         workspaceId: session.user.workspaceId,
       },
+    });
+
+    await createAuditLog({
+      action: "DELETE_ACCOUNT",
+      entity: "Account",
+      entityId: id,
     });
 
     revalidatePath("/accounts");

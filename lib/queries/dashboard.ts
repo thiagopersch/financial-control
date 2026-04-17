@@ -9,9 +9,11 @@ export async function getDashboardStats(start?: Date, end?: Date) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error("Unauthorized");
 
+  const workspaceId = session.user.workspaceId;
+
   const transactions = await prisma.transaction.findMany({
     where: {
-      workspaceId: session.user.workspaceId,
+      workspaceId,
       ...(start && end
         ? {
             date: {
@@ -24,7 +26,7 @@ export async function getDashboardStats(start?: Date, end?: Date) {
   });
 
   const accounts = await prisma.account.findMany({
-    where: { workspaceId: session.user.workspaceId },
+    where: { workspaceId },
   });
 
   const totalBalance = accounts.reduce((acc, a) => acc + Number(a.balance), 0);
@@ -43,13 +45,105 @@ export async function getDashboardStats(start?: Date, end?: Date) {
 
   const balance = totalIncome - totalExpense;
 
+  // Last Month Stats for Comparison
+  let lastMonthIncome = 0;
+  let lastMonthExpense = 0;
+
+  if (start && end) {
+    const lastStart = subMonths(start, 1);
+    const lastEnd = subMonths(end, 1);
+
+    const lastTransactions = await prisma.transaction.findMany({
+      where: {
+        workspaceId,
+        date: { gte: lastStart, lte: lastEnd },
+      },
+    });
+
+    lastMonthIncome = lastTransactions
+      .filter((t) => t.type === TransactionType.INCOME)
+      .reduce((acc, t) => acc + Number(t.amount), 0);
+
+    lastMonthExpense = lastTransactions
+      .filter((t) => t.type === TransactionType.EXPENSE)
+      .reduce((acc, t) => acc + Number(t.amount), 0);
+  }
+
+  const incomeGrowth = lastMonthIncome > 0 ? ((totalIncome - lastMonthIncome) / lastMonthIncome) * 100 : 0;
+  const expenseGrowth = lastMonthExpense > 0 ? ((totalExpense - lastMonthExpense) / lastMonthExpense) * 100 : 0;
+
   return {
     totalIncome,
     totalExpense,
     totalBalance,
     balance,
     pendingToPay,
+    incomeGrowth,
+    expenseGrowth,
   };
+}
+
+export async function getCashFlowProjection(days: number = 30) {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error("Unauthorized");
+
+  const today = new Date();
+  const futureDate = new Date();
+  futureDate.setDate(today.getDate() + days);
+
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      workspaceId: session.user.workspaceId,
+      date: {
+        gte: startOfMonth(today),
+        lte: futureDate,
+      },
+      status: { in: ["PENDING", "PAID"] },
+    },
+    orderBy: { date: "asc" },
+  });
+
+  const accounts = await prisma.account.findMany({
+    where: { workspaceId: session.user.workspaceId },
+  });
+
+  let currentBalance = accounts.reduce((acc, a) => acc + Number(a.balance), 0);
+  // Subtract already paid transactions from today onwards to not double count? 
+  // Actually, we should start from current balance and process all future PENDING transactions.
+
+  const projection = [];
+  let tempBalance = currentBalance;
+
+  // Group by date
+  const groupedDates: Record<string, any[]> = {};
+  transactions.forEach(t => {
+    if (t.status === "PAID" && t.date < today) return; // Only future or current balance impact
+    const dStr = format(t.date, "yyyy-MM-dd");
+    if (!groupedDates[dStr]) groupedDates[dStr] = [];
+    groupedDates[dStr].push(t);
+  });
+
+  for (let i = 0; i < days; i++) {
+    const d = new Date();
+    d.setDate(today.getDate() + i);
+    const dStr = format(d, "yyyy-MM-dd");
+    
+    const dayTransactions = groupedDates[dStr] || [];
+    dayTransactions.forEach(t => {
+      if (t.status === "PENDING") {
+        const amt = Number(t.amount);
+        tempBalance += t.type === "INCOME" ? amt : -amt;
+      }
+    });
+
+    projection.push({
+      date: dStr,
+      balance: tempBalance,
+      label: format(d, "dd/MM"),
+    });
+  }
+
+  return projection;
 }
 
 export async function getBudgetData(month: number, year: number) {
@@ -108,6 +202,38 @@ export async function getGoalsData() {
     currentAmount: Number(goal.currentAmount),
     percent: (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100,
   }));
+}
+
+export async function getFinancialInsights() {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error("Unauthorized");
+
+  const today = new Date();
+  const start = startOfMonth(today);
+  const end = endOfMonth(today);
+
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      workspaceId: session.user.workspaceId,
+      date: { gte: start, lte: end },
+    },
+    include: { category: true },
+  });
+
+  // Calculate top spending category
+  const categorySpending: Record<string, number> = {};
+  transactions
+    .filter((t) => t.type === TransactionType.EXPENSE)
+    .forEach((t) => {
+      categorySpending[t.category.name] = (categorySpending[t.category.name] || 0) + Number(t.amount);
+    });
+
+  const topCategory = Object.entries(categorySpending).sort((a, b) => b[1] - a[1])[0];
+
+  return {
+    topCategory: topCategory ? { name: topCategory[0], amount: topCategory[1] } : null,
+    totalCount: transactions.length,
+  };
 }
 
 export async function getRecentTransactions(start?: Date, end?: Date) {
