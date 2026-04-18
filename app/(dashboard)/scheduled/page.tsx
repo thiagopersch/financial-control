@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { CalendarClock, Plus, MoreHorizontal, Play, Pause, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -31,24 +30,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-
-interface ScheduledTransaction {
-  id: string;
-  name: string;
-  type: string;
-  amount: number;
-  frequency: string;
-  nextRun: string;
-  isActive: boolean;
-  category: { name: string };
-}
+import {
+  useScheduledTransactions,
+  useCategories,
+  type ScheduledTransaction,
+} from "@/lib/queries/scheduled";
+import {
+  createScheduledTransaction,
+  deleteScheduledTransaction,
+  toggleScheduledTransaction,
+} from "@/lib/actions/scheduled";
 
 export default function ScheduledPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [scheduled, setScheduled] = useState<ScheduledTransaction[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+
+  const { transactions, isLoading, refresh } = useScheduledTransactions();
+  const { categories } = useCategories();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -58,39 +56,6 @@ export default function ScheduledPage() {
     dayOfMonth: "1",
     categoryId: "",
   });
-
-  useEffect(() => {
-    fetchScheduled();
-    fetchCategories();
-  }, []);
-
-  const fetchScheduled = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/scheduled-transactions");
-      if (response.ok) {
-        const data = await response.json();
-        setScheduled(data.transactions || []);
-      }
-    } catch (error) {
-      console.error("Error fetching scheduled:", error);
-      toast.error("Erro ao carregar agendamentos");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch("/api/categories");
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data.categories || []);
-      }
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,21 +70,17 @@ export default function ScheduledPage() {
         }
       }
 
-      const response = await fetch("/api/scheduled-transactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formData.name,
-          type: formData.type,
-          amount: parseFloat(formData.amount),
-          frequency: formData.frequency,
-          dayOfMonth: parseInt(formData.dayOfMonth),
-          categoryId: formData.categoryId,
-          nextRun: nextRun.toISOString(),
-        }),
+      const result = await createScheduledTransaction({
+        name: formData.name,
+        type: formData.type as "INCOME" | "EXPENSE",
+        amount: parseFloat(formData.amount),
+        frequency: formData.frequency as "DAILY" | "WEEKLY" | "MONTHLY" | "BUSINESS_DAYS",
+        dayOfMonth: parseInt(formData.dayOfMonth),
+        categoryId: formData.categoryId,
+        nextRun: nextRun.toISOString(),
       });
 
-      if (response.ok) {
+      if (result.success) {
         toast.success("Agendamento criado com sucesso");
         setIsDialogOpen(false);
         setFormData({
@@ -130,10 +91,9 @@ export default function ScheduledPage() {
           dayOfMonth: "1",
           categoryId: "",
         });
-        fetchScheduled();
+        refresh();
       } else {
-        const error = await response.json();
-        toast.error(error.error || "Erro ao criar agendamento");
+        toast.error(result.error || "Erro ao criar agendamento");
       }
     } catch (error) {
       toast.error("Erro ao criar agendamento");
@@ -144,15 +104,10 @@ export default function ScheduledPage() {
 
   const toggleActive = async (id: string, currentStatus: boolean) => {
     try {
-      const response = await fetch(`/api/scheduled-transactions/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !currentStatus }),
-      });
-
-      if (response.ok) {
+      const result = await toggleScheduledTransaction(id, !currentStatus);
+      if (result.success) {
         toast.success(currentStatus ? "Agendamento pausado" : "Agendamento ativado");
-        fetchScheduled();
+        refresh();
       }
     } catch (error) {
       toast.error("Erro ao atualizar agendamento");
@@ -163,13 +118,10 @@ export default function ScheduledPage() {
     if (!confirm("Tem certeza que deseja excluir este agendamento?")) return;
 
     try {
-      const response = await fetch(`/api/scheduled-transactions/${id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
+      const result = await deleteScheduledTransaction(id);
+      if (result.success) {
         toast.success("Agendamento excluído com sucesso");
-        fetchScheduled();
+        refresh();
       }
     } catch (error) {
       toast.error("Erro ao excluir agendamento");
@@ -188,10 +140,9 @@ export default function ScheduledPage() {
     WEEKLY: "Semanal",
     MONTHLY: "Mensal",
     BUSINESS_DAYS: "Dias úteis",
-    CUSTOM: "Personalizado",
   };
 
-  const activeCount = scheduled.filter((s) => s.isActive).length;
+  const activeCount = transactions.filter((s) => s.isActive).length;
 
   return (
     <div className="space-y-8">
@@ -315,7 +266,7 @@ export default function ScheduledPage() {
             <CalendarClock className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{scheduled.length}</div>
+            <div className="text-2xl font-bold">{transactions.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -333,7 +284,7 @@ export default function ScheduledPage() {
             <Pause className="h-4 w-4 text-gray-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{scheduled.length - activeCount}</div>
+            <div className="text-2xl font-bold">{transactions.length - activeCount}</div>
           </CardContent>
         </Card>
       </div>
@@ -348,7 +299,7 @@ export default function ScheduledPage() {
             </Card>
           ))}
         </div>
-      ) : scheduled.length === 0 ? (
+      ) : transactions.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <CalendarClock className="text-muted-foreground mb-4 h-12 w-12" />
@@ -360,7 +311,7 @@ export default function ScheduledPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {scheduled.map((item) => (
+          {transactions.map((item) => (
             <Card key={item.id}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex items-center gap-2">
@@ -397,8 +348,8 @@ export default function ScheduledPage() {
               <CardContent>
                 <div className="flex gap-4 text-sm">
                   <span
-                    className="font-medium text-green-600"
-                    style={item.type === "INCOME" ? {} : { color: "red" }}
+                    className="font-medium"
+                    style={item.type === "INCOME" ? { color: "green" } : { color: "red" }}
                   >
                     {item.type === "INCOME" ? "+" : "-"} {formatCurrency(item.amount)}
                   </span>

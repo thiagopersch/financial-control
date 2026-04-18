@@ -1,13 +1,14 @@
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { getBudgetData } from "@/lib/queries/dashboard";
-import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
-import { BudgetsPageClient } from "./budgets-client";
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { getBudgetData } from '@/lib/queries/dashboard';
+import { AlertCircle } from 'lucide-react';
+import { getServerSession } from 'next-auth';
+import { redirect } from 'next/navigation';
+import { BudgetsPageClient } from './budgets-client';
 
 export default async function BudgetsPage() {
   const session = await getServerSession(authOptions);
-  if (!session) redirect("/login");
+  if (!session) redirect('/login');
 
   const now = new Date();
   const budgets = await getBudgetData(now.getMonth() + 1, now.getFullYear());
@@ -15,9 +16,9 @@ export default async function BudgetsPage() {
   const categories = await prisma.category.findMany({
     where: {
       workspaceId: session.user.workspaceId,
-      type: "EXPENSE",
+      type: 'EXPENSE',
     },
-    orderBy: { name: "asc" },
+    orderBy: { name: 'asc' },
   });
 
   return (
@@ -27,6 +28,16 @@ export default async function BudgetsPage() {
         <p className="text-muted-foreground">
           Gerencie seus limites de gastos mensais por categoria.
         </p>
+        <div className="flex items-start gap-4 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/20 dark:bg-blue-900/10">
+          <AlertCircle className="mt-0.5 h-5 w-5 text-blue-600 dark:text-blue-400" />
+          <div className="text-sm text-blue-800 dark:text-blue-300">
+            <p className="font-bold">Dica Financeira</p>
+            <p>
+              Orçamentos ajudam você a manter o controle sobre gastos variáveis. Tente não
+              comprometer mais de 50% da sua receita com gastos essenciais.
+            </p>
+          </div>
+        </div>
       </div>
 
       <BudgetsPageClient initialBudgets={budgets} categories={categories} />

@@ -1,22 +1,66 @@
-"use client";
+'use client';
 
-import { GoalsWidget } from "@/components/dashboard/goals-widget";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Rocket, Target } from "lucide-react";
-import { useState } from "react";
+import { GoalsWidget } from '@/components/dashboard/goals-widget';
+import { GoalDialog, Goal } from '@/components/goals/goal-dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Plus, Rocket, Target } from 'lucide-react';
+import { useState } from 'react';
+import { deleteGoal } from '@/lib/actions/goals';
+import { toast } from 'sonner';
+import type { GoalData } from '@/types/goal';
 
 interface GoalsPageClientProps {
-  initialGoals: any[];
+  initialGoals: GoalData[];
 }
 
 export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
-  const [goals, setGoals] = useState(initialGoals);
+  const [goals, setGoals] = useState<GoalData[]>(initialGoals);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+
+  const handleSuccess = () => {
+    window.location.reload();
+  };
+
+  const handleEdit = (goal: GoalData) => {
+    setEditingGoal({
+      id: goal.id,
+      name: goal.name,
+      targetAmount: goal.targetAmount,
+      currentAmount: goal.currentAmount,
+      deadline: goal.deadline ? new Date(goal.deadline).toISOString().split('T')[0] : null,
+      color: goal.color || '#0ea5e9',
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (goalId: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta meta?')) return;
+
+    try {
+      const result = await deleteGoal(goalId);
+      if (result.success) {
+        toast.success('Meta excluída com sucesso');
+        setGoals(goals.filter((g) => g.id !== goalId));
+      } else {
+        toast.error(result.error || 'Erro ao excluir meta');
+      }
+    } catch (error) {
+      toast.error('Erro ao excluir meta');
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
-        <Button className="gap-2">
+        <Button
+          className="gap-2"
+          onClick={() => {
+            setEditingGoal(null);
+            setIsDialogOpen(true);
+          }}
+        >
           <Plus className="h-4 w-4" />
           Nova Meta
         </Button>
@@ -26,7 +70,7 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
         {goals.length > 0 ? (
           goals.map((goal) => (
             <div key={goal.id} className="lg:col-span-1">
-              <GoalsWidget goals={[goal]} />
+              <GoalsWidget goals={[goal]} onEdit={handleEdit} onDelete={handleDelete} />
             </div>
           ))
         ) : (
@@ -42,7 +86,14 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
                   primeiro passo para conquistar.
                 </p>
               </div>
-              <Button variant="outline" className="mt-4 gap-2">
+              <Button
+                variant="outline"
+                className="mt-4 gap-2"
+                onClick={() => {
+                  setEditingGoal(null);
+                  setIsDialogOpen(true);
+                }}
+              >
                 <Rocket className="h-4 w-4" />
                 Criar minha primeira meta
               </Button>
@@ -50,6 +101,13 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
           </Card>
         )}
       </div>
+
+      <GoalDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        editingGoal={editingGoal}
+        onSuccess={handleSuccess}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
 
 export async function getNotifications(limit: number = 20) {
   const session = await authOptions;
@@ -19,7 +19,7 @@ export async function getNotificationsByUserId(
       workspaceId,
     },
     orderBy: {
-      createdAt: "desc",
+      createdAt: 'desc',
     },
     take: limit,
   });
@@ -54,7 +54,7 @@ export async function getNotificationsWithPagination(
         workspaceId,
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
       skip: offset,
       take: limit,

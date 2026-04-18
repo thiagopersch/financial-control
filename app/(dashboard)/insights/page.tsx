@@ -1,14 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  ArrowRight,
-  AlertTriangle,
-  Sparkles,
-} from "lucide-react";
+import { useState } from "react";
+import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Sparkles } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,8 +18,9 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { format, subMonths, startOfMonth, endOfMonth, parseISO } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useInsights } from "@/lib/queries/insights";
 
 interface Insight {
   type: "increase" | "decrease" | "warning" | "info";
@@ -34,7 +28,8 @@ interface Insight {
   description: string;
   value?: number;
   percentage?: number;
-  icon?: "up" | "down" | "warning";
+  severity?: "info" | "warning" | "alert";
+  createdAt?: string;
 }
 
 interface CategoryComparison {
@@ -54,8 +49,9 @@ interface SpendingHighlight {
 }
 
 export default function InsightsPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [insights, setInsights] = useState<Insight[]>([]);
+  const [activeTab, setActiveTab] = useState("overview");
+  const { insights, isLoading } = useInsights();
+
   const [comparisons, setComparisons] = useState<CategoryComparison[]>([]);
   const [highlights, setHighlights] = useState<SpendingHighlight[]>([]);
   const [summary, setSummary] = useState<{
@@ -67,25 +63,29 @@ export default function InsightsPage() {
     previousNetResult: number;
   } | null>(null);
 
-  useEffect(() => {
-    fetchInsights();
-  }, []);
+  const getInsightIcon = (type: string) => {
+    switch (type) {
+      case "increase":
+        return <TrendingUp className="h-5 w-5 text-green-500" />;
+      case "decrease":
+        return <TrendingDown className="h-5 w-5 text-red-500" />;
+      case "warning":
+        return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
+      default:
+        return <Sparkles className="h-5 w-5 text-blue-500" />;
+    }
+  };
 
-  const fetchInsights = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/insights");
-      if (response.ok) {
-        const data = await response.json();
-        setInsights(data.insights || []);
-        setComparisons(data.comparisons || []);
-        setHighlights(data.highlights || []);
-        setSummary(data.summary || null);
-      }
-    } catch (error) {
-      console.error("Error fetching insights:", error);
-    } finally {
-      setIsLoading(false);
+  const getInsightBadge = (type: string) => {
+    switch (type) {
+      case "increase":
+        return <Badge className="bg-green-500">Aumento</Badge>;
+      case "decrease":
+        return <Badge className="bg-red-500">Redução</Badge>;
+      case "warning":
+        return <Badge className="bg-yellow-500">Atenção</Badge>;
+      default:
+        return <Badge>Info</Badge>;
     }
   };
 
@@ -96,233 +96,213 @@ export default function InsightsPage() {
     });
   };
 
-  const formatPercentage = (value: number) => {
-    return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
-  };
+  const COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Insights Financeiros</h1>
-        <p className="text-muted-foreground">
-          Análises e comparações automáticas do seu desempenho financeiro
-        </p>
+        <p className="text-muted-foreground">Análise inteligente dos seus dados financeiros</p>
       </div>
 
-      {summary && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Receitas (Mês Atual)</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(summary.totalIncome)}
-              </div>
-              <p className="text-muted-foreground text-xs">
-                vs {formatCurrency(summary.previousIncome)} no mês anterior
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Despesas (Mês Atual)</CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {formatCurrency(summary.totalExpense)}
-              </div>
-              <p className="text-muted-foreground text-xs">
-                vs {formatCurrency(summary.previousExpense)} no mês anterior
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Resultado Líquido</CardTitle>
-              <DollarSign className="text-muted-foreground h-4 w-4" />
-            </CardHeader>
-            <CardContent>
-              <div
-                className={`text-2xl font-bold ${summary.netResult >= 0 ? "text-green-600" : "text-red-600"}`}
-              >
-                {formatCurrency(summary.netResult)}
-              </div>
-              <p
-                className={`text-xs ${summary.netResult >= summary.previousNetResult ? "text-green-600" : "text-red-600"}`}
-              >
-                vs {formatCurrency(summary.previousNetResult)} no mês anterior
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Evolução</CardTitle>
-              {summary.netResult >= summary.previousNetResult ? (
-                <TrendingUp className="h-4 w-4 text-green-500" />
-              ) : (
-                <TrendingDown className="h-4 w-4 text-red-500" />
-              )}
-            </CardHeader>
-            <CardContent>
-              <div
-                className={`text-2xl font-bold ${summary.netResult >= summary.previousNetResult ? "text-green-600" : "text-red-600"}`}
-              >
-                {formatPercentage(
-                  ((summary.netResult - summary.previousNetResult) /
-                    Math.abs(summary.previousNetResult || 1)) *
-                    100,
-                )}
-              </div>
-              <p className="text-muted-foreground text-xs">
-                {summary.netResult >= summary.previousNetResult ? "Melhor que" : "Pior que"} mês
-                anterior
-              </p>
-            </CardContent>
-          </Card>
+      {isLoading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="py-4">
+                <div className="bg-muted h-20 rounded" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      )}
-
-      {insights.length > 0 && (
-        <Card className="border-yellow-200 bg-yellow-50/50 dark:bg-yellow-950/20">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-yellow-600" />
-              <CardTitle>Destaques</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {insights.map((insight, index) => (
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Receita do Mês</CardTitle>
+                <DollarSign className="text-muted-foreground h-4 w-4" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(summary?.totalIncome || 0)}
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  {summary && summary.previousIncome > 0
+                    ? `${(((summary.totalIncome - summary.previousIncome) / summary.previousIncome) * 100).toFixed(1)}% vs mês anterior`
+                    : "Dados não disponíveis"}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Despesas do Mês</CardTitle>
+                <TrendingDown className="text-muted-foreground h-4 w-4" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(summary?.totalExpense || 0)}
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  {summary && summary.previousExpense > 0
+                    ? `${(((summary.totalExpense - summary.previousExpense) / summary.previousExpense) * 100).toFixed(1)}% vs mês anterior`
+                    : "Dados não disponíveis"}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Saldo do Mês</CardTitle>
+                {summary?.netResult && summary.netResult >= 0 ? (
+                  <TrendingUp className="h-4 w-4 text-green-500" />
+                ) : (
+                  <TrendingDown className="h-4 w-4 text-red-500" />
+                )}
+              </CardHeader>
+              <CardContent>
                 <div
-                  key={index}
-                  className={`rounded-lg border p-4 ${
-                    insight.type === "warning"
-                      ? "border-yellow-300 bg-yellow-100/50 dark:bg-yellow-900/30"
-                      : insight.type === "increase"
-                        ? "border-green-300 bg-green-100/50 dark:bg-green-900/30"
-                        : insight.type === "decrease"
-                          ? "border-red-300 bg-red-100/50 dark:bg-red-900/30"
-                          : "border-blue-300 bg-blue-100/50 dark:bg-blue-900/30"
-                  }`}
+                  className={`text-2xl font-bold ${summary?.netResult && summary.netResult >= 0 ? "text-green-500" : "text-red-500"}`}
                 >
-                  <div className="flex items-start gap-2">
-                    {insight.type === "warning" && (
-                      <AlertTriangle className="mt-0.5 h-5 w-5 text-yellow-600" />
-                    )}
-                    {insight.type === "increase" && (
-                      <TrendingUp className="mt-0.5 h-5 w-5 text-green-600" />
-                    )}
-                    {insight.type === "decrease" && (
-                      <TrendingDown className="mt-0.5 h-5 w-5 text-red-600" />
-                    )}
-                    <div>
-                      <p className="font-medium">{insight.title}</p>
-                      <p className="text-muted-foreground text-sm">{insight.description}</p>
-                    </div>
-                  </div>
+                  {formatCurrency(summary?.netResult || 0)}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                <p className="text-muted-foreground text-xs">
+                  {summary?.previousNetResult
+                    ? `${(((summary.netResult - summary.previousNetResult) / Math.abs(summary.previousNetResult)) * 100).toFixed(1)}% vs mês anterior`
+                    : "Dados não disponíveis"}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-      <Tabs defaultValue="comparisons">
-        <TabsList>
-          <TabsTrigger value="comparisons">Comparativo</TabsTrigger>
-          <TabsTrigger value="highlights">Maiores Gastos</TabsTrigger>
-        </TabsList>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList>
+              <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+              <TabsTrigger value="trends">Tendências</TabsTrigger>
+              <TabsTrigger value="alerts">Alertas</TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="comparisons" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Comparativo por Categoria</CardTitle>
-              <CardDescription>Mês atual vs mês anterior</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex h-[400px] items-center justify-center">
-                  <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
-                </div>
-              ) : comparisons.length === 0 ? (
-                <div className="text-muted-foreground flex h-[400px] items-center justify-center">
-                  Dados insuficientes para comparação
-                </div>
-              ) : (
-                <div className="h-[400px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={comparisons} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis type="number" tickFormatter={(v) => formatCurrency(v)} />
-                      <YAxis dataKey="category" type="category" width={100} />
-                      <Tooltip
-                        formatter={(value, name) => [
-                          formatCurrency(Number(value)),
-                          name === "currentMonth" ? "Mês Atual" : "Mês Anterior",
+            <TabsContent value="overview" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Resumo do Mês</CardTitle>
+                  <CardDescription>Comparação entre receitas e despesas</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={[
+                          { name: "Receitas", value: summary?.totalIncome || 0 },
+                          { name: "Despesas", value: summary?.totalExpense || 0 },
                         ]}
-                      />
-                      <Bar dataKey="currentMonth" fill="#6366f1" name="Mês Atual" />
-                      <Bar dataKey="previousMonth" fill="#94a3b8" name="Mês Anterior" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#0ea5e9" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
 
-        <TabsContent value="highlights" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Maiores Gastos do Mês</CardTitle>
-              <CardDescription>Categorias com maior impacto no seu orçamento</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-4">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="bg-muted h-16 animate-pulse rounded" />
-                  ))}
-                </div>
-              ) : highlights.length === 0 ? (
-                <div className="text-muted-foreground flex h-[300px] items-center justify-center">
-                  Nenhum gasto registrado
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {highlights.map((highlight, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="h-3 w-3 rounded-full"
-                            style={{ backgroundColor: highlight.color }}
-                          />
-                          <span className="font-medium">{highlight.category}</span>
+              {highlights.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Destaques de Gastos</CardTitle>
+                    <CardDescription>Categorias com maior participação</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {highlights.map((item, index) => (
+                        <div key={index} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-3 w-3 rounded-full"
+                              style={{ backgroundColor: item.color }}
+                            />
+                            <span className="font-medium">{item.category}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold">{formatCurrency(item.amount)}</span>
+                            <span className="text-muted-foreground ml-2 text-sm">
+                              ({item.percentage.toFixed(1)}%)
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold">{formatCurrency(highlight.amount)}</span>
-                          <Badge variant="outline">
-                            {highlight.percentage.toFixed(1)}%{highlight.trend === "up" && " ↑"}
-                            {highlight.trend === "down" && " ↓"}
-                          </Badge>
-                        </div>
-                      </div>
-                      <Progress value={highlight.percentage} className="h-2" />
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </CardContent>
+                </Card>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </TabsContent>
+
+            <TabsContent value="trends" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Comparação Mensal</CardTitle>
+                  <CardDescription>Evolução por categoria</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={comparisons}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="category" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="currentMonth" fill="#0ea5e9" name="Mês Atual" />
+                        <Bar dataKey="previousMonth" fill="#94a3b8" name="Mês Anterior" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="alerts" className="space-y-4">
+              {insights.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <Sparkles className="text-muted-foreground mb-4 h-12 w-12" />
+                    <h3 className="text-lg font-semibold">Nenhum alerta</h3>
+                    <p className="text-muted-foreground mt-2 text-center">
+                      Seus insights estarão disponíveis em breve
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                insights.map((insight, index) => (
+                  <Card key={index}>
+                    <CardHeader className="flex flex-row items-center gap-4">
+                      {getInsightIcon(insight.type)}
+                      <div className="flex-1">
+                        <CardTitle className="text-base">{insight.title}</CardTitle>
+                        <CardDescription>{insight.description}</CardDescription>
+                      </div>
+                      {getInsightBadge(insight.type)}
+                    </CardHeader>
+                    {insight.value !== undefined && (
+                      <CardContent>
+                        <div className="text-2xl font-bold">
+                          {formatCurrency(insight.value)}
+                          {insight.percentage !== undefined && (
+                            <span className="text-muted-foreground ml-2 text-sm font-normal">
+                              ({insight.percentage > 0 ? "+" : ""}
+                              {insight.percentage.toFixed(1)}%)
+                            </span>
+                          )}
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                ))
+              )}
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
     </div>
   );
 }

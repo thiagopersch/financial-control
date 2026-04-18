@@ -1,23 +1,54 @@
-"use client";
+'use client';
 
-import { BudgetWidget } from "@/components/dashboard/budget-widget";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle, PieChart, Plus } from "lucide-react";
-import { useState } from "react";
+import { BudgetDialog } from '@/components/budgets/budget-dialog';
+import { BudgetWidget } from '@/components/dashboard/budget-widget';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { PieChart, Plus } from 'lucide-react';
+import { useState } from 'react';
+
+interface Category {
+  id: string;
+  name: string;
+}
 
 interface BudgetsPageClientProps {
   initialBudgets: any[];
-  categories: any[];
+  categories: Category[];
 }
 
 export function BudgetsPageClient({ initialBudgets, categories }: BudgetsPageClientProps) {
   const [budgets, setBudgets] = useState(initialBudgets);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<any | null>(null);
+
+  const handleSuccess = () => {
+    window.location.reload();
+  };
+
+  const handleEdit = (budget: any) => {
+    setEditingBudget({
+      id: budget.id,
+      categoryId: budget.categoryId,
+      amount: budget.amount,
+      month: budget.month,
+      year: budget.year,
+      alertAt80: budget.alertAt80,
+      alertAt100: budget.alertAt100,
+    });
+    setIsDialogOpen(true);
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
-        <Button className="gap-2">
+        <Button
+          className="gap-2"
+          onClick={() => {
+            setEditingBudget(null);
+            setIsDialogOpen(true);
+          }}
+        >
           <Plus className="h-4 w-4" />
           Configurar Orçamento
         </Button>
@@ -43,7 +74,14 @@ export function BudgetsPageClient({ initialBudgets, categories }: BudgetsPageCli
                   atingi-los.
                 </p>
               </div>
-              <Button variant="outline" className="mt-4">
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => {
+                  setEditingBudget(null);
+                  setIsDialogOpen(true);
+                }}
+              >
                 Começar agora
               </Button>
             </CardContent>
@@ -51,16 +89,13 @@ export function BudgetsPageClient({ initialBudgets, categories }: BudgetsPageCli
         )}
       </div>
 
-      <div className="flex items-start gap-4 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/20 dark:bg-blue-900/10">
-        <AlertCircle className="mt-0.5 h-5 w-5 text-blue-600 dark:text-blue-400" />
-        <div className="text-sm text-blue-800 dark:text-blue-300">
-          <p className="font-bold">Dica Financeira</p>
-          <p>
-            Orçamentos ajudam você a manter o controle sobre gastos variáveis. Tente não comprometer
-            mais de 50% da sua receita com gastos essenciais.
-          </p>
-        </div>
-      </div>
+      <BudgetDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        categories={categories}
+        editingBudget={editingBudget}
+        onSuccess={handleSuccess}
+      />
     </div>
   );
 }
