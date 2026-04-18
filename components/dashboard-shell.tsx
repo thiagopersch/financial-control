@@ -1,7 +1,7 @@
 "use client";
 
 import { ModeToggle } from "@/components/mode-toggle";
-import { routes } from "@/components/sidebar/routes";
+import { flatRoutes } from "@/components/sidebar/routes";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -14,7 +14,7 @@ import { usePathname } from "next/navigation";
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { isCollapsed, isOpen, onOpen, onClose } = useSidebar();
   const pathname = usePathname();
-  const route = routes.find((route) => route.href === pathname);
+  const route = flatRoutes.find((route) => route.href === pathname);
   const title = route?.label.toUpperCase();
 
   return (

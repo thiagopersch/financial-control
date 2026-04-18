@@ -1,32 +1,46 @@
 import {
+  AlertTriangle,
+  BarChart3,
+  Bot,
+  Building2,
+  Calculator,
+  CalendarClock,
+  CreditCard,
+  DollarSign,
+  FileBarChart,
+  FileText,
+  GitBranch,
+  GitCompare,
   Landmark,
   LayoutDashboard,
   PieChart,
+  RefreshCw,
+  ScrollText,
   Settings,
+  Sparkles,
   Tag,
   Target,
+  TrendingUp,
   Truck,
   Users,
   Wallet,
   Zap,
-  CreditCard,
-  Building2,
-  TrendingUp,
-  BarChart3,
-  FileText,
-  GitBranch,
-  CalendarClock,
-  FileBarChart,
-  RefreshCw,
-  Bot,
-  Brain,
-  MessageSquare,
-  AlertTriangle,
-  GitCompare,
-  ScrollText,
 } from "lucide-react";
 
-const routes = [
+export interface Route {
+  label: string;
+  icon?: any;
+  href: string;
+  color?: string;
+}
+
+export interface RouteGroup {
+  title: string;
+  icon: any;
+  routes: Route[];
+}
+
+const dashboardRoutes: Route[] = [
   {
     label: "Dashboard",
     icon: LayoutDashboard,
@@ -39,6 +53,9 @@ const routes = [
     href: "/transactions",
     color: "text-violet-500",
   },
+];
+
+const accountsRoutes: Route[] = [
   {
     label: "Contas",
     icon: Landmark,
@@ -52,6 +69,15 @@ const routes = [
     color: "text-indigo-500",
   },
   {
+    label: "Dívidas",
+    icon: AlertTriangle,
+    href: "/debts",
+    color: "text-red-500",
+  },
+];
+
+const budgetsRoutes: Route[] = [
+  {
     label: "Orçamentos",
     icon: PieChart,
     href: "/budgets",
@@ -63,12 +89,9 @@ const routes = [
     href: "/goals",
     color: "text-amber-500",
   },
-  {
-    label: "Dívidas",
-    icon: AlertTriangle,
-    href: "/debts",
-    color: "text-red-500",
-  },
+];
+
+const categoriesRoutes: Route[] = [
   {
     label: "Categorias",
     icon: Tag,
@@ -87,6 +110,9 @@ const routes = [
     href: "/suppliers",
     color: "text-orange-700",
   },
+];
+
+const financialRoutes: Route[] = [
   {
     label: "Fluxo de Caixa",
     icon: TrendingUp,
@@ -107,10 +133,13 @@ const routes = [
   },
   {
     label: "Previsão",
-    icon: TrendingUp,
+    icon: Calculator,
     href: "/forecast",
     color: "text-teal-500",
   },
+];
+
+const automationRoutes: Route[] = [
   {
     label: "Automação",
     icon: GitBranch,
@@ -123,6 +152,15 @@ const routes = [
     href: "/scheduled",
     color: "text-blue-400",
   },
+  {
+    label: "Regras",
+    icon: Zap,
+    href: "/rules",
+    color: "text-yellow-500",
+  },
+];
+
+const reportsRoutes: Route[] = [
   {
     label: "Relatórios",
     icon: FileBarChart,
@@ -141,6 +179,9 @@ const routes = [
     href: "/reconciliation",
     color: "text-cyan-600",
   },
+];
+
+const aiRoutes: Route[] = [
   {
     label: "Assistente IA",
     icon: Bot,
@@ -153,12 +194,9 @@ const routes = [
     href: "/audit",
     color: "text-gray-500",
   },
-  {
-    label: "Regras",
-    icon: Zap,
-    href: "/rules",
-    color: "text-yellow-500",
-  },
+];
+
+const systemRoutes: Route[] = [
   {
     label: "Usuários",
     icon: Users,
@@ -172,4 +210,62 @@ const routes = [
   },
 ];
 
-export { routes };
+export const routeGroups: RouteGroup[] = [
+  {
+    title: "Principal",
+    icon: LayoutDashboard,
+    routes: dashboardRoutes,
+  },
+  {
+    title: "Contas",
+    icon: Landmark,
+    routes: accountsRoutes,
+  },
+  {
+    title: "Orçamento",
+    icon: PieChart,
+    routes: budgetsRoutes,
+  },
+  {
+    title: "Organização",
+    icon: Tag,
+    routes: categoriesRoutes,
+  },
+  {
+    title: "Financeiro",
+    icon: DollarSign,
+    routes: financialRoutes,
+  },
+  {
+    title: "Automação",
+    icon: GitBranch,
+    routes: automationRoutes,
+  },
+  {
+    title: "Relatórios",
+    icon: FileBarChart,
+    routes: reportsRoutes,
+  },
+  {
+    title: "Inteligência",
+    icon: Sparkles,
+    routes: aiRoutes,
+  },
+  {
+    title: "Sistema",
+    icon: Settings,
+    routes: systemRoutes,
+  },
+];
+
+export const flatRoutes = [
+  ...dashboardRoutes,
+  ...accountsRoutes,
+  ...budgetsRoutes,
+  ...categoriesRoutes,
+  ...financialRoutes,
+  ...automationRoutes,
+  ...reportsRoutes,
+  ...aiRoutes,
+  ...systemRoutes,
+];

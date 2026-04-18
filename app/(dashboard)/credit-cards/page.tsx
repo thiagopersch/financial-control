@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CreditCard, Plus, MoreHorizontal, DollarSign, Calendar, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,7 +42,6 @@ interface Account {
 
 interface CreditCardData {
   id: string;
-  name: string;
   limit: number;
   usedAmount: number;
   availableLimit: number;
@@ -75,7 +74,6 @@ export default function CreditCardsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: "",
     limit: "",
     closingDay: "",
     dueDay: "",
@@ -83,9 +81,9 @@ export default function CreditCardsPage() {
     color: "#6366f1",
   });
 
-  useState(() => {
+  useEffect(() => {
     fetchData();
-  });
+  }, []);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -121,7 +119,6 @@ export default function CreditCardsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: formData.name,
           limit: parseFloat(formData.limit),
           closingDay: parseInt(formData.closingDay),
           dueDay: parseInt(formData.dueDay),
@@ -134,7 +131,6 @@ export default function CreditCardsPage() {
         toast.success("Cartão de crédito criado com sucesso");
         setIsDialogOpen(false);
         setFormData({
-          name: "",
           limit: "",
           closingDay: "",
           dueDay: "",
@@ -214,16 +210,6 @@ export default function CreditCardsPage() {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome do Cartão</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: Nubank, Itaú"
-                  required
-                />
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="limit">Limite</Label>
                 <Input
@@ -329,7 +315,7 @@ export default function CreditCardsPage() {
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex items-center gap-2">
                   <CreditCard className="h-5 w-5" style={{ color: card.color }} />
-                  <CardTitle className="text-lg">{card.name}</CardTitle>
+                  <CardTitle className="text-lg">{card.account?.name || "Cartão"}</CardTitle>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

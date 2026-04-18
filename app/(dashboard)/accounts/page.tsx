@@ -5,7 +5,7 @@ export default async function AccountsPage() {
   const accounts = await getAccounts();
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="py-6">
       <AccountsList accounts={accounts} />
     </div>
   );

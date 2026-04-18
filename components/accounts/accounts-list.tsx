@@ -96,8 +96,9 @@ export function AccountsList({ accounts }: AccountsListProps) {
           return (
             <Card
               key={account.id}
-              className="overflow-hidden border-l-4 transition-all hover:shadow-md"
+              className="cursor-pointer overflow-hidden border-l-4 transition-all hover:shadow-md"
               style={{ borderLeftColor: account.color || "#000000" }}
+              onClick={() => openEditModal(account)}
             >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex items-center gap-2">
