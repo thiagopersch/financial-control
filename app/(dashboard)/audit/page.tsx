@@ -1,10 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ScrollText, Search, Filter, User, Calendar, ArrowUpDown } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -13,6 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar, ScrollText, Search, User } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 interface AuditLog {

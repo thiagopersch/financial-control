@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { chatWithAI, createConversation, deleteConversation } from "@/lib/actions/ai-assistant";
 import type { AIMessage } from "@/types/ai";
-import { Bot, Copy, Loader2, MessageSquare, Plus, Send, Sparkles, Trash2 } from "lucide-react";
+import { Bot, Loader2, MessageSquare, Plus, Send, Sparkles, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
@@ -170,21 +170,6 @@ export default function AIAssistantPage() {
     refreshMessages,
   ]);
 
-  const handleSuggestion = (question: string) => {
-    setInput(question);
-  };
-
-  const generatePromptForAI = () => {
-    return messages
-      .map((m) => `${m.role === "user" ? "Usuário" : "Assistente"}: ${m.content}`)
-      .join("\n\n");
-  };
-
-  const handleCopyPrompt = () => {
-    navigator.clipboard.writeText(generatePromptForAI());
-    toast.success("Contexto copiado para área de transferência");
-  };
-
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -193,12 +178,6 @@ export default function AIAssistantPage() {
           <p className="text-muted-foreground">
             Converse sobre suas finanças com IA integrada ao Gemini
           </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleCopyPrompt} disabled={messages.length === 0}>
-            <Copy className="mr-2 h-4 w-4" />
-            Copiar Contexto
-          </Button>
         </div>
       </div>
 
