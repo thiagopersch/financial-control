@@ -1,14 +1,14 @@
 'use client';
 
 import { GoalsWidget } from '@/components/dashboard/goals-widget';
-import { GoalDialog, Goal } from '@/components/goals/goal-dialog';
+import { Goal, GoalDialog } from '@/components/goals/goal-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { deleteGoal } from '@/lib/actions/goals';
+import type { GoalData } from '@/types/goal';
 import { Plus, Rocket, Target } from 'lucide-react';
 import { useState } from 'react';
-import { deleteGoal } from '@/lib/actions/goals';
 import { toast } from 'sonner';
-import type { GoalData } from '@/types/goal';
 
 interface GoalsPageClientProps {
   initialGoals: GoalData[];

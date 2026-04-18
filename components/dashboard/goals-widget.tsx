@@ -10,10 +10,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { formatCurrency } from '@/lib/utils';
+import type { GoalData } from '@/types/goal';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar, MoreHorizontal, Pencil, Target, Trash2, TrendingUp } from 'lucide-react';
-import type { GoalData } from '@/types/goal';
 
 interface GoalsWidgetProps {
   goals: GoalData[];
@@ -55,9 +55,6 @@ export function GoalsWidget({ goals, onEdit, onDelete }: GoalsWidgetProps) {
           key={goal.id}
           className="border-primary/20 col-span-full overflow-hidden shadow-sm xl:col-span-1"
         >
-          <div className="absolute top-0 right-0 p-4 opacity-5">
-            <Target size={120} />
-          </div>
           <CardHeader className="flex flex-row items-start justify-between pb-2">
             <div className="flex-1">
               <CardTitle className="flex items-center gap-2">
