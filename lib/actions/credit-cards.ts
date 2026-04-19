@@ -32,6 +32,14 @@ export async function createCreditCard(data: z.infer<typeof creditCardSchema>) {
       return { success: false, error: "Conta não encontrada" };
     }
 
+    const existingCard = await prisma.creditCard.findUnique({
+      where: { accountId: validated.accountId },
+    });
+
+    if (existingCard) {
+      return { success: false, error: "Esta conta já possui um cartão de crédito vinculado" };
+    }
+
     const creditCard = await prisma.creditCard.create({
       data: {
         limit: validated.limit,
@@ -45,6 +53,28 @@ export async function createCreditCard(data: z.infer<typeof creditCardSchema>) {
       },
     });
 
+    const createdCard = {
+      id: creditCard.id,
+      accountId: creditCard.accountId,
+      limit: Number(creditCard.limit),
+      usedAmount: Number(creditCard.usedAmount),
+      closingDay: creditCard.closingDay,
+      dueDay: creditCard.dueDay,
+      color: creditCard.color,
+      account: {
+        id: creditCard.account.id,
+        name: creditCard.account.name,
+        type: creditCard.account.type,
+        balance: Number(creditCard.account.balance),
+        color: creditCard.account.color,
+        workspaceId: creditCard.account.workspaceId,
+        createdAt: creditCard.account.createdAt.toISOString(),
+        updatedAt: creditCard.account.updatedAt.toISOString(),
+      },
+      createdAt: creditCard.createdAt.toISOString(),
+      updatedAt: creditCard.updatedAt.toISOString(),
+    };
+
     await createAuditLog({
       action: "CREATE_CREDIT_CARD",
       entity: "CreditCard",
@@ -54,7 +84,7 @@ export async function createCreditCard(data: z.infer<typeof creditCardSchema>) {
 
     revalidatePath("/credit-cards");
     revalidatePath("/accounts");
-    return { success: true, data: creditCard };
+    return { success: true, data: createdCard };
   } catch (error) {
     console.error("Error creating credit card:", error);
     return { success: false, error: "Erro ao criar cartão de crédito" };
@@ -87,6 +117,28 @@ export async function updateCreditCard(id: string, data: z.infer<typeof creditCa
       },
     });
 
+    const updatedCard = {
+      id: creditCard.id,
+      accountId: creditCard.accountId,
+      limit: Number(creditCard.limit),
+      usedAmount: Number(creditCard.usedAmount),
+      closingDay: creditCard.closingDay,
+      dueDay: creditCard.dueDay,
+      color: creditCard.color,
+      account: {
+        id: creditCard.account.id,
+        name: creditCard.account.name,
+        type: creditCard.account.type,
+        balance: Number(creditCard.account.balance),
+        color: creditCard.account.color,
+        workspaceId: creditCard.account.workspaceId,
+        createdAt: creditCard.account.createdAt.toISOString(),
+        updatedAt: creditCard.account.updatedAt.toISOString(),
+      },
+      createdAt: creditCard.createdAt.toISOString(),
+      updatedAt: creditCard.updatedAt.toISOString(),
+    };
+
     await createAuditLog({
       action: "UPDATE_CREDIT_CARD",
       entity: "CreditCard",
@@ -96,7 +148,7 @@ export async function updateCreditCard(id: string, data: z.infer<typeof creditCa
 
     revalidatePath("/credit-cards");
     revalidatePath("/accounts");
-    return { success: true, data: creditCard };
+    return { success: true, data: updatedCard };
   } catch (error) {
     console.error("Error updating credit card:", error);
     return { success: false, error: "Erro ao atualizar cartão de crédito" };

@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { CalendarClock, Plus, MoreHorizontal, Play, Pause, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from 'react';
+import { CalendarClock, Plus, MoreHorizontal, Play, Pause, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -11,135 +11,146 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
+} from '@/components/ui/select';
+import { showError, showSuccess, showValidationErrors } from '@/lib/utils/toast';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import {
   useScheduledTransactions,
   useCategories,
   type ScheduledTransaction,
-} from "@/lib/queries/scheduled";
+} from '@/lib/queries/scheduled';
 import {
   createScheduledTransaction,
   deleteScheduledTransaction,
   toggleScheduledTransaction,
-} from "@/lib/actions/scheduled";
+} from '@/lib/actions/scheduled';
+
+const scheduledSchema = z.object({
+  name: z.string().min(1, 'Nome é obrigatório'),
+  type: z.enum(['INCOME', 'EXPENSE']),
+  amount: z.string().min(1, 'Valor é obrigatório'),
+  frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'BUSINESS_DAYS']),
+  dayOfMonth: z.string().min(1, 'Dia do mês é obrigatório'),
+  categoryId: z.string().min(1, 'Categoria é obrigatória'),
+});
+
+type ScheduledFormData = z.infer<typeof scheduledSchema>;
 
 export default function ScheduledPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { transactions, isLoading, refresh } = useScheduledTransactions();
   const { categories } = useCategories();
 
-  const [formData, setFormData] = useState({
-    name: "",
-    type: "EXPENSE",
-    amount: "",
-    frequency: "MONTHLY",
-    dayOfMonth: "1",
-    categoryId: "",
+  const form = useForm<ScheduledFormData>({
+    defaultValues: {
+      name: '',
+      type: 'EXPENSE',
+      amount: '',
+      frequency: 'MONTHLY',
+      dayOfMonth: '1',
+      categoryId: '',
+    },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
+  const handleSubmit = async (data: ScheduledFormData) => {
     try {
       const nextRun = new Date();
-      if (formData.frequency === "MONTHLY") {
-        nextRun.setDate(parseInt(formData.dayOfMonth));
+      if (data.frequency === 'MONTHLY') {
+        nextRun.setDate(parseInt(data.dayOfMonth));
         if (nextRun < new Date()) {
           nextRun.setMonth(nextRun.getMonth() + 1);
         }
       }
 
       const result = await createScheduledTransaction({
-        name: formData.name,
-        type: formData.type as "INCOME" | "EXPENSE",
-        amount: parseFloat(formData.amount),
-        frequency: formData.frequency as "DAILY" | "WEEKLY" | "MONTHLY" | "BUSINESS_DAYS",
-        dayOfMonth: parseInt(formData.dayOfMonth),
-        categoryId: formData.categoryId,
+        name: data.name,
+        type: data.type as 'INCOME' | 'EXPENSE',
+        amount: parseFloat(data.amount),
+        frequency: data.frequency as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'BUSINESS_DAYS',
+        dayOfMonth: parseInt(data.dayOfMonth),
+        categoryId: data.categoryId,
         nextRun: nextRun.toISOString(),
       });
 
       if (result.success) {
-        toast.success("Agendamento criado com sucesso");
+        showSuccess('Agendamento criado com sucesso');
         setIsDialogOpen(false);
-        setFormData({
-          name: "",
-          type: "EXPENSE",
-          amount: "",
-          frequency: "MONTHLY",
-          dayOfMonth: "1",
-          categoryId: "",
-        });
+        form.reset();
         refresh();
       } else {
-        toast.error(result.error || "Erro ao criar agendamento");
+        showError(result.error || 'Erro ao criar agendamento');
       }
     } catch (error) {
-      toast.error("Erro ao criar agendamento");
-    } finally {
-      setIsSubmitting(false);
+      showError('Erro ao criar agendamento');
     }
   };
+
+  const onSubmit = form.handleSubmit(async (data) => {
+    const parsed = scheduledSchema.safeParse(data);
+    if (!parsed.success) {
+      showValidationErrors(parsed.error);
+      return;
+    }
+    await handleSubmit(data);
+  });
 
   const toggleActive = async (id: string, currentStatus: boolean) => {
     try {
       const result = await toggleScheduledTransaction(id, !currentStatus);
       if (result.success) {
-        toast.success(currentStatus ? "Agendamento pausado" : "Agendamento ativado");
+        showSuccess(currentStatus ? 'Agendamento pausado' : 'Agendamento ativado');
         refresh();
       }
     } catch (error) {
-      toast.error("Erro ao atualizar agendamento");
+      showError('Erro ao atualizar agendamento');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este agendamento?")) return;
+    if (!confirm('Tem certeza que deseja excluir este agendamento?')) return;
 
     try {
       const result = await deleteScheduledTransaction(id);
       if (result.success) {
-        toast.success("Agendamento excluído com sucesso");
+        showSuccess('Agendamento excluído com sucesso');
         refresh();
       }
     } catch (error) {
-      toast.error("Erro ao excluir agendamento");
+      showError('Erro ao excluir agendamento');
     }
   };
 
   const formatCurrency = (value: number) => {
-    return value.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
+    return value.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
     });
   };
 
   const frequencyLabels: Record<string, string> = {
-    DAILY: "Diário",
-    WEEKLY: "Semanal",
-    MONTHLY: "Mensal",
-    BUSINESS_DAYS: "Dias úteis",
+    DAILY: 'Diário',
+    WEEKLY: 'Semanal',
+    MONTHLY: 'Mensal',
+    BUSINESS_DAYS: 'Dias úteis',
   };
 
   const activeCount = transactions.filter((s) => s.isActive).length;
@@ -163,23 +174,20 @@ export default function ScheduledPage() {
               <DialogTitle>Novo Agendamento</DialogTitle>
               <DialogDescription>Configure uma transação recorrente ou agendada</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: Aluguel, Salário"
-                  required
-                />
+                <Input id="name" {...form.register('name')} placeholder="Ex: Aluguel, Salário" />
+                {form.formState.errors.name && (
+                  <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Tipo</Label>
                   <Select
-                    value={formData.type}
-                    onValueChange={(value) => setFormData({ ...formData, type: value })}
+                    value={form.watch('type')}
+                    onValueChange={(value) => form.setValue('type', value as 'INCOME' | 'EXPENSE')}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -196,19 +204,25 @@ export default function ScheduledPage() {
                     id="amount"
                     type="number"
                     step="0.01"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    {...form.register('amount')}
                     placeholder="0.00"
-                    required
                   />
+                  {form.formState.errors.amount && (
+                    <p className="text-sm text-red-500">{form.formState.errors.amount.message}</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Frequência</Label>
                   <Select
-                    value={formData.frequency}
-                    onValueChange={(value) => setFormData({ ...formData, frequency: value })}
+                    value={form.watch('frequency')}
+                    onValueChange={(value) =>
+                      form.setValue(
+                        'frequency',
+                        value as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'BUSINESS_DAYS',
+                      )
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -228,16 +242,20 @@ export default function ScheduledPage() {
                     type="number"
                     min="1"
                     max="31"
-                    value={formData.dayOfMonth}
-                    onChange={(e) => setFormData({ ...formData, dayOfMonth: e.target.value })}
+                    {...form.register('dayOfMonth')}
                   />
+                  {form.formState.errors.dayOfMonth && (
+                    <p className="text-sm text-red-500">
+                      {form.formState.errors.dayOfMonth.message}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Categoria</Label>
                 <Select
-                  value={formData.categoryId}
-                  onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
+                  value={form.watch('categoryId')}
+                  onValueChange={(value) => form.setValue('categoryId', value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione uma categoria" />
@@ -250,9 +268,12 @@ export default function ScheduledPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {form.formState.errors.categoryId && (
+                  <p className="text-sm text-red-500">{form.formState.errors.categoryId.message}</p>
+                )}
               </div>
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "Criando..." : "Criar Agendamento"}
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Criando...' : 'Criar Agendamento'}
               </Button>
             </form>
           </DialogContent>
@@ -316,11 +337,11 @@ export default function ScheduledPage() {
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex items-center gap-2">
                   <CalendarClock
-                    className={`h-5 w-5 ${item.isActive ? "text-blue-500" : "text-gray-400"}`}
+                    className={`h-5 w-5 ${item.isActive ? 'text-blue-500' : 'text-gray-400'}`}
                   />
                   <CardTitle className="text-lg">{item.name}</CardTitle>
-                  <Badge variant={item.isActive ? "default" : "secondary"}>
-                    {item.isActive ? "Ativo" : "Inativo"}
+                  <Badge variant={item.isActive ? 'default' : 'secondary'}>
+                    {item.isActive ? 'Ativo' : 'Inativo'}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2">
@@ -349,9 +370,9 @@ export default function ScheduledPage() {
                 <div className="flex gap-4 text-sm">
                   <span
                     className="font-medium"
-                    style={item.type === "INCOME" ? { color: "green" } : { color: "red" }}
+                    style={item.type === 'INCOME' ? { color: 'green' } : { color: 'red' }}
                   >
-                    {item.type === "INCOME" ? "+" : "-"} {formatCurrency(item.amount)}
+                    {item.type === 'INCOME' ? '+' : '-'} {formatCurrency(item.amount)}
                   </span>
                   <span className="text-muted-foreground">|</span>
                   <span className="text-muted-foreground">
@@ -359,7 +380,7 @@ export default function ScheduledPage() {
                   </span>
                   <span className="text-muted-foreground">|</span>
                   <span className="text-muted-foreground">
-                    Próxima: {new Date(item.nextRun).toLocaleDateString("pt-BR")}
+                    Próxima: {new Date(item.nextRun).toLocaleDateString('pt-BR')}
                   </span>
                 </div>
               </CardContent>

@@ -17,8 +17,14 @@ export async function getAccounts() {
     });
 
     return accounts.map(account => ({
-      ...account,
+      id: account.id,
+      name: account.name,
+      type: account.type,
       balance: account.balance.toNumber(),
+      color: account.color,
+      workspaceId: account.workspaceId,
+      createdAt: account.createdAt.toISOString(),
+      updatedAt: account.updatedAt.toISOString(),
     }));
   } catch (error) {
     console.error("Error fetching accounts:", error);

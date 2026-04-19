@@ -1,69 +1,34 @@
-"use client";
+'use client';
 
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Calendar, ScrollText, Search, User } from "lucide-react";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-
-interface AuditLog {
-  id: string;
-  action: string;
-  entity: string;
-  entityId: string | null;
-  oldValue: any;
-  newValue: any;
-  createdAt: string;
-  user: {
-    name: string | null;
-    email: string;
-  };
-}
+} from '@/components/ui/select';
+import { useAuditLogs } from '@/lib/queries/audit';
+import { Calendar, ScrollText, Search, User } from 'lucide-react';
+import { useState } from 'react';
 
 export default function AuditPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [search, setSearch] = useState("");
-  const [filterEntity, setFilterEntity] = useState("all");
-  const [filterAction, setFilterAction] = useState("all");
+  const [search, setSearch] = useState('');
+  const [filterEntity, setFilterEntity] = useState('all');
+  const [filterAction, setFilterAction] = useState('all');
 
-  useEffect(() => {
-    fetchLogs();
-  }, [filterEntity, filterAction]);
-
-  const fetchLogs = async () => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (filterEntity !== "all") params.set("entity", filterEntity);
-      if (filterAction !== "all") params.set("action", filterAction);
-
-      const response = await fetch(`/api/audit?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setLogs(data.logs || []);
-      }
-    } catch (error) {
-      console.error("Error fetching audit logs:", error);
-      toast.error("Erro ao carregar logs");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { logs, isLoading, refresh } = useAuditLogs({
+    entity: filterEntity,
+    action: filterAction,
+  });
 
   const getActionBadge = (action: string) => {
-    if (action.includes("CREATE")) return <Badge className="bg-green-500">Criação</Badge>;
-    if (action.includes("UPDATE")) return <Badge className="bg-blue-500">Atualização</Badge>;
-    if (action.includes("DELETE")) return <Badge className="bg-red-500">Exclusão</Badge>;
-    if (action.includes("LOGIN")) return <Badge className="bg-purple-500">Login</Badge>;
+    if (action.includes('CREATE')) return <Badge className="bg-green-500">Criação</Badge>;
+    if (action.includes('UPDATE')) return <Badge className="bg-blue-500">Atualização</Badge>;
+    if (action.includes('DELETE')) return <Badge className="bg-red-500">Exclusão</Badge>;
+    if (action.includes('LOGIN')) return <Badge className="bg-purple-500">Login</Badge>;
     return <Badge>Outros</Badge>;
   };
 
@@ -172,23 +137,23 @@ export default function AuditPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
-                        <span>{new Date(log.createdAt).toLocaleString("pt-BR")}</span>
+                        <span>{new Date(log.createdAt).toLocaleString('pt-BR')}</span>
                       </div>
                     </div>
                     {(log.oldValue || log.newValue) && (
                       <div className="text-muted-foreground mt-2 text-xs">
                         {log.oldValue && (
                           <span className="mr-4">
-                            Antes:{" "}
-                            {typeof log.oldValue === "object"
+                            Antes:{' '}
+                            {typeof log.oldValue === 'object'
                               ? JSON.stringify(log.oldValue)
                               : log.oldValue}
                           </span>
                         )}
                         {log.newValue && (
                           <span>
-                            Depois:{" "}
-                            {typeof log.newValue === "object"
+                            Depois:{' '}
+                            {typeof log.newValue === 'object'
                               ? JSON.stringify(log.newValue)
                               : log.newValue}
                           </span>

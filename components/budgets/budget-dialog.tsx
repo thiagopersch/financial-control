@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -20,8 +21,9 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { upsertBudget } from '@/lib/actions/budgets';
-import { useState } from 'react';
-import { toast } from 'sonner';
+import { showError, showSuccess, showValidationErrors } from '@/lib/utils/toast';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 interface Category {
   id: string;
@@ -46,6 +48,20 @@ interface BudgetDialogProps {
   onSuccess?: () => void;
 }
 
+const budgetSchema = z.object({
+  categoryId: z.string().min(1, 'Selecione uma categoria'),
+  amount: z
+    .string()
+    .min(1, 'Valor é obrigatório')
+    .refine((val) => parseFloat(val) > 0, 'Valor deve ser maior que zero'),
+  month: z.string(),
+  year: z.string(),
+  alertAt80: z.boolean(),
+  alertAt100: z.boolean(),
+});
+
+type BudgetFormValues = z.infer<typeof budgetSchema>;
+
 export function BudgetDialog({
   open,
   onOpenChange,
@@ -53,17 +69,43 @@ export function BudgetDialog({
   editingBudget,
   onSuccess,
 }: BudgetDialogProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const now = new Date();
-
-  const [formData, setFormData] = useState<Budget>({
-    categoryId: editingBudget?.categoryId || '',
-    amount: editingBudget?.amount || 0,
-    month: editingBudget?.month || now.getMonth() + 1,
-    year: editingBudget?.year || now.getFullYear(),
-    alertAt80: editingBudget?.alertAt80 ?? true,
-    alertAt100: editingBudget?.alertAt100 ?? true,
+  const form = useForm<BudgetFormValues>({
+    defaultValues: {
+      categoryId: editingBudget?.categoryId || '',
+      amount: editingBudget?.amount?.toString() || '',
+      month: String(new Date().getMonth() + 1),
+      year: String(new Date().getFullYear()),
+      alertAt80: editingBudget?.alertAt80 ?? true,
+      alertAt100: editingBudget?.alertAt100 ?? true,
+    },
   });
+
+  useEffect(() => {
+    if (open) {
+      const now = new Date();
+      if (editingBudget) {
+        form.reset({
+          categoryId: editingBudget.categoryId || '',
+          amount: String(editingBudget.amount || ''),
+          month: String(editingBudget.month || now.getMonth() + 1),
+          year: String(editingBudget.year || now.getFullYear()),
+          alertAt80: editingBudget.alertAt80 ?? true,
+          alertAt100: editingBudget.alertAt100 ?? true,
+        });
+      } else {
+        form.reset({
+          categoryId: '',
+          amount: '',
+          month: String(now.getMonth() + 1),
+          year: String(now.getFullYear()),
+          alertAt80: true,
+          alertAt100: true,
+        });
+      }
+    }
+  }, [open, editingBudget, form]);
+
+  const now = new Date();
 
   const generateYears = () => {
     const years = [];
@@ -73,55 +115,37 @@ export function BudgetDialog({
     return years;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: BudgetFormValues) => {
+    const result = budgetSchema.safeParse(data);
 
-    if (!formData.categoryId) {
-      toast.error('Selecione uma categoria', {
-        description: 'Por favor, selecione uma categoria para o orçamento.',
-        position: 'bottom-center',
-        richColors: true,
-      });
+    if (!result.success) {
+      showValidationErrors(result.error);
       return;
     }
 
-    if (formData.amount <= 0) {
-      toast.error('Valor deve ser maior que zero', {
-        description: 'Por favor, insira um valor maior que zero.',
-        position: 'bottom-center',
-        richColors: true,
-      });
-      return;
-    }
-
-    setIsLoading(true);
     try {
-      const result = await upsertBudget(formData);
-      if (result.success) {
-        toast.success(editingBudget ? 'Orçamento atualizado' : 'Orçamento criado', {
-          description: editingBudget
-            ? 'Orçamento atualizado com sucesso.'
-            : 'Orçamento criado com sucesso.',
-          position: 'bottom-center',
-          richColors: true,
-        });
+      const payload = {
+        categoryId: data.categoryId,
+        amount: parseFloat(data.amount),
+        month: parseInt(data.month),
+        year: parseInt(data.year),
+        alertAt80: data.alertAt80,
+        alertAt100: data.alertAt100,
+      };
+
+      const actionResult = await upsertBudget(payload);
+      if (actionResult.success) {
+        showSuccess(
+          editingBudget ? 'Orçamento atualizado' : 'Orçamento criado',
+          editingBudget ? 'Orçamento atualizado com sucesso.' : 'Orçamento criado com sucesso.',
+        );
         onOpenChange(false);
         onSuccess?.();
       } else {
-        toast.error(result.error || 'Erro ao salvar orçamento', {
-          description: result.error || 'Erro ao salvar orçamento.',
-          position: 'bottom-center',
-          richColors: true,
-        });
+        showError('Erro ao salvar orçamento', actionResult.error);
       }
     } catch (error) {
-      toast.error('Erro ao salvar orçamento', {
-        description: 'Erro ao salvar orçamento.',
-        position: 'bottom-center',
-        richColors: true,
-      });
-    } finally {
-      setIsLoading(false);
+      showError('Erro ao salvar orçamento');
     }
   };
 
@@ -134,13 +158,13 @@ export function BudgetDialog({
             Defina um limite de gastos para uma categoria neste mês.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="category">Categoria</Label>
+              <Label htmlFor="categoryId">Categoria</Label>
               <Select
-                value={formData.categoryId}
-                onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
+                value={form.watch('categoryId')}
+                onValueChange={(value) => form.setValue('categoryId', value)}
               >
                 <SelectTrigger className="w-full cursor-pointer">
                   <SelectValue placeholder="Selecione uma categoria" />
@@ -153,6 +177,9 @@ export function BudgetDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {form.formState.errors.categoryId && (
+                <p className="text-sm text-red-500">{form.formState.errors.categoryId.message}</p>
+              )}
             </div>
 
             <div className="grid gap-2">
@@ -162,20 +189,20 @@ export function BudgetDialog({
                 type="number"
                 step="0.01"
                 min="0"
-                value={formData.amount}
-                onChange={(e) =>
-                  setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })
-                }
+                {...form.register('amount')}
                 placeholder="0,00"
               />
+              {form.formState.errors.amount && (
+                <p className="text-sm text-red-500">{form.formState.errors.amount.message}</p>
+              )}
             </div>
 
             <div className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="month">Mês</Label>
                 <Select
-                  value={formData.month.toString()}
-                  onValueChange={(value) => setFormData({ ...formData, month: parseInt(value) })}
+                  value={form.watch('month')}
+                  onValueChange={(value) => form.setValue('month', value)}
                 >
                   <SelectTrigger className="w-full cursor-pointer">
                     <SelectValue />
@@ -199,8 +226,8 @@ export function BudgetDialog({
               <div className="grid gap-2">
                 <Label htmlFor="year">Ano</Label>
                 <Select
-                  value={formData.year.toString()}
-                  onValueChange={(value) => setFormData({ ...formData, year: parseInt(value) })}
+                  value={form.watch('year')}
+                  onValueChange={(value) => form.setValue('year', value)}
                 >
                   <SelectTrigger className="w-full cursor-pointer">
                     <SelectValue />
@@ -220,8 +247,8 @@ export function BudgetDialog({
               <Label htmlFor="alert80">Alertar aos 80%</Label>
               <Switch
                 id="alert80"
-                checked={formData.alertAt80}
-                onCheckedChange={(checked) => setFormData({ ...formData, alertAt80: checked })}
+                checked={form.watch('alertAt80')}
+                onCheckedChange={(checked) => form.setValue('alertAt80', checked)}
               />
             </div>
 
@@ -229,8 +256,8 @@ export function BudgetDialog({
               <Label htmlFor="alert100">Alertar ao estourar</Label>
               <Switch
                 id="alert100"
-                checked={formData.alertAt100}
-                onCheckedChange={(checked) => setFormData({ ...formData, alertAt100: checked })}
+                checked={form.watch('alertAt100')}
+                onCheckedChange={(checked) => form.setValue('alertAt100', checked)}
               />
             </div>
           </div>
@@ -239,8 +266,8 @@ export function BudgetDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Salvando...' : editingBudget ? 'Atualizar' : 'Criar'}
+            <Button type="submit" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? 'Salvando...' : editingBudget ? 'Atualizar' : 'Criar'}
             </Button>
           </DialogFooter>
         </form>

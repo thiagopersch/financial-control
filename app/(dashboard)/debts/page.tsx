@@ -1,9 +1,8 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { AlertTriangle, Plus, MoreHorizontal, TrendingDown, Calculator } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -11,98 +10,116 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
-import { useDebts, type Debt } from "@/lib/queries/debts";
-import { createDebt, deleteDebt } from "@/lib/actions/debts";
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import { createDebt, deleteDebt } from '@/lib/actions/debts';
+import { useDebts } from '@/lib/queries/debts';
+import { showError, showSuccess } from '@/lib/utils/toast';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { AlertTriangle, Calculator, MoreHorizontal, Plus, TrendingDown } from 'lucide-react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+
+const debtSchema = z.object({
+  name: z.string().min(1, 'Nome é obrigatório'),
+  description: z.string().optional(),
+  initialValue: z
+    .string()
+    .min(1, 'Valor é obrigatório')
+    .refine((val) => parseFloat(val) > 0, 'Valor deve ser maior que zero'),
+  interestRate: z.string().optional(),
+  minimumPayment: z
+    .string()
+    .min(1, 'Pagamento mínimo é obrigatório')
+    .refine((val) => parseFloat(val) > 0, 'Pagamento mínimo deve ser maior que zero'),
+  dueDay: z.string().optional(),
+});
+
+type DebtFormValues = z.infer<typeof debtSchema>;
 
 export default function DebtsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [simulationResult, setSimulationResult] = useState<{
-    months: number;
-    totalInterest: number;
-    totalPaid: number;
-  } | null>(null);
-
   const { debts, isLoading, refresh } = useDebts();
-
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    initialValue: "",
-    interestRate: "",
-    minimumPayment: "",
-    dueDay: "",
+  const form = useForm<DebtFormValues>({
+    resolver: zodResolver(debtSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      initialValue: '',
+      interestRate: '',
+      minimumPayment: '',
+      dueDay: '',
+    },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
+  const onSubmit = async (data: DebtFormValues) => {
     try {
+      const initialValue = parseFloat(data.initialValue);
+      const minimumPayment = parseFloat(data.minimumPayment);
+      const interestRate = data.interestRate ? parseFloat(data.interestRate) : undefined;
+      const dueDay = data.dueDay ? parseInt(data.dueDay) : undefined;
+
+      if (isNaN(initialValue) || isNaN(minimumPayment)) {
+        showError('Valores inválidos', 'Por favor, preencha os campos de valor corretamente');
+        return;
+      }
+
+      if (interestRate !== undefined && isNaN(interestRate)) {
+        showError('Taxa de juros inválida', 'Por favor, insira um número válido ou deixe vazio');
+        return;
+      }
+
       const result = await createDebt({
-        name: formData.name,
-        description: formData.description || undefined,
-        initialValue: parseFloat(formData.initialValue),
-        currentValue: parseFloat(formData.initialValue),
-        interestRate: formData.interestRate ? parseFloat(formData.interestRate) : undefined,
-        minimumPayment: parseFloat(formData.minimumPayment),
-        dueDay: formData.dueDay ? parseInt(formData.dueDay) : undefined,
+        name: data.name,
+        description: data.description || undefined,
+        initialValue,
+        currentValue: initialValue,
+        interestRate,
+        minimumPayment,
+        dueDay,
         startDate: new Date().toISOString(),
       });
 
       if (result.success) {
-        toast.success("Dívida criada com sucesso");
+        showSuccess('Dívida criada com sucesso');
         setIsDialogOpen(false);
-        setFormData({
-          name: "",
-          description: "",
-          initialValue: "",
-          interestRate: "",
-          minimumPayment: "",
-          dueDay: "",
-        });
+        form.reset();
         refresh();
       } else {
-        toast.error(result.error || "Erro ao criar dívida");
+        showError('Erro ao criar dívida', result.error);
       }
     } catch (error) {
-      toast.error("Erro ao criar dívida");
-    } finally {
-      setIsSubmitting(false);
+      showError('Erro ao criar dívida');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir esta dívida?")) return;
+    if (!confirm('Tem certeza que deseja excluir esta dívida?')) return;
 
     try {
       const result = await deleteDebt(id);
       if (result.success) {
-        toast.success("Dívida excluída com sucesso");
+        showSuccess('Dívida excluída com sucesso');
         refresh();
       }
     } catch (error) {
-      toast.error("Erro ao excluir dívida");
+      showError('Erro ao excluir dívida');
     }
   };
 
   const formatCurrency = (value: number) => {
-    return value.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
+    return value.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
     });
   };
 
@@ -130,25 +147,17 @@ export default function DebtsPage() {
               <DialogTitle>Nova Dívida</DialogTitle>
               <DialogDescription>Adicione uma nova dívida ou financiamento</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: Empréstimo do banco"
-                  required
-                />
+                <Input id="name" {...form.register('name')} placeholder="Ex: Empréstimo do banco" />
+                {form.formState.errors.name && (
+                  <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Descrição (opcional)</Label>
-                <Input
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Descrição"
-                />
+                <Input id="description" {...form.register('description')} placeholder="Descrição" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -157,11 +166,14 @@ export default function DebtsPage() {
                     id="initialValue"
                     type="number"
                     step="0.01"
-                    value={formData.initialValue}
-                    onChange={(e) => setFormData({ ...formData, initialValue: e.target.value })}
+                    {...form.register('initialValue')}
                     placeholder="0.00"
-                    required
                   />
+                  {form.formState.errors.initialValue && (
+                    <p className="text-sm text-red-500">
+                      {form.formState.errors.initialValue.message}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="minimumPayment">Pagamento Mínimo</Label>
@@ -169,11 +181,14 @@ export default function DebtsPage() {
                     id="minimumPayment"
                     type="number"
                     step="0.01"
-                    value={formData.minimumPayment}
-                    onChange={(e) => setFormData({ ...formData, minimumPayment: e.target.value })}
+                    {...form.register('minimumPayment')}
                     placeholder="0.00"
-                    required
                   />
+                  {form.formState.errors.minimumPayment && (
+                    <p className="text-sm text-red-500">
+                      {form.formState.errors.minimumPayment.message}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -183,8 +198,7 @@ export default function DebtsPage() {
                     id="interestRate"
                     type="number"
                     step="0.01"
-                    value={formData.interestRate}
-                    onChange={(e) => setFormData({ ...formData, interestRate: e.target.value })}
+                    {...form.register('interestRate')}
                     placeholder="0.00"
                   />
                 </div>
@@ -195,14 +209,13 @@ export default function DebtsPage() {
                     type="number"
                     min="1"
                     max="31"
-                    value={formData.dueDay}
-                    onChange={(e) => setFormData({ ...formData, dueDay: e.target.value })}
+                    {...form.register('dueDay')}
                     placeholder="1-31"
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "Criando..." : "Criar Dívida"}
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Criando...' : 'Criar Dívida'}
               </Button>
             </form>
           </DialogContent>
@@ -279,11 +292,11 @@ export default function DebtsPage() {
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <div className="flex items-center gap-2">
                     <AlertTriangle
-                      className={`h-5 w-5 ${debt.isActive ? "text-red-500" : "text-gray-400"}`}
+                      className={`h-5 w-5 ${debt.isActive ? 'text-red-500' : 'text-gray-400'}`}
                     />
                     <CardTitle className="text-lg">{debt.name}</CardTitle>
-                    <Badge variant={debt.isActive ? "default" : "secondary"}>
-                      {debt.isActive ? "Ativa" : "Quitada"}
+                    <Badge variant={debt.isActive ? 'default' : 'secondary'}>
+                      {debt.isActive ? 'Ativa' : 'Quitada'}
                     </Badge>
                   </div>
                   <DropdownMenu>

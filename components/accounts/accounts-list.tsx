@@ -1,7 +1,8 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,8 +10,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { deleteAccount } from "@/lib/actions/accounts";
+} from '@/components/ui/dropdown-menu';
+import { deleteAccount } from '@/lib/actions/accounts';
 import {
   Building2,
   Coins,
@@ -20,10 +21,10 @@ import {
   Plus,
   TrendingUp,
   Wallet,
-} from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
-import { AccountModal } from "./account-modal";
+} from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { AccountModal } from './account-modal';
 
 interface AccountsListProps {
   accounts: any[];
@@ -41,28 +42,37 @@ const typeIcons: Record<string, any> = {
 };
 
 const typeLabels: Record<string, string> = {
-  BANK: "Banco",
-  WALLET: "Carteira",
-  CREDIT_CARD: "Cartão de Crédito",
-  DEBIT_CARD: "Débito",
-  PIX: "PIX",
-  INVESTMENT: "Investimento",
-  CRYPTO: "Cripto",
-  OTHERS: "Outros",
+  BANK: 'Banco',
+  WALLET: 'Carteira',
+  CREDIT_CARD: 'Cartão de Crédito',
+  DEBIT_CARD: 'Débito',
+  PIX: 'PIX',
+  INVESTMENT: 'Investimento',
+  CRYPTO: 'Cripto',
+  OTHERS: 'Outros',
 };
 
 export function AccountsList({ accounts }: AccountsListProps) {
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [accountToDelete, setAccountToDelete] = useState<string | null>(null);
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Deseja realmente excluir esta conta?")) {
-      const result = await deleteAccount(id);
+  const handleDelete = (id: string) => {
+    setAccountToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (accountToDelete) {
+      const result = await deleteAccount(accountToDelete);
       if (result.success) {
-        toast.success("Conta excluída com sucesso");
+        toast.success('Conta excluída com sucesso');
       } else {
         toast.error(result.error);
       }
+      setIsDeleteModalOpen(false);
+      setAccountToDelete(null);
     }
   };
 
@@ -97,7 +107,7 @@ export function AccountsList({ accounts }: AccountsListProps) {
             <Card
               key={account.id}
               className="cursor-pointer overflow-hidden border-l-4 transition-all hover:shadow-md"
-              style={{ borderLeftColor: account.color || "#000000" }}
+              style={{ borderLeftColor: account.color || '#000000' }}
               onClick={() => openEditModal(account)}
             >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -125,7 +135,10 @@ export function AccountsList({ accounts }: AccountsListProps) {
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      onClick={() => handleDelete(account.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(account.id);
+                      }}
                       className="text-destructive focus:text-destructive"
                     >
                       Excluir
@@ -137,9 +150,9 @@ export function AccountsList({ accounts }: AccountsListProps) {
                 <div className="mt-4">
                   <span className="text-muted-foreground block text-xs">Saldo Atual</span>
                   <div
-                    className={`text-2xl font-bold ${account.balance < 0 ? "text-destructive" : "text-foreground"}`}
+                    className={`text-2xl font-bold ${account.balance < 0 ? 'text-destructive' : 'text-foreground'}`}
                   >
-                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
                       account.balance,
                     )}
                   </div>
@@ -167,6 +180,15 @@ export function AccountsList({ accounts }: AccountsListProps) {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         account={selectedAccount}
+      />
+
+      <DeleteConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Excluir Conta"
+        description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita."
+        confirmText="Excluir"
       />
     </div>
   );

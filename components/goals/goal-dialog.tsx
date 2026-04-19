@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,8 +13,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { createGoal, updateGoal } from '@/lib/actions/goals';
-import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import { showError, showSuccess, showValidationErrors } from '@/lib/utils/toast';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 export interface Goal {
   id?: string;
@@ -32,100 +34,103 @@ interface GoalDialogProps {
 }
 
 const colorOptions = [
-  '#0ea5e9', // blue
-  '#10b981', // green
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-  '#06b6d4', // cyan
-  '#84cc16', // lime
+  '#0ea5e9',
+  '#10b981',
+  '#f59e0b',
+  '#ef4444',
+  '#8b5cf6',
+  '#ec4899',
+  '#06b6d4',
+  '#84cc16',
 ];
 
-export function GoalDialog({ open, onOpenChange, editingGoal, onSuccess }: GoalDialogProps) {
-  const [isLoading, setIsLoading] = useState(false);
+const goalSchema = z.object({
+  name: z.string().min(1, 'Nome é obrigatório'),
+  currentAmount: z.string(),
+  targetAmount: z
+    .string()
+    .min(1, 'Valor alvo é obrigatório')
+    .refine((val) => parseFloat(val) > 0, 'Valor alvo deve ser maior que zero'),
+  deadline: z.string().optional(),
+  color: z.string(),
+});
 
-  const [formData, setFormData] = useState<Goal>({
-    name: '',
-    targetAmount: 0,
-    currentAmount: 0,
-    deadline: '',
-    color: '#0ea5e9',
+type GoalFormValues = z.infer<typeof goalSchema>;
+
+export function GoalDialog({ open, onOpenChange, editingGoal, onSuccess }: GoalDialogProps) {
+  const form = useForm<GoalFormValues>({
+    defaultValues: {
+      name: '',
+      currentAmount: '0',
+      targetAmount: '',
+      deadline: '',
+      color: '#0ea5e9',
+    },
   });
 
   useEffect(() => {
-    if (editingGoal) {
-      setFormData({
-        id: editingGoal.id,
-        name: editingGoal.name || '',
-        targetAmount: editingGoal.targetAmount || 0,
-        currentAmount: editingGoal.currentAmount || 0,
-        deadline: editingGoal.deadline || '',
-        color: editingGoal.color || '#0ea5e9',
-      });
-    } else {
-      setFormData({
-        name: '',
-        targetAmount: 0,
-        currentAmount: 0,
-        deadline: '',
-        color: '#0ea5e9',
-      });
+    if (open) {
+      if (editingGoal) {
+        form.reset({
+          name: editingGoal.name || '',
+          currentAmount: String(editingGoal.currentAmount || 0),
+          targetAmount: String(editingGoal.targetAmount || 0),
+          deadline: editingGoal.deadline || '',
+          color: editingGoal.color || '#0ea5e9',
+        });
+      } else {
+        form.reset({
+          name: '',
+          currentAmount: '0',
+          targetAmount: '',
+          deadline: '',
+          color: '#0ea5e9',
+        });
+      }
     }
-  }, [editingGoal]);
+  }, [open, editingGoal, form]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: GoalFormValues) => {
+    const result = goalSchema.safeParse(data);
 
-    if (!formData.name.trim()) {
-      toast.error('Nome é obrigatório');
+    if (!result.success) {
+      showValidationErrors(result.error);
       return;
     }
 
-    if (formData.targetAmount <= 0) {
-      toast.error('Valor alvo deve ser maior que zero');
-      return;
-    }
-
-    setIsLoading(true);
     try {
-      const data = {
-        ...formData,
-        deadline: formData.deadline ? new Date(formData.deadline) : null,
+      const payload = {
+        name: data.name,
+        currentAmount: parseFloat(data.currentAmount),
+        targetAmount: parseFloat(data.targetAmount),
+        deadline: data.deadline ? new Date(data.deadline) : null,
+        color: data.color,
       };
 
-      let result;
+      let actionResult;
       if (editingGoal?.id) {
-        result = await updateGoal(editingGoal.id, data);
+        actionResult = await updateGoal(editingGoal.id, payload);
       } else {
-        result = await createGoal(data);
+        actionResult = await createGoal(payload);
       }
 
-      if (result.success) {
-        toast.success(editingGoal ? 'Meta atualizada' : 'Meta criada', {
-          description: editingGoal ? 'Meta atualizada com sucesso' : 'Meta criada com sucesso',
-          position: 'bottom-center',
-          richColors: true,
-        });
+      if (actionResult.success) {
+        showSuccess(
+          editingGoal ? 'Meta atualizada' : 'Meta criada',
+          editingGoal ? 'Meta atualizada com sucesso' : 'Meta criada com sucesso',
+        );
         onOpenChange(false);
+        form.reset();
         onSuccess?.();
       } else {
-        toast.error(result.error || 'Erro ao salvar meta', {
-          description: editingGoal ? 'Erro ao atualizar meta' : 'Erro ao criar meta',
-          position: 'bottom-center',
-          richColors: true,
-        });
+        showError('Erro ao salvar meta', actionResult.error);
       }
     } catch (error) {
-      toast.error('Erro ao salvar meta', {
-        description: editingGoal ? 'Erro ao atualizar meta' : 'Erro ao criar meta',
-        position: 'bottom-center',
-        richColors: true,
-      });
-    } finally {
-      setIsLoading(false);
+      showError('Erro ao salvar meta');
     }
   };
+
+  const selectedColor = form.watch('color') || '#0ea5e9';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -134,16 +139,14 @@ export function GoalDialog({ open, onOpenChange, editingGoal, onSuccess }: GoalD
           <DialogTitle>{editingGoal ? 'Editar Meta' : 'Nova Meta'}</DialogTitle>
           <DialogDescription>Defina uma nova meta financeira para alcançar.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="name">Nome da Meta</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ex: Viagem para Disney"
-              />
+              <Input id="name" {...form.register('name')} placeholder="Ex: Viagem para Disney" />
+              {form.formState.errors.name && (
+                <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -154,10 +157,7 @@ export function GoalDialog({ open, onOpenChange, editingGoal, onSuccess }: GoalD
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.currentAmount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, currentAmount: parseFloat(e.target.value) || 0 })
-                  }
+                  {...form.register('currentAmount')}
                   placeholder="0,00"
                 />
               </div>
@@ -168,23 +168,20 @@ export function GoalDialog({ open, onOpenChange, editingGoal, onSuccess }: GoalD
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.targetAmount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, targetAmount: parseFloat(e.target.value) || 0 })
-                  }
+                  {...form.register('targetAmount')}
                   placeholder="0,00"
                 />
+                {form.formState.errors.targetAmount && (
+                  <p className="text-sm text-red-500">
+                    {form.formState.errors.targetAmount.message}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="deadline">Prazo (opcional)</Label>
-              <Input
-                id="deadline"
-                type="date"
-                value={formData.deadline || ''}
-                onChange={(e) => setFormData({ ...formData, deadline: e.target.value || null })}
-              />
+              <Input id="deadline" type="date" {...form.register('deadline')} />
             </div>
 
             <div className="grid gap-2">
@@ -195,10 +192,10 @@ export function GoalDialog({ open, onOpenChange, editingGoal, onSuccess }: GoalD
                     key={color}
                     type="button"
                     className={`h-8 w-8 rounded-full transition-transform ${
-                      formData.color === color ? 'ring-primary scale-110 ring-2 ring-offset-2' : ''
+                      selectedColor === color ? 'ring-primary scale-110 ring-2 ring-offset-2' : ''
                     }`}
                     style={{ backgroundColor: color }}
-                    onClick={() => setFormData({ ...formData, color })}
+                    onClick={() => form.setValue('color', color)}
                   />
                 ))}
               </div>
@@ -209,8 +206,8 @@ export function GoalDialog({ open, onOpenChange, editingGoal, onSuccess }: GoalD
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Salvando...' : editingGoal ? 'Atualizar' : 'Criar'}
+            <Button type="submit" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? 'Salvando...' : editingGoal ? 'Atualizar' : 'Criar'}
             </Button>
           </DialogFooter>
         </form>

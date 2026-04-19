@@ -1,24 +1,31 @@
-"use server";
+'use server';
 
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { createAuditLog } from "@/lib/services/audit";
-import { getServerSession } from "next-auth";
-import { revalidatePath } from "next/cache";
-import * as z from "zod";
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { createAuditLog } from '@/lib/services/audit';
+import { getServerSession } from 'next-auth';
+import { revalidatePath } from 'next/cache';
+import * as z from 'zod';
 
 const budgetSchema = z.object({
-  categoryId: z.string().min(1, "Categoria é obrigatória"),
-  amount: z.coerce.number().positive("Valor deve ser maior que zero"),
+  categoryId: z.string().min(1, 'Categoria é obrigatória'),
+  amount: z.coerce.number().positive('Valor deve ser maior que zero'),
   month: z.number().min(1).max(12),
   year: z.number().min(2000),
   alertAt80: z.boolean().optional().default(true),
   alertAt100: z.boolean().optional().default(true),
 });
 
+function serializeBudget(budget: any) {
+  return {
+    ...budget,
+    amount: budget.amount ? Number(budget.amount) : 0,
+  };
+}
+
 export async function upsertBudget(data: z.infer<typeof budgetSchema>) {
   const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: "Não autorizado" };
+  if (!session) return { success: false, error: 'Não autorizado' };
 
   try {
     const validated = budgetSchema.parse(data);
@@ -52,25 +59,25 @@ export async function upsertBudget(data: z.infer<typeof budgetSchema>) {
     }
 
     await createAuditLog({
-      action: existing ? "UPDATE_BUDGET" : "CREATE_BUDGET",
-      entity: "Budget",
+      action: existing ? 'UPDATE_BUDGET' : 'CREATE_BUDGET',
+      entity: 'Budget',
       entityId: budget.id,
       oldValue: existing ? { amount: existing.amount } : undefined,
       newValue: validated,
     });
 
-    revalidatePath("/budgets");
-    revalidatePath("/dashboard");
-    return { success: true, data: budget };
+    revalidatePath('/budgets');
+    revalidatePath('/dashboard');
+    return { success: true, data: serializeBudget(budget) };
   } catch (error) {
-    console.error("Error upserting budget:", error);
-    return { success: false, error: "Erro ao salvar orçamento" };
+    console.error('Error upserting budget:', error);
+    return { success: false, error: 'Erro ao salvar orçamento' };
   }
 }
 
 export async function deleteBudget(id: string) {
   const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: "Não autorizado" };
+  if (!session) return { success: false, error: 'Não autorizado' };
 
   try {
     const existing = await prisma.budget.findUnique({
@@ -85,24 +92,24 @@ export async function deleteBudget(id: string) {
     });
 
     await createAuditLog({
-      action: "DELETE_BUDGET",
-      entity: "Budget",
+      action: 'DELETE_BUDGET',
+      entity: 'Budget',
       entityId: id,
       oldValue: existing || undefined,
     });
 
-    revalidatePath("/budgets");
-    revalidatePath("/dashboard");
+    revalidatePath('/budgets');
+    revalidatePath('/dashboard');
     return { success: true };
   } catch (error) {
-    console.error("Error deleting budget:", error);
-    return { success: false, error: "Erro ao excluir orçamento" };
+    console.error('Error deleting budget:', error);
+    return { success: false, error: 'Erro ao excluir orçamento' };
   }
 }
 
 export async function getBudgetsByMonth(month: number, year: number) {
   const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: "Não autorizado" };
+  if (!session) return { success: false, error: 'Não autorizado' };
 
   try {
     const budgets = await prisma.budget.findMany({
@@ -125,8 +132,8 @@ export async function getBudgetsByMonth(month: number, year: number) {
           where: {
             workspaceId: session.user.workspaceId,
             categoryId: budget.categoryId,
-            type: "EXPENSE",
-            status: "PAID",
+            type: 'EXPENSE',
+            status: 'PAID',
             date: {
               gte: startOfMonth,
               lte: endOfMonth,
@@ -142,11 +149,11 @@ export async function getBudgetsByMonth(month: number, year: number) {
         const percentage = budgetAmount > 0 ? (spentAmount / budgetAmount) * 100 : 0;
         const remaining = budgetAmount - spentAmount;
 
-        let status: "safe" | "warning" | "exceeded" = "safe";
+        let status: 'safe' | 'warning' | 'exceeded' = 'safe';
         if (percentage >= 100) {
-          status = "exceeded";
+          status = 'exceeded';
         } else if (percentage >= 80) {
-          status = "warning";
+          status = 'warning';
         }
 
         return {
@@ -161,7 +168,7 @@ export async function getBudgetsByMonth(month: number, year: number) {
 
     return { success: true, data: budgetsWithSpent };
   } catch (error) {
-    console.error("Error getting budgets:", error);
-    return { success: false, error: "Erro ao buscar orçamentos" };
+    console.error('Error getting budgets:', error);
+    return { success: false, error: 'Erro ao buscar orçamentos' };
   }
 }

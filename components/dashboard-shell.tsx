@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { ModeToggle } from "@/components/mode-toggle";
-import { flatRoutes } from "@/components/sidebar/routes";
-import { Sidebar } from "@/components/sidebar/sidebar";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { UserButton } from "@/components/user-button";
-import { useSidebar } from "@/hooks/use-sidebar";
-import { cn } from "@/lib/utils";
-import { Menu } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { ModeToggle } from '@/components/mode-toggle';
+import { flatRoutes } from '@/components/sidebar/routes';
+import { Sidebar } from '@/components/sidebar/sidebar';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { UserButton } from '@/components/user-button';
+import { useSidebar } from '@/hooks/use-sidebar';
+import { cn } from '@/lib/utils';
+import { Menu } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { isCollapsed, isOpen, onOpen, onClose } = useSidebar();
@@ -32,7 +32,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </SheetContent>
       </Sheet>
 
-      <main className={cn("flex min-h-screen flex-col", isCollapsed ? "md:pl-[72px]" : "md:pl-72")}>
+      <main className={cn('flex min-h-screen flex-col', isCollapsed ? 'md:pl-[72px]' : 'md:pl-72')}>
         <header className="bg-background text-foreground sticky top-0 z-50 flex h-16 items-center justify-between border-b px-4 md:px-8">
           <div className="flex items-center gap-x-2 md:hidden">
             <Button onClick={onOpen} variant="ghost" size="icon" className="md:hidden">

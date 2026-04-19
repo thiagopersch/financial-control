@@ -1,9 +1,8 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { GitBranch, Plus, MoreHorizontal, Zap, Play, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -11,110 +10,119 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
-import { useConditionalRules, type ConditionalRule } from "@/lib/queries/automation";
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import {
   createConditionalRule,
   deleteConditionalRule,
   toggleConditionalRule,
-} from "@/lib/actions/conditional-rules";
+} from '@/lib/actions/conditional-rules';
+import { useConditionalRules } from '@/lib/queries/automation';
+import { showError, showSuccess, showValidationErrors } from '@/lib/utils/toast';
+import { GitBranch, MoreHorizontal, Play, Plus, Zap } from 'lucide-react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 const conditionOptions = [
-  { value: "AMOUNT_GREATER", label: "Valor maior que" },
-  { value: "AMOUNT_LESS", label: "Valor menor que" },
-  { value: "AMOUNT_EQUAL", label: "Valor igual a" },
-  { value: "CATEGORY_IS", label: "Categoria é" },
-  { value: "TAG_IS", label: "Tag é" },
-  { value: "CONTAINS", label: "Descrição contém" },
+  { value: 'AMOUNT_GREATER', label: 'Valor maior que' },
+  { value: 'AMOUNT_LESS', label: 'Valor menor que' },
+  { value: 'AMOUNT_EQUAL', label: 'Valor igual a' },
+  { value: 'CATEGORY_IS', label: 'Categoria é' },
+  { value: 'TAG_IS', label: 'Tag é' },
+  { value: 'CONTAINS', label: 'Descrição contém' },
 ];
 
 const actionOptions = [
-  { value: "ADD_TAG", label: "Adicionar tag" },
-  { value: "ADD_CATEGORY", label: "Mudar categoria" },
-  { value: "SET_STATUS", label: "Alterar status" },
-  { value: "NOTIFY", label: "Enviar notificação" },
+  { value: 'ADD_TAG', label: 'Adicionar tag' },
+  { value: 'ADD_CATEGORY', label: 'Mudar categoria' },
+  { value: 'SET_STATUS', label: 'Alterar status' },
+  { value: 'NOTIFY', label: 'Enviar notificação' },
 ];
+
+const automationSchema = z.object({
+  name: z.string().min(1, 'Nome é obrigatório'),
+  description: z.string().optional(),
+  conditionType: z.string().min(1, 'Selecione uma condição'),
+  conditionValue: z.string().min(1, 'Valor é obrigatório'),
+  actionType: z.string().min(1, 'Selecione uma ação'),
+  actionValue: z.string().min(1, 'Parâmetro é obrigatório'),
+});
+
+type AutomationFormValues = z.infer<typeof automationSchema>;
 
 export default function AutomationPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   const { rules, isLoading, refresh } = useConditionalRules();
 
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    conditionType: "",
-    conditionValue: "",
-    actionType: "",
-    actionValue: "",
+  const form = useForm<AutomationFormValues>({
+    defaultValues: {
+      name: '',
+      description: '',
+      conditionType: '',
+      conditionValue: '',
+      actionType: '',
+      actionValue: '',
+    },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  const onSubmit = async (data: AutomationFormValues) => {
+    const result = automationSchema.safeParse(data);
+
+    if (!result.success) {
+      showValidationErrors(result.error);
+      return;
+    }
 
     try {
       const conditions = [
         {
-          type: formData.conditionType,
-          value: formData.conditionValue,
+          type: data.conditionType,
+          value: data.conditionValue,
         },
       ];
 
       const actions = [
         {
-          type: formData.actionType,
-          value: formData.actionValue,
+          type: data.actionType,
+          value: data.actionValue,
         },
       ];
 
-      const result = await createConditionalRule({
-        name: formData.name,
-        description: formData.description || undefined,
+      const actionResult = await createConditionalRule({
+        name: data.name,
+        description: data.description || undefined,
         conditions,
         actions,
         priority: 0,
         isActive: true,
       });
 
-      if (result.success) {
-        toast.success("Regra criada com sucesso");
+      if (actionResult.success) {
+        showSuccess('Regra criada com sucesso');
+        form.reset();
         setIsDialogOpen(false);
-        setFormData({
-          name: "",
-          description: "",
-          conditionType: "",
-          conditionValue: "",
-          actionType: "",
-          actionValue: "",
-        });
         refresh();
       } else {
-        toast.error(result.error || "Erro ao criar regra");
+        showError('Erro ao criar regra', actionResult.error);
       }
     } catch (error) {
-      toast.error("Erro ao criar regra");
-    } finally {
-      setIsSubmitting(false);
+      showError('Erro ao criar regra');
     }
   };
 
@@ -122,25 +130,25 @@ export default function AutomationPage() {
     try {
       const result = await toggleConditionalRule(id, !isActive);
       if (result.success) {
-        toast.success(isActive ? "Regra desativada" : "Regra ativada");
+        showSuccess(isActive ? 'Regra desativada' : 'Regra ativada');
         refresh();
       }
     } catch (error) {
-      toast.error("Erro ao atualizar regra");
+      showError('Erro ao atualizar regra');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir esta regra?")) return;
+    if (!confirm('Tem certeza que deseja excluir esta regra?')) return;
 
     try {
       const result = await deleteConditionalRule(id);
       if (result.success) {
-        toast.success("Regra excluída com sucesso");
+        showSuccess('Regra excluída com sucesso');
         refresh();
       }
     } catch (error) {
-      toast.error("Erro ao excluir regra");
+      showError('Erro ao excluir regra');
     }
   };
 
@@ -167,23 +175,19 @@ export default function AutomationPage() {
                 Configure condições e ações para automatizar transações
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome da Regra</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex:标记外卖为餐饮"
-                  required
-                />
+                <Input id="name" {...form.register('name')} />
+                {form.formState.errors.name && (
+                  <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Descrição (opcional)</Label>
                 <Input
                   id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  {...form.register('description')}
                   placeholder="Descrição da regra"
                 />
               </div>
@@ -191,8 +195,8 @@ export default function AutomationPage() {
                 <div className="space-y-2">
                   <Label>Condição</Label>
                   <Select
-                    value={formData.conditionType}
-                    onValueChange={(value) => setFormData({ ...formData, conditionType: value })}
+                    value={form.watch('conditionType')}
+                    onValueChange={(value) => form.setValue('conditionType', value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione" />
@@ -205,23 +209,32 @@ export default function AutomationPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {form.formState.errors.conditionType && (
+                    <p className="text-sm text-red-500">
+                      {form.formState.errors.conditionType.message}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="conditionValue">Valor</Label>
                   <Input
                     id="conditionValue"
-                    value={formData.conditionValue}
-                    onChange={(e) => setFormData({ ...formData, conditionValue: e.target.value })}
+                    {...form.register('conditionValue')}
                     placeholder="Valor da condição"
                   />
+                  {form.formState.errors.conditionValue && (
+                    <p className="text-sm text-red-500">
+                      {form.formState.errors.conditionValue.message}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Ação</Label>
                   <Select
-                    value={formData.actionType}
-                    onValueChange={(value) => setFormData({ ...formData, actionType: value })}
+                    value={form.watch('actionType')}
+                    onValueChange={(value) => form.setValue('actionType', value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione" />
@@ -234,19 +247,28 @@ export default function AutomationPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {form.formState.errors.actionType && (
+                    <p className="text-sm text-red-500">
+                      {form.formState.errors.actionType.message}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="actionValue">Parâmetro</Label>
                   <Input
                     id="actionValue"
-                    value={formData.actionValue}
-                    onChange={(e) => setFormData({ ...formData, actionValue: e.target.value })}
+                    {...form.register('actionValue')}
                     placeholder="Parâmetro da ação"
                   />
+                  {form.formState.errors.actionValue && (
+                    <p className="text-sm text-red-500">
+                      {form.formState.errors.actionValue.message}
+                    </p>
+                  )}
                 </div>
               </div>
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "Criando..." : "Criar Regra"}
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Criando...' : 'Criar Regra'}
               </Button>
             </form>
           </DialogContent>
@@ -310,11 +332,11 @@ export default function AutomationPage() {
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex items-center gap-2">
                   <Zap
-                    className={`h-5 w-5 ${rule.isActive ? "text-yellow-500" : "text-gray-400"}`}
+                    className={`h-5 w-5 ${rule.isActive ? 'text-yellow-500' : 'text-gray-400'}`}
                   />
                   <CardTitle className="text-lg">{rule.name}</CardTitle>
-                  <Badge variant={rule.isActive ? "default" : "secondary"}>
-                    {rule.isActive ? "Ativa" : "Inativa"}
+                  <Badge variant={rule.isActive ? 'default' : 'secondary'}>
+                    {rule.isActive ? 'Ativa' : 'Inativa'}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2">
@@ -341,7 +363,7 @@ export default function AutomationPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground text-sm">
-                  {rule.description || "Sem descrição"}
+                  {rule.description || 'Sem descrição'}
                 </p>
               </CardContent>
             </Card>

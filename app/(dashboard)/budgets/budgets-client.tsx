@@ -3,30 +3,106 @@
 import { BudgetDialog } from '@/components/budgets/budget-dialog';
 import { BudgetWidget } from '@/components/dashboard/budget-widget';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { MonthSelector } from '@/components/month-selector';
 import { PieChart, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 
 interface Category {
   id: string;
   name: string;
+  color: string;
+}
+
+interface BudgetData {
+  id: string;
+  categoryId: string;
+  amount: number;
+  month: number;
+  year: number;
+  alertAt80: boolean;
+  alertAt100: boolean;
+  category: Category;
 }
 
 interface BudgetsPageClientProps {
-  initialBudgets: any[];
   categories: Category[];
 }
 
-export function BudgetsPageClient({ initialBudgets, categories }: BudgetsPageClientProps) {
-  const [budgets, setBudgets] = useState(initialBudgets);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingBudget, setEditingBudget] = useState<any | null>(null);
+function parseMonth(monthStr: string | null): { month: number; year: number; isAllPeriod: boolean; isYear: boolean } {
+  const now = new Date();
+  
+  if (!monthStr || monthStr === 'all') {
+    return { month: 0, year: 0, isAllPeriod: true, isYear: false };
+  }
+  if (monthStr === 'year') {
+    return { month: 0, year: now.getFullYear(), isAllPeriod: false, isYear: true };
+  }
+  
+  const [year, month] = monthStr.split('-').map(Number);
+  
+  // Se não conseguir fazer o parse, retorna mês atual
+  if (!year || !month || isNaN(year) || isNaN(month)) {
+    return { month: now.getMonth() + 1, year: now.getFullYear(), isAllPeriod: false, isYear: false };
+  }
+  
+  return { month, year, isAllPeriod: false, isYear: false };
+}
 
-  const handleSuccess = () => {
-    window.location.reload();
+export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const monthParam = searchParams.get('month');
+
+  const [budgets, setBudgets] = useState<BudgetData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<BudgetData | null>(null);
+
+  const { month, year, isAllPeriod, isYear } = parseMonth(monthParam);
+
+  const fetchBudgets = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      
+      if (isAllPeriod) {
+        params.set('all', 'true');
+      } else if (isYear) {
+        params.set('year', String(year));
+      } else if (month > 0 && year > 0) {
+        params.set('month', String(month));
+        params.set('year', String(year));
+      } else {
+        const now = new Date();
+        params.set('month', String(now.getMonth() + 1));
+        params.set('year', String(now.getFullYear()));
+      }
+      
+      const url = `/api/budgets?${params.toString()}`;
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setBudgets(data.budgets || []);
+      }
+    } catch (error) {
+      console.error('Error fetching budgets:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [month, year, isAllPeriod, isYear, monthParam]);
+
+  useEffect(() => {
+    fetchBudgets();
+  }, [month, year, isAllPeriod, isYear]);
+
+  const handleSuccess = async () => {
+    await fetchBudgets();
   };
 
-  const handleEdit = (budget: any) => {
+  const handleEdit = (budget: BudgetData) => {
     setEditingBudget({
       id: budget.id,
       categoryId: budget.categoryId,
@@ -35,13 +111,20 @@ export function BudgetsPageClient({ initialBudgets, categories }: BudgetsPageCli
       year: budget.year,
       alertAt80: budget.alertAt80,
       alertAt100: budget.alertAt100,
+      category: budget.category,
     });
     setIsDialogOpen(true);
   };
 
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <MonthSelector />
         <Button
           className="gap-2"
           onClick={() => {
@@ -54,40 +137,60 @@ export function BudgetsPageClient({ initialBudgets, categories }: BudgetsPageCli
         </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {budgets.length > 0 ? (
-          budgets.map((budget) => (
-            <div key={budget.id} className="lg:col-span-1">
-              <BudgetWidget budgets={[budget]} />
-            </div>
-          ))
-        ) : (
-          <Card className="col-span-full py-20">
-            <CardContent className="flex flex-col items-center space-y-4 text-center">
-              <div className="bg-muted rounded-full p-4">
-                <PieChart className="text-muted-foreground h-10 w-10" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-xl font-semibold">Nenhum orçamento configurado</h3>
-                <p className="text-muted-foreground mx-auto max-w-xs">
-                  Defina limites para suas categorias e receba alertas quando estiver próximo de
-                  atingi-los.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => {
-                  setEditingBudget(null);
-                  setIsDialogOpen(true);
-                }}
-              >
-                Começar agora
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+      <div className="text-sm text-muted-foreground">
+        {isAllPeriod ? (
+          <>Exibindo todos os orçamentos</>
+        ) : isYear ? (
+          <>Exibindo orçamentos de <span className="font-medium">{year}</span></>
+        ) : null}
       </div>
+
+      {isLoading ? (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader className="pb-2">
+                <div className="bg-muted h-4 w-24 rounded" />
+              </CardHeader>
+              <CardContent>
+                <div className="bg-muted h-16 rounded" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : budgets.length > 0 ? (
+        <BudgetWidget
+          budgets={budgets}
+          onEdit={handleEdit}
+          onSuccess={handleSuccess}
+          showPeriod={isAllPeriod || isYear}
+        />
+      ) : (
+        <Card className="col-span-full py-20">
+          <CardContent className="flex flex-col items-center space-y-4 text-center">
+            <div className="bg-muted rounded-full p-4">
+              <PieChart className="text-muted-foreground h-10 w-10" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-xl font-semibold">Nenhum orçamento configurado</h3>
+              <p className="text-muted-foreground mx-auto max-w-xs">
+                Defina limites para suas categorias e receba alertas quando estiver próximo de
+                atingi-los.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => {
+                setEditingBudget(null);
+                setIsDialogOpen(true);
+              }}
+            >
+              Começar agora
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <BudgetDialog
         open={isDialogOpen}

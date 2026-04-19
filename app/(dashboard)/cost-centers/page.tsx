@@ -1,16 +1,7 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import {
-  Building2,
-  Plus,
-  MoreHorizontal,
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -18,124 +9,91 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { createCostCenter, deleteCostCenter } from '@/lib/actions/cost-centers';
+import { useCostCenters } from '@/lib/queries/cost-centers';
+import { showError, showSuccess, showValidationErrors } from '@/lib/utils/toast';
+import { Building2, MoreHorizontal, Plus, TrendingDown, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
-interface CostCenter {
-  id: string;
-  name: string;
-  description: string | null;
-  color: string;
-  parentId: string | null;
-  totalExpense: number;
-  totalIncome: number;
-  transactionCount: number;
-}
+const costCenterSchema = z.object({
+  name: z.string().min(1, 'Nome é obrigatório'),
+  description: z.string().optional(),
+  color: z.string().min(1, 'Cor é obrigatória'),
+});
+
+type CostCenterFormData = z.infer<typeof costCenterSchema>;
 
 export default function CostCentersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { costCenters, isLoading, refresh } = useCostCenters();
 
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    color: "#64748b",
-    parentId: "",
+  const form = useForm<CostCenterFormData>({
+    defaultValues: {
+      name: '',
+      description: '',
+      color: '#64748b',
+    },
   });
 
-  useEffect(() => {
-    fetchCostCenters();
-  }, []);
+  const onSubmit = async (data: CostCenterFormData) => {
+    const result = costCenterSchema.safeParse(data);
 
-  const fetchCostCenters = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/cost-centers");
-      if (response.ok) {
-        const data = await response.json();
-        setCostCenters(data.costCenters || []);
-      }
-    } catch (error) {
-      console.error("Error fetching cost centers:", error);
-      toast.error("Erro ao carregar centros de custo");
-    } finally {
-      setIsLoading(false);
+    if (!result.success) {
+      showValidationErrors(result.error);
+      return;
     }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/cost-centers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formData.name,
-          description: formData.description || null,
-          color: formData.color,
-          parentId: formData.parentId || null,
-        }),
+      const actionResult = await createCostCenter({
+        name: data.name,
+        description: data.description || undefined,
       });
 
-      if (response.ok) {
-        toast.success("Centro de custo criado com sucesso");
+      if (actionResult.success) {
+        showSuccess('Centro de custo criado com sucesso');
         setIsDialogOpen(false);
-        setFormData({
-          name: "",
-          description: "",
-          color: "#64748b",
-          parentId: "",
-        });
-        fetchCostCenters();
+        form.reset();
+        refresh();
       } else {
-        const error = await response.json();
-        toast.error(error.error || "Erro ao criar centro de custo");
+        showError(actionResult.error || 'Erro ao criar centro de custo');
       }
     } catch (error) {
-      toast.error("Erro ao criar centro de custo");
-    } finally {
-      setIsSubmitting(false);
+      showError('Erro ao criar centro de custo');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este centro de custo?")) return;
+    if (!confirm('Tem certeza que deseja excluir este centro de custo?')) return;
 
     try {
-      const response = await fetch(`/api/cost-centers/${id}`, {
-        method: "DELETE",
-      });
+      const result = await deleteCostCenter(id);
 
-      if (response.ok) {
-        toast.success("Centro de custo excluído com sucesso");
-        fetchCostCenters();
+      if (result.success) {
+        showSuccess('Centro de custo excluído com sucesso');
+        refresh();
       } else {
-        const error = await response.json();
-        toast.error(error.error || "Erro ao excluir centro de custo");
+        showError(result.error || 'Erro ao excluir centro de custo');
       }
     } catch (error) {
-      toast.error("Erro ao excluir centro de custo");
+      showError('Erro ao excluir centro de custo');
     }
   };
 
   const formatCurrency = (value: number) => {
-    return value.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
+    return value.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
     });
   };
 
@@ -162,23 +120,23 @@ export default function CostCentersPage() {
                 Crie um novo centro de custo para organizar suas transações
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome</Label>
                 <Input
                   id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  {...form.register('name')}
                   placeholder="Ex: Pessoal, Empresa, Projetos"
-                  required
                 />
+                {form.formState.errors.name && (
+                  <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Descrição</Label>
                 <Input
                   id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  {...form.register('description')}
                   placeholder="Descrição opcional"
                 />
               </div>
@@ -187,13 +145,15 @@ export default function CostCentersPage() {
                 <Input
                   id="color"
                   type="color"
-                  value={formData.color}
-                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                  {...form.register('color')}
                   className="h-10 w-full"
                 />
+                {form.formState.errors.color && (
+                  <p className="text-sm text-red-500">{form.formState.errors.color.message}</p>
+                )}
               </div>
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "Criando..." : "Criar Centro de Custo"}
+              <Button type="submit" className="w-full">
+                Criar Centro de Custo
               </Button>
             </form>
           </DialogContent>
