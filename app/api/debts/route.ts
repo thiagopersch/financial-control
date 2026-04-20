@@ -25,6 +25,7 @@ export async function GET() {
       currentValue: Number(debt.currentValue),
       interestRate: debt.interestRate ? Number(debt.interestRate) : null,
       minimumPayment: Number(debt.minimumPayment),
+      installments: debt.installments,
     }));
 
     return NextResponse.json({ debts: debtsWithNumbers });
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
       minimumPayment,
       dueDay,
       startDate,
+      installments,
     } = body;
 
     const debt = await prisma.debt.create({
@@ -63,6 +65,7 @@ export async function POST(request: NextRequest) {
         minimumPayment,
         dueDay,
         startDate: new Date(startDate),
+        installments,
         workspaceId: session.user.workspaceId,
       },
     });
@@ -75,6 +78,7 @@ export async function POST(request: NextRequest) {
           currentValue: Number(debt.currentValue),
           interestRate: debt.interestRate ? Number(debt.interestRate) : null,
           minimumPayment: Number(debt.minimumPayment),
+          installments: debt.installments,
         },
       },
       { status: 201 },

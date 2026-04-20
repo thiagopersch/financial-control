@@ -16,33 +16,38 @@ import {
 } from "@/lib/queries/dashboard";
 import { endOfMonth, parse, startOfMonth } from "date-fns";
 
-export default async function DashboardPage(props: { searchParams: Promise<{ month?: string }> }) {
+export default async function DashboardPage(props: { searchParams: Promise<{ year?: string; month?: string }> }) {
   const searchParams = await props.searchParams;
+  const year = searchParams.year;
+  const month = searchParams.month;
 
   let startDate: Date | undefined;
   let endDate: Date | undefined;
   let selectedMonth: Date;
 
-  if (searchParams.month === "all") {
+  if (!year || year === "all") {
+    // Sem parâmetros ou Todos os Períodos - sem filtro de data
+    selectedMonth = new Date();
     startDate = undefined;
     endDate = undefined;
-    selectedMonth = new Date();
-  } else if (searchParams.month === "year") {
-    const currentYear = new Date().getFullYear();
-    startDate = startOfMonth(new Date(currentYear, 0));
-    endDate = endOfMonth(new Date(currentYear, 11));
-    selectedMonth = new Date(currentYear, 0);
-  } else if (searchParams.month) {
-    selectedMonth = parse(searchParams.month, "yyyy-MM", new Date());
+  } else if (year && month === "all") {
+    // Ano completo
+    startDate = startOfMonth(new Date(parseInt(year), 0));
+    endDate = endOfMonth(new Date(parseInt(year), 11));
+    selectedMonth = new Date(parseInt(year), 0);
+  } else if (month && month !== "all") {
+    // Mês específico
+    selectedMonth = parse(`${year}-${month}`, "yyyy-MM", new Date());
     startDate = startOfMonth(selectedMonth);
     endDate = endOfMonth(selectedMonth);
   } else {
-    selectedMonth = new Date();
-    startDate = startOfMonth(selectedMonth);
-    endDate = endOfMonth(selectedMonth);
+    // Apenas ano selecionado sem mês específico - treating as full year
+    startDate = startOfMonth(new Date(parseInt(year), 0));
+    endDate = endOfMonth(new Date(parseInt(year), 11));
+    selectedMonth = new Date(parseInt(year), 0);
   }
 
-  const isFullYear = searchParams.month === "year" || searchParams.month === "all";
+  const isFullYear = (year && year !== "all" && !month) || month === "all";
 
   // Pass both start and end dates to queries to support flexible periods (monthly or yearly)
   const stats = await getDashboardStats(startDate, endDate);
@@ -58,27 +63,29 @@ export default async function DashboardPage(props: { searchParams: Promise<{ mon
     <div className="animate-in fade-in space-y-8 duration-700">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Dashboard
-          </h1>
-          <p className="text-muted-foreground">Bem-vindo ao seu controle financeiro.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">Visão geral das suas finanças</p>
         </div>
         <MonthSelector availableRange={availableRange} />
       </div>
 
-      <StatsCards stats={stats} isFullYear={isFullYear} />
+      <StatsCards stats={stats} />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="space-y-4 lg:col-span-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <div className="col-span-4">
           <OverviewChart data={chartData} isFullYear={isFullYear} />
-          <RecentTransactions transactions={recentTransactions} />
         </div>
-        <div className="space-y-4 lg:col-span-3">
-          <CategoryPieChart data={categoryData} isFullYear={isFullYear} />
-          <BudgetWidget budgets={budgetData} />
-          <GoalsWidget goals={goalsData} />
+        <div className="col-span-3">
+          <CategoryPieChart data={categoryData} />
         </div>
       </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <RecentTransactions transactions={recentTransactions} />
+        <BudgetWidget budgets={budgetData} />
+      </div>
+
+      <GoalsWidget goals={goalsData} />
     </div>
   );
 }

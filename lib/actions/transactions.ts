@@ -184,7 +184,6 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
   try {
     const validated = transactionSchema.parse(data);
 
-    // Precisamos saber o estado anterior para ajustar o saldo corretamente
     const oldTransaction = await prisma.transaction.findUnique({
       where: { id, workspaceId: session.user.workspaceId },
     });
@@ -192,7 +191,6 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
     if (!oldTransaction) return { success: false, error: "Transação não encontrada" };
 
     const transaction = await prisma.$transaction(async (tx) => {
-      // 1. Reverter saldo anterior se estava pago
       if (oldTransaction.status === TransactionStatus.PAID) {
         const oldAmount = Number(oldTransaction.amount);
         const reverseChange =
@@ -201,9 +199,27 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
           where: { id: oldTransaction.accountId! },
           data: { balance: { increment: reverseChange } },
         });
+
+        if (oldTransaction.debtId) {
+          const debt = await tx.debt.findUnique({
+            where: { id: oldTransaction.debtId },
+          });
+          if (debt) {
+            const paidTransactions = await tx.transaction.findMany({
+              where: { debtId: oldTransaction.debtId, status: TransactionStatus.PAID },
+            });
+            const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0) - oldAmount;
+            await tx.debt.update({
+              where: { id: oldTransaction.debtId },
+              data: {
+                currentValue: Number(debt.initialValue) - totalPaid,
+                isActive: Number(debt.initialValue) - totalPaid > 0,
+              },
+            });
+          }
+        }
       }
 
-      // 2. Atualizar transação
       const updated = await tx.transaction.update({
         where: { id },
         data: {
@@ -223,7 +239,6 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
         },
       });
 
-      // 3. Aplicar novo saldo se está pago
       if (validated.status === TransactionStatus.PAID) {
         const amountChange =
           validated.type === TransactionType.INCOME ? validated.amount : -validated.amount;
@@ -231,6 +246,25 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
           where: { id: validated.accountId },
           data: { balance: { increment: amountChange } },
         });
+
+        if (updated.debtId) {
+          const debt = await tx.debt.findUnique({
+            where: { id: updated.debtId },
+          });
+          if (debt) {
+            const paidTransactions = await tx.transaction.findMany({
+              where: { debtId: updated.debtId, status: TransactionStatus.PAID },
+            });
+            const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+            await tx.debt.update({
+              where: { id: updated.debtId },
+              data: {
+                currentValue: Number(debt.initialValue) - totalPaid,
+                isActive: Number(debt.initialValue) - totalPaid > 0,
+              },
+            });
+          }
+        }
       }
 
       return updated;
@@ -245,6 +279,7 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
 
     revalidatePath("/transactions");
     revalidatePath("/dashboard");
+    revalidatePath("/debts");
     return {
       success: true,
       data: {

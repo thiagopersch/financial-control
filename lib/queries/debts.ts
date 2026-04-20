@@ -14,6 +14,7 @@ export interface Debt {
   startDate: string;
   endDate: string | null;
   isActive: boolean;
+  installments: number | null;
 }
 
 export function useDebts() {

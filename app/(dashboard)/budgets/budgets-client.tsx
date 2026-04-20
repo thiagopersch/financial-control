@@ -31,29 +31,35 @@ interface BudgetsPageClientProps {
   categories: Category[];
 }
 
-function parseMonth(monthStr: string | null): { month: number; year: number; isAllPeriod: boolean; isYear: boolean } {
+function parseMonthParams(yearStr: string | null, monthStr: string | null): { month: number; year: number; isAllPeriod: boolean; isYear: boolean } {
   const now = new Date();
   
-  if (!monthStr || monthStr === 'all') {
-    return { month: 0, year: 0, isAllPeriod: true, isYear: false };
-  }
-  if (monthStr === 'year') {
-    return { month: 0, year: now.getFullYear(), isAllPeriod: false, isYear: true };
-  }
-  
-  const [year, month] = monthStr.split('-').map(Number);
-  
-  // Se não conseguir fazer o parse, retorna mês atual
-  if (!year || !month || isNaN(year) || isNaN(month)) {
+  // Novos parâmetros: year e month
+  if (!yearStr) {
+    // Sem parâmetros - usa mês atual
     return { month: now.getMonth() + 1, year: now.getFullYear(), isAllPeriod: false, isYear: false };
   }
   
-  return { month, year, isAllPeriod: false, isYear: false };
+  if (yearStr === 'all') {
+    return { month: 0, year: 0, isAllPeriod: true, isYear: false };
+  }
+  
+  if (monthStr === 'all') {
+    return { month: 0, year: parseInt(yearStr), isAllPeriod: false, isYear: true };
+  }
+  
+  if (monthStr) {
+    return { month: parseInt(monthStr), year: parseInt(yearStr), isAllPeriod: false, isYear: false };
+  }
+  
+  // Apenas ano selecionado sem mês - treated as full year
+  return { month: 0, year: parseInt(yearStr), isAllPeriod: false, isYear: true };
 }
 
 export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const yearParam = searchParams.get('year');
   const monthParam = searchParams.get('month');
 
   const [budgets, setBudgets] = useState<BudgetData[]>([]);
@@ -61,7 +67,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<BudgetData | null>(null);
 
-  const { month, year, isAllPeriod, isYear } = parseMonth(monthParam);
+  const { month, year, isAllPeriod, isYear } = parseMonthParams(yearParam, monthParam);
 
   const fetchBudgets = useCallback(async () => {
     setIsLoading(true);

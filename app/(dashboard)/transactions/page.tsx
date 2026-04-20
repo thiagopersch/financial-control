@@ -13,6 +13,7 @@ export default async function TransactionsPage({
   searchParams: Promise<{
     from?: string;
     to?: string;
+    year?: string;
     month?: string;
     type?: string;
     status?: string;
@@ -31,21 +32,39 @@ export default async function TransactionsPage({
     workspaceId: session.user.workspaceId,
   };
 
-  if (searchParams.month === "all") {
-    // Sem filtro de data
+  // Novos parâmetros: year e month
+  const yearParam = searchParams.year;
+  const monthParam = searchParams.month;
+
+  if (!yearParam) {
+    // Sem parâmetros - usa mês atual
+  } else if (yearParam === "all") {
+    // Todos os Períodos - sem filtro de data
+  } else if (monthParam === "all") {
+    // Ano completo
+    const year = parseInt(yearParam);
+    where.date = {
+      gte: startOfMonth(new Date(year, 0)),
+      lte: endOfMonth(new Date(year, 11)),
+    };
+  } else if (monthParam) {
+    // Mês específico
+    const year = parseInt(yearParam);
+    const month = parseInt(monthParam);
+    where.date = {
+      gte: startOfMonth(new Date(year, month - 1)),
+      lte: endOfMonth(new Date(year, month - 1)),
+    };
+  } else if (yearParam) {
+    // Apenas ano selecionado sem mês específico - usa mês atual como fallback
+    where.date = {
+      gte: startOfMonth(new Date()),
+      lte: endOfMonth(new Date()),
+    };
   } else {
+    // Parâmetros from/to legacy (manter compatibilidade)
     let from = startOfMonth(new Date());
     let to = endOfMonth(new Date());
-
-    if (searchParams.month === "year") {
-      const currentYear = new Date().getFullYear();
-      from = startOfMonth(new Date(currentYear, 0));
-      to = endOfMonth(new Date(currentYear, 11));
-    } else if (searchParams.month) {
-      const [year, m] = searchParams.month.split("-").map(Number);
-      from = startOfMonth(new Date(year, m - 1));
-      to = endOfMonth(new Date(year, m - 1));
-    }
 
     if (searchParams.from) from = new Date(searchParams.from);
     if (searchParams.to) to = new Date(searchParams.to);

@@ -1,11 +1,12 @@
 'use client';
 
-import { toast as sonner } from 'sonner';
+import { toast as sonner, ToasterProps } from 'sonner';
 import { ZodError } from 'zod';
 
-const defaultOptions = {
+const defaultOptions: ToasterProps = {
   position: 'bottom-center' as const,
   richColors: true,
+  closeButton: true,
 };
 
 interface ToastMessage {

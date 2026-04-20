@@ -7,10 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 interface MonthSelectorProps {
   availableRange?: {
@@ -19,66 +17,133 @@ interface MonthSelectorProps {
   };
 }
 
+const MONTHS = [
+  { value: "01", label: "Janeiro" },
+  { value: "02", label: "Fevereiro" },
+  { value: "03", label: "Março" },
+  { value: "04", label: "Abril" },
+  { value: "05", label: "Maio" },
+  { value: "06", label: "Junho" },
+  { value: "07", label: "Julho" },
+  { value: "08", label: "Agosto" },
+  { value: "09", label: "Setembro" },
+  { value: "10", label: "Outubro" },
+  { value: "11", label: "Novembro" },
+  { value: "12", label: "Dezembro" },
+];
+
 export function MonthSelector({ availableRange }: MonthSelectorProps) {
-  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const currentYear = new Date().getFullYear();
+  const minDate = availableRange?.minDate ? new Date(availableRange.minDate) : new Date(currentYear - 5, 0, 1);
+  const maxDate = availableRange?.maxDate ? new Date(availableRange.maxDate) : new Date();
 
-  const currentMonth = searchParams.get("month") || (mounted ? format(new Date(), "yyyy-MM") : "");
+  // Gerar anos em ordem crescente
+  const years = useMemo(() => {
+    const result: number[] = [];
+    for (let year = minDate.getFullYear(); year <= maxDate.getFullYear(); year++) {
+      result.push(year);
+    }
+    return result;
+  }, [minDate, maxDate]);
 
-  const onChange = (value: string) => {
+  // Obter valores atuais dos parâmetros - só leitura, não reage a mudanças
+  const yearParam = searchParams.get("year");
+  const monthParam = searchParams.get("month");
+
+  const selectedYear = yearParam;
+  const selectedMonth = monthParam;
+
+  const isMonthDisabled = !selectedYear || selectedYear === "all";
+
+  const onYearChange = (value: string) => {
     const params = new URLSearchParams(searchParams);
-    params.set("month", value);
+    params.delete("month");
     params.delete("from");
     params.delete("to");
+
+    if (value === "all") {
+      // Todos os Períodos - usar year=all para manter na URL
+      params.set("year", "all");
+      router.push(`${pathname}?${params.toString()}`);
+    } else if (value === "year") {
+      // Ano Completo
+      params.set("year", currentYear.toString());
+      params.set("month", "all");
+      router.push(`${pathname}?${params.toString()}`);
+    } else {
+      // Ano específico selecionado
+      params.set("year", value);
+      // Não limpar month ao trocar ano - manter referência
+      router.push(`${pathname}?${params.toString()}`);
+    }
+  };
+
+  const onMonthChange = (value: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.delete("from");
+    params.delete("to");
+
+    if (value === "all") {
+      // Todos os meses do ano selecionado
+      params.set("month", "all");
+    } else {
+      // Mês específico
+      params.set("month", value);
+    }
+    
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  const currentYear = new Date().getFullYear();
-  const minDate = availableRange?.minDate ? new Date(availableRange.minDate) : new Date();
-  const maxDate = availableRange?.maxDate ? new Date(availableRange.maxDate) : new Date();
+  const getYearDisplay = () => {
+    if (selectedYear === null || selectedYear === "") return "Selecione o ano...";
+    if (selectedYear === "all") return "Todos os Períodos";
+    if (selectedYear === "year") return `Ano Completo ${currentYear}`;
+    return selectedYear;
+  };
 
-  const startYear = Math.min(minDate.getFullYear(), currentYear);
-  const endYear = Math.max(maxDate.getFullYear(), currentYear);
-
-  const months = [];
-  for (let year = startYear; year <= endYear; year++) {
-    // Para o ano atual ou anos anteriores, mostramos todos os meses (11 = Dezembro)
-    // Para anos futuros, mostramos apenas até o mês da última transação registrada
-    const endMonth = year <= currentYear ? 11 : year === endYear ? maxDate.getMonth() : 11;
-
-    for (let month = 0; month <= endMonth; month++) {
-      const date = new Date(year, month, 1);
-      months.push({
-        value: format(date, "yyyy-MM"),
-        label: format(date, "MMMM yyyy", { locale: ptBR }),
-      });
-    }
-  }
-
-  // Ordenar do mais recente para o mais antigo e garantir que o mês atual e futuros apareçam
-  months.sort((a, b) => b.value.localeCompare(a.value));
+  const getMonthDisplay = () => {
+    if (!selectedMonth || selectedMonth === "") return "Selecione o mês...";
+    if (selectedMonth === "all") return "Todos os meses";
+    const month = MONTHS.find(m => m.value === selectedMonth);
+    return month?.label || "Selecione o mês...";
+  };
 
   return (
     <div className="flex items-center gap-2 max-md:w-full">
       <span className="text-muted-foreground hidden text-sm font-medium sm:inline-block">
         Período:
       </span>
-      <Select value={currentMonth} onValueChange={onChange}>
+      
+      {/* Primeiro Select - Ano */}
+      <Select value={selectedYear || ""} onValueChange={onYearChange}>
         <SelectTrigger className="w-full cursor-pointer border shadow-sm">
-          <SelectValue placeholder="Selecione o mês" />
+          <SelectValue placeholder="Selecione o ano..." />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todo o Período</SelectItem>
+          <SelectItem value="all">Todos os Períodos</SelectItem>
           <SelectItem value="year">Ano Completo {currentYear}</SelectItem>
-          {months.map((month) => (
+          {years.map((year) => (
+            <SelectItem key={year} value={year.toString()}>
+              {year}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* Segundo Select - Mês */}
+      <Select value={selectedMonth || ""} onValueChange={onMonthChange} disabled={isMonthDisabled}>
+        <SelectTrigger className="w-full cursor-pointer border shadow-sm disabled:opacity-50">
+          <SelectValue placeholder="Selecione o mês..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos os meses</SelectItem>
+          {MONTHS.map((month) => (
             <SelectItem key={month.value} value={month.value}>
-              <span className="capitalize">{month.label}</span>
+              {month.label}
             </SelectItem>
           ))}
         </SelectContent>
