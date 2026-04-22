@@ -1,9 +1,9 @@
-import { PrismaClient, Role, TransactionStatus, TransactionType } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
+import { PrismaClient, Role, TransactionStatus, TransactionType } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { config } from 'dotenv';
 import { resolve } from 'path';
+import { Pool } from 'pg';
 
 // Ensure .env is loaded when running seed directly via ts-node
 config({ path: resolve(__dirname, '../.env') });
@@ -13,7 +13,12 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const hashedPassword = await bcrypt.hash('admin123', 10);
+  if (!process.env.ADMIN_PASSWORD || !process.env.ADMIN_NAME || !process.env.ADMIN_EMAIL) {
+    throw new Error('Missing required environment variables');
+  }
+
+  const passwordAdmin = process.env.ADMIN_PASSWORD;
+  const hashedPassword = await bcrypt.hash(passwordAdmin!, 10);
 
   // Create workspace
   const workspace = await prisma.workspace.create({
@@ -21,8 +26,8 @@ async function main() {
       name: 'Main Workspace',
       users: {
         create: {
-          name: 'Admin User',
-          email: 'admin@example.com',
+          name: process.env.ADMIN_NAME,
+          email: process.env.ADMIN_EMAIL,
           password: hashedPassword,
           role: Role.ADMIN,
         },
@@ -31,7 +36,7 @@ async function main() {
   });
 
   const admin = await prisma.user.findFirst({
-    where: { email: 'admin@example.com' },
+    where: { email: process.env.ADMIN_EMAIL },
   });
 
   if (!admin) return;
@@ -47,7 +52,7 @@ async function main() {
   // Create categories
   const catIncome = await prisma.category.create({
     data: {
-      name: 'Salary',
+      name: 'Salário',
       type: TransactionType.INCOME,
       color: '#22c55e',
       workspaceId: workspace.id,
@@ -56,7 +61,7 @@ async function main() {
 
   const catExpense = await prisma.category.create({
     data: {
-      name: 'Rent',
+      name: 'Conta de luz',
       type: TransactionType.EXPENSE,
       color: '#ef4444',
       workspaceId: workspace.id,
@@ -66,7 +71,7 @@ async function main() {
   // Create supplier
   const supplier = await prisma.supplier.create({
     data: {
-      name: 'Real Estate Inc.',
+      name: 'Energisa',
       workspaceId: workspace.id,
     },
   });
@@ -76,7 +81,7 @@ async function main() {
     data: [
       {
         type: TransactionType.INCOME,
-        amount: 5000.0,
+        amount: 0.0,
         date: new Date(),
         status: TransactionStatus.PAID,
         categoryId: catIncome.id,
@@ -84,7 +89,7 @@ async function main() {
       },
       {
         type: TransactionType.EXPENSE,
-        amount: 1200.0,
+        amount: 0.0,
         date: new Date(),
         dueDate: new Date(),
         status: TransactionStatus.PAID,
