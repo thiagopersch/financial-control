@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -9,25 +9,25 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { updatePassword } from "@/lib/actions/profiles";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Lock } from "lucide-react";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import * as z from "zod";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { updatePassword } from '@/lib/actions/profiles';
+import { showError, showSuccess } from '@/lib/utils/toast';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 
 const passwordSchema = z
   .object({
-    currentPassword: z.string().min(1, "Informe a senha atual"),
-    newPassword: z.string().min(6, "A nova senha deve ter pelo menos 6 caracteres"),
-    confirmPassword: z.string().min(6, "Confirme a nova senha"),
+    currentPassword: z.string().min(1, 'Informe a senha atual'),
+    newPassword: z.string().min(6, 'A nova senha deve ter pelo menos 6 caracteres'),
+    confirmPassword: z.string().min(6, 'Confirme a nova senha'),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "As senhas não coincidem",
-    path: ["confirmPassword"],
+    message: 'As senhas não coincidem',
+    path: ['confirmPassword'],
   });
 
 type PasswordFormValues = z.infer<typeof passwordSchema>;
@@ -37,7 +37,7 @@ export function PasswordForm() {
 
   const form = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordSchema),
-    defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
+    defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
   });
 
   async function onSubmit(data: PasswordFormValues) {
@@ -48,13 +48,13 @@ export function PasswordForm() {
         newPassword: data.newPassword,
       });
       if (result.success) {
-        toast.success("Senha alterada com sucesso!");
+        showSuccess('Senha alterada com sucesso!');
         form.reset();
       } else {
-        toast.error(result.error);
+        showError(result.error || 'Erro inesperado.');
       }
     } catch {
-      toast.error("Erro inesperado.");
+      showError('Erro inesperado.');
     } finally {
       setIsLoading(false);
     }

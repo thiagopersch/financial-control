@@ -1,13 +1,19 @@
-"use client";
+'use client';
 
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
-import { deleteRule } from "@/lib/actions/rules";
-import { toast } from "sonner";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { deleteRule } from '@/lib/actions/rules';
+import { showError, showSuccess } from '@/lib/utils/toast';
+import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
 
 interface DeleteRuleModalProps {
   isOpen: boolean;
@@ -23,13 +29,13 @@ export function DeleteRuleModal({ isOpen, onClose, id }: DeleteRuleModalProps) {
     try {
       const result = await deleteRule(id);
       if (result.success) {
-        toast.success("Regra excluída com sucesso.");
+        showSuccess('Regra excluída com sucesso.');
         onClose();
       } else {
-        toast.error(result.error);
+        showError(result.error || 'Erro inesperado.');
       }
     } catch {
-      toast.error("Erro inesperado.");
+      showError('Erro inesperado.');
     } finally {
       setIsLoading(false);
     }
@@ -48,7 +54,7 @@ export function DeleteRuleModal({ isOpen, onClose, id }: DeleteRuleModalProps) {
           <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className="bg-red-600 hover:bg-red-700 text-white"
+            className="bg-red-600 text-white hover:bg-red-700"
             disabled={isLoading}
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

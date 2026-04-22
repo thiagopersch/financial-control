@@ -1,6 +1,6 @@
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
 
 export async function createAuditLog({
   action,
@@ -37,7 +37,7 @@ export async function createAuditLog({
       },
     });
   } catch (error) {
-    console.error("Failed to create audit log:", error);
+    console.error('Failed to create audit log:', error);
   }
 }
 
@@ -47,7 +47,7 @@ export async function getAuditLogs(workspaceId: string, page: number = 1, limit:
   const [logs, total] = await Promise.all([
     prisma.auditLog.findMany({
       where: { workspaceId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       skip: offset,
       take: limit,
       include: {
@@ -78,7 +78,7 @@ export async function getAuditLogsByEntity(workspaceId: string, entity: string, 
       entity,
       entityId,
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
     include: {
       user: {
         select: {

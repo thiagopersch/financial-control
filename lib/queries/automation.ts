@@ -1,9 +1,4 @@
-import useSWR from "swr";
-import {
-  createConditionalRule,
-  deleteConditionalRule,
-  toggleConditionalRule,
-} from "@/lib/actions/conditional-rules";
+import useSWR from 'swr';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -20,7 +15,7 @@ export interface ConditionalRule {
 
 export function useConditionalRules() {
   const { data, error, isLoading, mutate } = useSWR<{ rules: ConditionalRule[] }>(
-    "/api/conditional-rules",
+    '/api/conditional-rules',
     fetcher,
     {
       revalidateOnFocus: false,

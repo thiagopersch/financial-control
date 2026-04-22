@@ -1,23 +1,32 @@
-"use client";
+'use client';
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { Button } from '@/components/ui/button';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from "@/components/ui/dialog";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-import { createSupplier, updateSupplier } from "@/lib/actions/suppliers";
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { createSupplier, updateSupplier } from '@/lib/actions/suppliers';
+import { showError, showSuccess } from '@/lib/utils/toast';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 
 const supplierSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   document: z.string().optional().nullable(),
   contact: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
@@ -36,19 +45,19 @@ export function SupplierModal({ isOpen, onClose, initialData }: SupplierModalPro
 
   const form = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierSchema),
-    defaultValues: { name: "", document: "", contact: "", address: "" },
+    defaultValues: { name: '', document: '', contact: '', address: '' },
   });
 
   useEffect(() => {
     if (initialData) {
       form.reset({
         name: initialData.name,
-        document: initialData.document || "",
-        contact: initialData.contact || "",
-        address: initialData.address || "",
+        document: initialData.document || '',
+        contact: initialData.contact || '',
+        address: initialData.address || '',
       });
     } else {
-      form.reset({ name: "", document: "", contact: "", address: "" });
+      form.reset({ name: '', document: '', contact: '', address: '' });
     }
   }, [initialData, form]);
 
@@ -60,13 +69,13 @@ export function SupplierModal({ isOpen, onClose, initialData }: SupplierModalPro
         : await createSupplier(data);
 
       if (result.success) {
-        toast.success(initialData ? "Fornecedor atualizado!" : "Fornecedor criado!");
+        showSuccess(initialData ? 'Fornecedor atualizado!' : 'Fornecedor criado!');
         onClose();
       } else {
-        toast.error(result.error);
+        showError(result.error || 'Erro inesperado.');
       }
     } catch {
-      toast.error("Erro inesperado.");
+      showError('Erro inesperado.');
     } finally {
       setIsLoading(false);
     }
@@ -74,9 +83,9 @@ export function SupplierModal({ isOpen, onClose, initialData }: SupplierModalPro
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{initialData ? "Editar Fornecedor" : "Novo Fornecedor"}</DialogTitle>
+          <DialogTitle>{initialData ? 'Editar Fornecedor' : 'Novo Fornecedor'}</DialogTitle>
           <DialogDescription>
             Defina os dados básicos do seu fornecedor ou cliente.
           </DialogDescription>
@@ -103,7 +112,7 @@ export function SupplierModal({ isOpen, onClose, initialData }: SupplierModalPro
                 <FormItem>
                   <FormLabel>CPF / CNPJ</FormLabel>
                   <FormControl>
-                    <Input placeholder="00.000.000/0000-00" {...field} value={field.value || ""} />
+                    <Input placeholder="00.000.000/0000-00" {...field} value={field.value || ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -116,7 +125,7 @@ export function SupplierModal({ isOpen, onClose, initialData }: SupplierModalPro
                 <FormItem>
                   <FormLabel>Contato (E-mail / Telefone)</FormLabel>
                   <FormControl>
-                    <Input placeholder="contato@exemplo.com" {...field} value={field.value || ""} />
+                    <Input placeholder="contato@exemplo.com" {...field} value={field.value || ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -129,7 +138,11 @@ export function SupplierModal({ isOpen, onClose, initialData }: SupplierModalPro
                 <FormItem>
                   <FormLabel>Endereço (Opcional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Rua Exemplo, 100 — São Paulo/SP" {...field} value={field.value || ""} />
+                    <Input
+                      placeholder="Rua Exemplo, 100 — São Paulo/SP"
+                      {...field}
+                      value={field.value || ''}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -139,9 +152,13 @@ export function SupplierModal({ isOpen, onClose, initialData }: SupplierModalPro
               <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700">
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {initialData ? "Salvar" : "Criar"}
+                {initialData ? 'Salvar' : 'Criar'}
               </Button>
             </div>
           </form>

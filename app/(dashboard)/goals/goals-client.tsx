@@ -1,14 +1,16 @@
 'use client';
 
 import { GoalsWidget } from '@/components/dashboard/goals-widget';
-import { Goal, GoalDialog } from '@/components/goals/goal-dialog';
+import { DepositDialog } from '@/components/goals/deposit-dialog';
+import { type Goal, GoalDialog } from '@/components/goals/goal-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
 import { deleteGoal } from '@/lib/actions/goals';
+import { showError, showSuccess } from '@/lib/utils/toast';
 import type { GoalData } from '@/types/goal';
 import { Plus, Rocket, Target } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
 interface GoalsPageClientProps {
   initialGoals: GoalData[];
@@ -18,6 +20,9 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
   const [goals, setGoals] = useState<GoalData[]>(initialGoals);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+
+  const [depositGoalId, setDepositGoalId] = useState<string | null>(null);
+  const [deleteGoalId, setDeleteGoalId] = useState<string | null>(null);
 
   const handleSuccess = () => {
     window.location.reload();
@@ -36,20 +41,59 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
   };
 
   const handleDelete = async (goalId: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta meta?')) return;
-
     try {
       const result = await deleteGoal(goalId);
       if (result.success) {
-        toast.success('Meta excluída com sucesso');
+        showSuccess('Meta excluída com sucesso');
         setGoals(goals.filter((g) => g.id !== goalId));
       } else {
-        toast.error(result.error || 'Erro ao excluir meta');
+        showError(result.error || 'Erro ao excluir meta');
       }
-    } catch (error) {
-      toast.error('Erro ao excluir meta');
+    } catch {
+      showError('Erro ao excluir meta');
     }
   };
+
+  const handleDeleteClick = (goalId: string) => {
+    setDeleteGoalId(goalId);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteGoalId) return;
+
+    try {
+      const result = await deleteGoal(deleteGoalId);
+      if (result.success) {
+        showSuccess('Meta excluída com sucesso');
+        setGoals(goals.filter((g) => g.id !== deleteGoalId));
+        setDeleteGoalId(null);
+      } else {
+        showError(result.error || 'Erro ao excluir meta');
+      }
+    } catch {
+      showError('Erro ao excluir meta');
+    }
+  };
+
+  const handleDeposit = (goalId: string) => {
+    setDepositGoalId(goalId);
+  };
+
+  const handleDepositSuccess = (newAmount: number) => {
+    setGoals(
+      goals.map((g) =>
+        g.id === depositGoalId
+          ? {
+              ...g,
+              currentAmount: newAmount,
+              percent: Math.min((newAmount / g.targetAmount) * 100, 100),
+            }
+          : g,
+      ),
+    );
+  };
+
+  const currentDepositGoal = goals.find((g) => g.id === depositGoalId);
 
   return (
     <div className="space-y-6">
@@ -70,7 +114,13 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
         {goals.length > 0 ? (
           goals.map((goal) => (
             <div key={goal.id} className="lg:col-span-1">
-              <GoalsWidget goals={[goal]} onEdit={handleEdit} onDelete={handleDelete} />
+              <GoalsWidget
+                goals={[goal]}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onDeleteClick={handleDeleteClick}
+                onDeposit={handleDeposit}
+              />
             </div>
           ))
         ) : (
@@ -108,6 +158,32 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
         editingGoal={editingGoal}
         onSuccess={handleSuccess}
       />
+
+      {currentDepositGoal && (
+        <DepositDialog
+          open={depositGoalId !== null}
+          onOpenChange={(open) => !open && setDepositGoalId(null)}
+          goalId={currentDepositGoal.id}
+          goalName={currentDepositGoal.name}
+          currentAmount={currentDepositGoal.currentAmount}
+          targetAmount={currentDepositGoal.targetAmount}
+          onDepositSuccess={handleDepositSuccess}
+        />
+      )}
+
+      {deleteGoalId && (
+        <DeleteConfirmModal
+          isOpen={deleteGoalId !== null}
+          onClose={() => setDeleteGoalId(null)}
+          onConfirm={handleDeleteConfirm}
+          title="Excluir Meta"
+          description={`Tem certeza que deseja excluir a meta "${
+            goals.find((g) => g.id === deleteGoalId)?.name || ''
+          }"? Esta ação não pode ser desfeita.`}
+          confirmText="Excluir"
+          cancelText="Cancelar"
+        />
+      )}
     </div>
   );
 }

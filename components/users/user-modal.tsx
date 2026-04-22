@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   Form,
   FormControl,
@@ -15,36 +15,36 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { createUser, updateUser } from "@/lib/actions/users";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Role } from "@prisma/client";
-import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import * as z from "zod";
+} from '@/components/ui/select';
+import { createUser, updateUser } from '@/lib/actions/users';
+import { showError, showSuccess } from '@/lib/utils/toast';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Role } from '@prisma/client';
+import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 
 const createSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  email: z.string().email("E-mail inválido"),
-  password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
-  role: z.nativeEnum(Role),
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  email: z.email('E-mail inválido'),
+  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
+  role: z.enum(Role),
 });
 
 const updateSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  email: z.string().optional(),
-  password: z.string().optional(),
-  role: z.nativeEnum(Role),
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  email: z.email('E-mail inválido').optional(),
+  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres').optional(),
+  role: z.enum(Role),
 });
 
 interface UserModalProps {
@@ -63,9 +63,9 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema as any),
     defaultValues: {
-      name: "",
-      email: "",
-      password: "",
+      name: '',
+      email: '',
+      password: '',
       role: Role.VIEWER,
     },
   });
@@ -75,11 +75,11 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
       form.reset({
         name: initialData.name,
         email: initialData.email,
-        password: "",
+        password: '',
         role: initialData.role,
       });
     } else {
-      form.reset({ name: "", email: "", password: "", role: Role.VIEWER });
+      form.reset({ name: '', email: '', password: '', role: Role.VIEWER });
     }
   }, [initialData, form]);
 
@@ -99,45 +99,39 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
       }
 
       if (result.success) {
-        toast.success(isEditing ? "Usuário atualizado!" : "Usuário criado com sucesso!", {
-          description: isEditing ? "O usuário foi atualizado." : "O usuário foi criado.",
-          position: "bottom-center",
-          richColors: true,
-        });
+        showSuccess(
+          isEditing ? 'Usuário atualizado!' : 'Usuário criado com sucesso!',
+          isEditing ? 'O usuário foi atualizado.' : 'O usuário foi criado.',
+        );
         onClose();
       } else {
-        toast.error(result.error, {
-          description: isEditing ? "Erro ao atualizar usuário." : "Erro ao criar usuário.",
-          position: "bottom-center",
-          richColors: true,
-        });
+        showError(
+          result.error || (isEditing ? 'Erro ao atualizar usuário.' : 'Erro ao criar usuário.'),
+          isEditing ? 'Erro ao atualizar usuário.' : 'Erro ao criar usuário.',
+        );
       }
     } catch {
-      toast.error("Erro inesperado.", {
-        description: "Erro ao criar ou atualizar usuário.",
-        position: "bottom-center",
-        richColors: true,
-      });
+      showError('Erro inesperado.', 'Erro ao criar ou atualizar usuário.');
     } finally {
       setIsLoading(false);
     }
   }
 
   const roleLabels: Record<Role, string> = {
-    [Role.ADMIN]: "Administrador",
-    [Role.MANAGER]: "Gerente",
-    [Role.VIEWER]: "Visualizador",
+    [Role.ADMIN]: 'Administrador',
+    [Role.MANAGER]: 'Gerente',
+    [Role.VIEWER]: 'Visualizador',
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Editar Usuário" : "Convidar Usuário"}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Editar Usuário' : 'Convidar Usuário'}</DialogTitle>
           <DialogDescription>
             {isEditing
-              ? "Altere o nome ou a função do usuário no workspace."
-              : "Crie um novo acesso para um membro da equipe."}
+              ? 'Altere o nome ou a função do usuário no workspace.'
+              : 'Crie um novo acesso para um membro da equipe.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -198,7 +192,7 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
                   <FormLabel>Função</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Selecione a função" />
                       </SelectTrigger>
                     </FormControl>
@@ -218,13 +212,9 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
               <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="bg-indigo-600 hover:bg-indigo-700"
-              >
+              <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEditing ? "Salvar" : "Criar usuário"}
+                {isEditing ? 'Atualizar' : 'Salvar'}
               </Button>
             </div>
           </form>

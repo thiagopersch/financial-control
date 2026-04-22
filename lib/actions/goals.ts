@@ -110,3 +110,51 @@ export async function deleteGoal(id: string) {
     return { success: false, error: 'Erro ao excluir meta' };
   }
 }
+
+export async function depositToGoal(id: string, amount: number) {
+  const session = await getServerSession(authOptions);
+  if (!session) return { success: false, error: 'Não autorizado' };
+
+  if (amount <= 0) {
+    return { success: false, error: 'Valor deve ser maior que zero' };
+  }
+
+  try {
+    const goal = await prisma.goal.findUnique({
+      where: {
+        id,
+        workspaceId: session.user.workspaceId,
+      },
+    });
+
+    if (!goal) {
+      return { success: false, error: 'Meta não encontrada' };
+    }
+
+    const updatedGoal = await prisma.goal.update({
+      where: {
+        id,
+        workspaceId: session.user.workspaceId,
+      },
+      data: {
+        currentAmount: {
+          increment: amount,
+        },
+      },
+    });
+
+    await createAuditLog({
+      action: 'DEPOSIT_TO_GOAL',
+      entity: 'Goal',
+      entityId: goal.id,
+      newValue: { amount, previousAmount: goal.currentAmount, newAmount: updatedGoal.currentAmount },
+    });
+
+    revalidatePath('/goals');
+    revalidatePath('/dashboard');
+    return { success: true, data: serializeGoal(updatedGoal) };
+  } catch (error) {
+    console.error('Error depositing to goal:', error);
+    return { success: false, error: 'Erro ao depositar na meta' };
+  }
+}

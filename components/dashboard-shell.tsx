@@ -46,7 +46,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <UserButton />
           </div>
         </header>
-        <div className="bg-background text-foreground flex-1 px-4 py-8 md:px-10">{children}</div>
+        <div className="dark:bg-background text-foreground flex-1 bg-neutral-50 px-4 py-8 md:px-10">
+          {children}
+        </div>
       </main>
     </div>
   );

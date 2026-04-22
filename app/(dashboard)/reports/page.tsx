@@ -1,53 +1,53 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { FileBarChart, Download, FileText, Table } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useState } from 'react';
+import { FileBarChart, Download, FileText, Table } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const metrics = [
-  { id: "total_income", label: "Receita Total", type: "income" },
-  { id: "total_expense", label: "Despesa Total", type: "expense" },
-  { id: "net_result", label: "Resultado Líquido", type: "both" },
-  { id: "by_category", label: "Por Categoria", type: "both" },
-  { id: "by_account", label: "Por Conta", type: "both" },
-  { id: "by_cost_center", label: "Por Centro de Custo", type: "both" },
+  { id: 'total_income', label: 'Receita Total', type: 'income' },
+  { id: 'total_expense', label: 'Despesa Total', type: 'expense' },
+  { id: 'net_result', label: 'Resultado Líquido', type: 'both' },
+  { id: 'by_category', label: 'Por Categoria', type: 'both' },
+  { id: 'by_account', label: 'Por Conta', type: 'both' },
+  { id: 'by_cost_center', label: 'Por Centro de Custo', type: 'both' },
 ];
 
 const periods = [
-  { value: "current_month", label: "Mês Atual" },
-  { value: "last_month", label: "Mês Passado" },
-  { value: "last_3_months", label: "Últimos 3 meses" },
-  { value: "last_6_months", label: "Últimos 6 meses" },
-  { value: "current_year", label: "Ano Atual" },
-  { value: "custom", label: "Personalizado" },
+  { value: 'current_month', label: 'Mês Atual' },
+  { value: 'last_month', label: 'Mês Passado' },
+  { value: 'last_3_months', label: 'Últimos 3 meses' },
+  { value: 'last_6_months', label: 'Últimos 6 meses' },
+  { value: 'current_year', label: 'Ano Atual' },
+  { value: 'custom', label: 'Personalizado' },
 ];
 
 export default function ReportsPage() {
-  const [selectedMetric, setSelectedMetric] = useState("total_expense");
-  const [selectedPeriod, setSelectedPeriod] = useState("current_month");
-  const [exportFormat, setExportFormat] = useState<"csv" | "pdf">("csv");
+  const [selectedMetric, setSelectedMetric] = useState('total_expense');
+  const [selectedPeriod, setSelectedPeriod] = useState('current_month');
+  const [exportFormat, setExportFormat] = useState<'csv' | 'pdf'>('csv');
 
   const handleExport = () => {
-    const timestamp = new Date().toISOString().split("T")[0];
+    const timestamp = new Date().toISOString().split('T')[0];
     const filename = `relatorio_${selectedMetric}_${timestamp}`;
 
-    if (exportFormat === "csv") {
+    if (exportFormat === 'csv') {
       const csvContent =
-        "data:text/csv;charset=utf-8,Categoria,Valor\nAlimentação,1500\nTransporte,500\nLazer,300";
+        'data:text/csv;charset=utf-8,Categoria,Valor\nAlimentação,1500\nTransporte,500\nLazer,300';
       const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `${filename}.csv`);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `${filename}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -96,7 +96,7 @@ export default function ReportsPage() {
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Formato</label>
-          <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as "csv" | "pdf")}>
+          <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as 'csv' | 'pdf')}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -130,7 +130,7 @@ export default function ReportsPage() {
             <CardHeader>
               <CardTitle>Visualização Gráfica</CardTitle>
               <CardDescription>
-                Métrica: {metrics.find((m) => m.id === selectedMetric)?.label} | Período:{" "}
+                Métrica: {metrics.find((m) => m.id === selectedMetric)?.label} | Período:{' '}
                 {periods.find((p) => p.value === selectedPeriod)?.label}
               </CardDescription>
             </CardHeader>

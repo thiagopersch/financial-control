@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -8,7 +8,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -16,24 +16,24 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
-import { signIn } from "next-auth/react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import * as z from "zod";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { showError, showSuccess } from '@/lib/utils/toast';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2 } from 'lucide-react';
+import { signIn } from 'next-auth/react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 
 const loginSchema = z.object({
-  email: z.email({ error: "E-mail inválido" }),
+  email: z.email({ error: 'E-mail inválido' }),
   password: z
     .string()
-    .min(6, { error: "A senha deve ter pelo menos 6 caracteres" })
-    .max(30, { error: "A senha deve ter no máximo 30 caracteres" }),
+    .min(6, { error: 'A senha deve ter pelo menos 6 caracteres' })
+    .max(30, { error: 'A senha deve ter no máximo 30 caracteres' }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -41,21 +41,21 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
-      password: "",
+      email: '',
+      password: '',
     },
   });
 
   async function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
     try {
-      const result = await signIn("credentials", {
+      const result = await signIn('credentials', {
         email: data.email,
         password: data.password,
         redirect: false,
@@ -63,17 +63,13 @@ function LoginForm() {
       });
 
       if (result?.error) {
-        toast.error("Erro ao fazer login", {
-          description: "Usuário ou senha incorretos",
-        });
+        showError('Erro ao fazer login', 'Usuário ou senha incorretos');
       } else {
-        toast.success("Login realizado com sucesso!");
+        showSuccess('Login realizado com sucesso!');
         router.push(callbackUrl);
       }
-    } catch (error) {
-      toast.error("Erro inesperado", {
-        description: "Ocorreu um erro ao processar sua solicitação.",
-      });
+    } catch {
+      showError('Erro inesperado', 'Ocorreu um erro ao processar sua solicitação.');
     } finally {
       setIsLoading(false);
     }
@@ -132,7 +128,7 @@ function LoginForm() {
             />
             <Button
               type="submit"
-              className="w-full bg-indigo-600 text-lg font-semibold text-white transition-all hover:bg-indigo-700"
+              className="bg-primary hover:bg-primary/90 w-full text-lg font-semibold text-white transition-all"
               size="lg"
               disabled={isLoading}
             >
@@ -142,7 +138,7 @@ function LoginForm() {
                   Entrando...
                 </>
               ) : (
-                "Entrar"
+                'Entrar'
               )}
             </Button>
           </form>
@@ -150,10 +146,10 @@ function LoginForm() {
       </CardContent>
       <CardFooter className="flex flex-col space-y-4 text-center">
         <div className="text-muted-foreground text-sm">
-          Ainda não tem uma conta?{" "}
+          Ainda não tem uma conta?{' '}
           <Link
             href="/register"
-            className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+            className="text-primary dark:text-primary font-semibold hover:underline"
           >
             Criar conta
           </Link>

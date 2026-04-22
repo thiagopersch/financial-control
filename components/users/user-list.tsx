@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
-import { cn } from "@/lib/utils";
-import { Role, User } from "@prisma/client";
-import { ColumnDef } from "@tanstack/react-table";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { ArrowUpDown, Edit, Shield, Trash, User as UserIcon } from "lucide-react";
-import { useEffect, useState } from "react";
-import { DeleteUserModal } from "./delete-user-modal";
-import { UserModal } from "./user-modal";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { DataTable } from '@/components/ui/data-table';
+import { cn } from '@/lib/utils';
+import { Role, User } from '@prisma/client';
+import { ColumnDef } from '@tanstack/react-table';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { ArrowUpDown, Edit, Shield, Trash, User as UserIcon } from 'lucide-react';
+import { useState } from 'react';
+import { DeleteUserModal } from './delete-user-modal';
+import { UserModal } from './user-modal';
 
 interface UserListProps {
   users: User[];
@@ -21,35 +21,30 @@ interface UserListProps {
 
 const roleConfig: Record<Role, { label: string; className: string }> = {
   ADMIN: {
-    label: "Administrador",
-    className: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+    label: 'Administrador',
+    className: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
   },
   MANAGER: {
-    label: "Gerente",
-    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    label: 'Gerente',
+    className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   },
   VIEWER: {
-    label: "Visualizador",
-    className: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+    label: 'Visualizador',
+    className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
   },
 };
 
 export function UserList({ users, currentUserId, userRole }: UserListProps) {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const initialColumns: ColumnDef<User>[] = [
     {
-      accessorKey: "name",
+      accessorKey: 'name',
       header: ({ column }) => (
         <Button
           variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           className="h-8 p-0 font-semibold hover:bg-transparent"
         >
           Usuário
@@ -65,7 +60,7 @@ export function UserList({ users, currentUserId, userRole }: UserListProps) {
               <UserIcon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-              <span className="text-sm font-semibold">{user.name || "—"}</span>
+              <span className="text-sm font-semibold">{user.name || '—'}</span>
               {isSelf && <span className="text-muted-foreground ml-2 text-xs">(você)</span>}
             </div>
           </div>
@@ -73,11 +68,11 @@ export function UserList({ users, currentUserId, userRole }: UserListProps) {
       },
     },
     {
-      accessorKey: "email",
+      accessorKey: 'email',
       header: ({ column }) => (
         <Button
           variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           className="h-8 p-0 font-semibold hover:bg-transparent"
         >
           E-mail
@@ -89,11 +84,11 @@ export function UserList({ users, currentUserId, userRole }: UserListProps) {
       ),
     },
     {
-      accessorKey: "role",
+      accessorKey: 'role',
       header: ({ column }) => (
         <Button
           variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           className="h-8 p-0 font-semibold hover:bg-transparent"
         >
           Função
@@ -105,7 +100,7 @@ export function UserList({ users, currentUserId, userRole }: UserListProps) {
         return (
           <Badge
             variant="secondary"
-            className={cn("gap-1 border-none", roleConfig[user.role].className)}
+            className={cn('gap-1 border-none', roleConfig[user.role].className)}
           >
             {user.role === Role.ADMIN && <Shield className="h-3 w-3" />}
             {roleConfig[user.role].label}
@@ -114,11 +109,11 @@ export function UserList({ users, currentUserId, userRole }: UserListProps) {
       },
     },
     {
-      accessorKey: "createdAt",
+      accessorKey: 'createdAt',
       header: ({ column }) => (
         <Button
           variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           className="h-8 p-0 font-semibold hover:bg-transparent"
         >
           Membro desde
@@ -126,15 +121,13 @@ export function UserList({ users, currentUserId, userRole }: UserListProps) {
         </Button>
       ),
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm" suppressHydrationWarning>
-          {mounted
-            ? format(new Date(row.original.createdAt), "dd 'de' MMM, yyyy", { locale: ptBR })
-            : "—"}
+        <span className="text-muted-foreground text-sm">
+          {format(new Date(row.original.createdAt), "dd 'de' MMM, yyyy", { locale: ptBR })}
         </span>
       ),
     },
     {
-      id: "actions",
+      id: 'actions',
       header: () => <div className="text-right">Ações</div>,
       cell: ({ row }) => {
         const user = row.original;
@@ -164,7 +157,7 @@ export function UserList({ users, currentUserId, userRole }: UserListProps) {
     },
   ];
 
-  const columns = initialColumns.filter((col) => col.id !== "actions" || userRole !== "VIEWER");
+  const columns = initialColumns.filter((col) => col.id !== 'actions' || userRole !== 'VIEWER');
 
   return (
     <div className="flex flex-col gap-4">
@@ -173,7 +166,7 @@ export function UserList({ users, currentUserId, userRole }: UserListProps) {
         data={users}
         emptyMessage="Nenhum usuário encontrado."
         getRowClassName={(user) =>
-          user.id === currentUserId ? "bg-indigo-50/30 dark:bg-indigo-950/10" : ""
+          user.id === currentUserId ? 'bg-primary/10 dark:bg-primary/5' : ''
         }
       />
 
@@ -185,7 +178,7 @@ export function UserList({ users, currentUserId, userRole }: UserListProps) {
       <DeleteUserModal
         isOpen={!!deletingId}
         onClose={() => setDeletingId(null)}
-        id={deletingId || ""}
+        id={deletingId || ''}
       />
     </div>
   );

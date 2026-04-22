@@ -1,9 +1,9 @@
-import { PasswordForm } from "@/components/profiles/password-form";
-import { ProfileForm } from "@/components/profiles/profile-form";
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { User } from "lucide-react";
-import { getServerSession } from "next-auth";
+import { PasswordForm } from '@/components/profiles/password-form';
+import { ProfileForm } from '@/components/profiles/profile-form';
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { User } from 'lucide-react';
+import { getServerSession } from 'next-auth';
 
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);
@@ -31,8 +31,8 @@ export default async function ProfilePage() {
       </div>
 
       <ProfileForm
-        initialName={user.name || ""}
-        initialBio={user.profile?.bio || ""}
+        initialName={user.name || ''}
+        initialBio={user.profile?.bio || ''}
         email={user.email}
         role={user.role}
       />

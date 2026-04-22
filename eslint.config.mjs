@@ -1,7 +1,7 @@
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
-import prettierRecommended from "eslint-plugin-prettier/recommended";
-import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from 'eslint-config-next/core-web-vitals';
+import nextTs from 'eslint-config-next/typescript';
+import prettierRecommended from 'eslint-plugin-prettier/recommended';
+import { defineConfig, globalIgnores } from 'eslint/config';
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -10,48 +10,48 @@ const eslintConfig = defineConfig([
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-    "node_modules/**",
-    "dist/**",
-    "public/**",
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
+    'node_modules/**',
+    'dist/**',
+    'public/**',
   ]),
   {
     rules: {
       // Typescript (Zustand/Zod/Hook Form best practices)
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unused-vars": [
-        "warn",
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
         {
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-          caughtExceptionsIgnorePattern: "^_",
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
         },
       ],
       // TypeScript strict adherence, beneficial for Zod types
-      "@typescript-eslint/consistent-type-imports": [
-        "warn",
+      '@typescript-eslint/consistent-type-imports': [
+        'off',
         {
-          prefer: "type-imports",
-          fixStyle: "inline-type-imports",
+          prefer: 'type-imports',
+          fixStyle: 'inline-type-imports',
         },
       ],
 
       // React / UI components (Shadcn)
-      "react/self-closing-comp": "warn",
+      'react/self-closing-comp': 'warn',
 
       // Prettier integration rule tweaks
-      "prettier/prettier": [
-        "error",
+      'prettier/prettier': [
+        'error',
         {
-          endOfLine: "auto",
+          endOfLine: 'auto',
         },
       ],
 
       // General Good Practices
-      "no-console": ["warn", { allow: ["warn", "error", "info"] }],
+      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
     },
   },
 ]);

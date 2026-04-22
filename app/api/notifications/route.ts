@@ -1,18 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
+import { type NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
     const offset = (page - 1) * limit;
 
     const [notifications, total, unreadCount] = await Promise.all([
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
           userId: session.user.id,
           workspaceId: session.user.workspaceId,
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
       }),
@@ -48,8 +48,8 @@ export async function GET(request: NextRequest) {
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
-    console.error("Error fetching notifications:", error);
-    return NextResponse.json({ error: "Erro ao buscar notificações" }, { status: 500 });
+    console.error('Error fetching notifications:', error);
+    return NextResponse.json({ error: 'Erro ao buscar notificações' }, { status: 500 });
   }
 }
 
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         type,
         title,
         message,
-        level: level || "INFO",
+        level: level || 'INFO',
         link,
         metadata,
         userId: userId || session.user.id,
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ notification }, { status: 201 });
   } catch (error) {
-    console.error("Error creating notification:", error);
-    return NextResponse.json({ error: "Erro ao criar notificação" }, { status: 500 });
+    console.error('Error creating notification:', error);
+    return NextResponse.json({ error: 'Erro ao criar notificação' }, { status: 500 });
   }
 }

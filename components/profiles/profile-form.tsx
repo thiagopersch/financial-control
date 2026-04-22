@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -10,29 +10,29 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { updateProfile } from "@/lib/actions/profiles";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Role } from "@prisma/client";
-import { Loader2, Save } from "lucide-react";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import * as z from "zod";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { updateProfile } from '@/lib/actions/profiles';
+import { showError, showSuccess } from '@/lib/utils/toast';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Role } from '@prisma/client';
+import { Loader2, Save } from 'lucide-react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 
 const profileSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  bio: z.string().max(300, "Máximo 300 caracteres").optional(),
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  bio: z.string().max(300, 'Máximo 300 caracteres').optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 const roleLabels: Record<Role, string> = {
-  ADMIN: "Administrador",
-  MANAGER: "Gerente",
-  VIEWER: "Visualizador",
+  ADMIN: 'Administrador',
+  MANAGER: 'Gerente',
+  VIEWER: 'Visualizador',
 };
 
 interface ProfileFormProps {
@@ -55,12 +55,12 @@ export function ProfileForm({ initialName, initialBio, email, role }: ProfileFor
     try {
       const result = await updateProfile(data);
       if (result.success) {
-        toast.success("Perfil atualizado com sucesso!");
+        showSuccess('Perfil atualizado com sucesso!');
       } else {
-        toast.error(result.error);
+        showError(result.error || 'Erro inesperado.');
       }
     } catch {
-      toast.error("Erro inesperado.");
+      showError('Erro inesperado.');
     } finally {
       setIsLoading(false);
     }

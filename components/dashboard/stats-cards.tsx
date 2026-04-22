@@ -1,5 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowDownCircle, ArrowUpCircle, Wallet } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatCurrency } from '@/lib/utils';
+import { ArrowDownCircle, ArrowUpCircle, Wallet } from 'lucide-react';
 
 interface StatsCardsProps {
   stats: {
@@ -13,50 +14,38 @@ interface StatsCardsProps {
 }
 
 export function StatsCards({ stats, isFullYear }: StatsCardsProps) {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
-
-  const getBalanceColors = (val: number) => {
-    if (val < 0) return { color: "text-rose-600", bg: "bg-rose-100" };
-    return { color: "text-emerald-600", bg: "bg-emerald-100" };
-  };
-
   const cards = [
     {
-      title: "Patrimônio Total",
+      title: 'Patrimônio Total',
       value: formatCurrency(stats.totalBalance),
       icon: Wallet,
-      color: "text-primary",
-      bg: "bg-primary/10",
-      description: "Soma de todas as contas",
+      color: 'text-primary',
+      bg: 'bg-primary/10',
+      description: 'Soma de todas as contas',
     },
     {
-      title: "Total Receitas",
+      title: 'Total Receitas',
       value: formatCurrency(stats.totalIncome),
       icon: ArrowUpCircle,
-      color: "text-emerald-600",
-      bg: "bg-emerald-100",
-      description: isFullYear ? "Este ano" : "Este mês",
+      color: 'text-primary',
+      bg: 'bg-primary/10',
+      description: isFullYear ? 'Este ano' : 'Este mês',
     },
     {
-      title: "Total Despesas",
+      title: 'Total Despesas',
       value: formatCurrency(stats.totalExpense),
       icon: ArrowDownCircle,
-      color: "text-rose-600",
-      bg: "bg-rose-100",
-      description: isFullYear ? "Este ano" : "Este mês",
+      color: 'text-red-600',
+      bg: 'bg-red-100',
+      description: isFullYear ? 'Este ano' : 'Este mês',
     },
     {
-      title: "Resultado Líquido",
+      title: 'Resultado Líquido',
       value: formatCurrency(stats.balance),
       icon: stats.balance >= 0 ? ArrowUpCircle : ArrowDownCircle,
-      color: stats.balance >= 0 ? "text-emerald-600" : "text-rose-600",
-      bg: stats.balance >= 0 ? "bg-emerald-100" : "bg-rose-100",
-      description: "Receitas - Despesas",
+      color: stats.balance >= 0 ? 'text-primary' : 'text-red-600',
+      bg: stats.balance >= 0 ? 'bg-primary/10' : 'bg-red-100',
+      description: 'Receitas - Despesas',
     },
   ];
 

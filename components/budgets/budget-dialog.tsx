@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -10,8 +9,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -22,12 +28,14 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { upsertBudget } from '@/lib/actions/budgets';
 import { showError, showSuccess, showValidationErrors } from '@/lib/utils/toast';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 interface Category {
   id: string;
   name: string;
+  color: string;
 }
 
 interface Budget {
@@ -54,8 +62,8 @@ const budgetSchema = z.object({
     .string()
     .min(1, 'Valor é obrigatório')
     .refine((val) => parseFloat(val) > 0, 'Valor deve ser maior que zero'),
-  month: z.string(),
-  year: z.string(),
+  month: z.string().min(1, 'Mês é obrigatório'),
+  year: z.string().min(1, 'Ano é obrigatório'),
   alertAt80: z.boolean(),
   alertAt100: z.boolean(),
 });
@@ -115,6 +123,13 @@ export function BudgetDialog({
     return years;
   };
 
+  const months = Array.from({ length: 12 }, (_, i) => i + 1).map((m) => ({
+    value: m.toString(),
+    label:
+      new Date(2000, m - 1).toLocaleDateString('pt-BR', { month: 'long' }).charAt(0).toUpperCase() +
+      new Date(2000, m - 1).toLocaleDateString('pt-BR', { month: 'long' }).slice(1),
+  }));
+
   const onSubmit = async (data: BudgetFormValues) => {
     const result = budgetSchema.safeParse(data);
 
@@ -133,7 +148,7 @@ export function BudgetDialog({
         alertAt100: data.alertAt100,
       };
 
-      const actionResult = await upsertBudget(payload);
+      const actionResult = await upsertBudget({ ...payload, id: editingBudget?.id });
       if (actionResult.success) {
         showSuccess(
           editingBudget ? 'Orçamento atualizado' : 'Orçamento criado',
@@ -158,119 +173,153 @@ export function BudgetDialog({
             Defina um limite de gastos para uma categoria neste mês.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="categoryId">Categoria</Label>
-              <Select
-                value={form.watch('categoryId')}
-                onValueChange={(value) => form.setValue('categoryId', value)}
-              >
-                <SelectTrigger className="w-full cursor-pointer">
-                  <SelectValue placeholder="Selecione uma categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {form.formState.errors.categoryId && (
-                <p className="text-sm text-red-500">{form.formState.errors.categoryId.message}</p>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="categoryId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Categoria</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione a categoria" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {categories.map((type) => (
+                        <SelectItem key={type.id} value={type.id}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: type.color }}
+                            />
+                            {type.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )}
-            </div>
+            />
 
-            <div className="grid gap-2">
-              <Label htmlFor="amount">Valor do Orçamento</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                min="0"
-                {...form.register('amount')}
-                placeholder="0,00"
-              />
-              {form.formState.errors.amount && (
-                <p className="text-sm text-red-500">{form.formState.errors.amount.message}</p>
+            <FormField
+              control={form.control}
+              name="amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Valor do Orçamento</FormLabel>
+                  <FormControl>
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0,00"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
-            </div>
+            />
 
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="month">Mês</Label>
-                <Select
-                  value={form.watch('month')}
-                  onValueChange={(value) => form.setValue('month', value)}
-                >
-                  <SelectTrigger className="w-full cursor-pointer">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                      <SelectItem key={m} value={m.toString()}>
-                        {new Date(2000, m - 1)
-                          .toLocaleDateString('pt-BR', { month: 'long' })
-                          .charAt(0)
-                          .toUpperCase() +
-                          new Date(2000, m - 1)
-                            .toLocaleDateString('pt-BR', { month: 'long' })
-                            .slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <FormField
+              control={form.control}
+              name="month"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Mês</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione o mês" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {months.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          <div className="flex items-center gap-2">{type.label}</div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <div className="grid gap-2">
-                <Label htmlFor="year">Ano</Label>
-                <Select
-                  value={form.watch('year')}
-                  onValueChange={(value) => form.setValue('year', value)}
-                >
-                  <SelectTrigger className="w-full cursor-pointer">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {generateYears().map((y) => (
-                      <SelectItem key={y} value={y.toString()}>
-                        {y}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            <FormField
+              control={form.control}
+              name="year"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Ano</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione o ano" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {generateYears().map((type) => (
+                        <SelectItem key={type} value={type.toString()}>
+                          <div className="flex items-center gap-2">{type}</div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-            <div className="flex items-center justify-between">
-              <Label htmlFor="alert80">Alertar aos 80%</Label>
-              <Switch
-                id="alert80"
-                checked={form.watch('alertAt80')}
-                onCheckedChange={(checked) => form.setValue('alertAt80', checked)}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="alertAt80"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Alertar aos 80%</FormLabel>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-            <div className="flex items-center justify-between">
-              <Label htmlFor="alert100">Alertar ao estourar</Label>
-              <Switch
-                id="alert100"
-                checked={form.watch('alertAt100')}
-                onCheckedChange={(checked) => form.setValue('alertAt100', checked)}
-              />
-            </div>
-          </div>
+            <FormField
+              control={form.control}
+              name="alertAt100"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Alertar ao estourar</FormLabel>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Salvando...' : editingBudget ? 'Atualizar' : 'Criar'}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting
+                  ? 'Salvando...'
+                  : editingBudget
+                    ? 'Atualizar'
+                    : 'Salvar'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

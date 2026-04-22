@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   Form,
   FormControl,
@@ -15,29 +15,30 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { createCreditCard, updateCreditCard } from "@/lib/actions/credit-cards";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import * as z from "zod";
+} from '@/components/ui/select';
+import { createCreditCard, updateCreditCard } from '@/lib/actions/credit-cards';
+import { showError, showSuccess } from '@/lib/utils/toast';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 
 const creditCardSchema = z.object({
-  limit: z.string().min(1, "Limite é obrigatório"),
-  closingDay: z.coerce.number().min(1, "Dia de fechamento é obrigatório").max(31, "Dia inválido"),
-  dueDay: z.coerce.number().min(1, "Dia de vencimento é obrigatório").max(31, "Dia inválido"),
-  accountId: z.string().min(1, "Conta vinculada é obrigatória"),
-  color: z.string().min(1, "Cor é obrigatória"),
+  limit: z.string().min(1, 'Limite é obrigatório'),
+  initialBalance: z.coerce.number().default(0),
+  closingDay: z.coerce.number().min(1, 'Dia de fechamento é obrigatório').max(31, 'Dia inválido'),
+  dueDay: z.coerce.number().min(1, 'Dia de vencimento é obrigatório').max(31, 'Dia inválido'),
+  accountId: z.string().min(1, 'Conta vinculada é obrigatória'),
+  color: z.string().min(1, 'Cor é obrigatória'),
 });
 
 type CreditCardFormData = z.infer<typeof creditCardSchema>;
@@ -45,6 +46,7 @@ type CreditCardFormData = z.infer<typeof creditCardSchema>;
 interface Account {
   id: string;
   name: string;
+  color?: string;
 }
 
 interface CreditCardModalProps {
@@ -55,17 +57,24 @@ interface CreditCardModalProps {
   accounts: Account[];
 }
 
-export function CreditCardModal({ isOpen, onClose, onSuccess, creditCard, accounts }: CreditCardModalProps) {
+export function CreditCardModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  creditCard,
+  accounts,
+}: CreditCardModalProps) {
   const [loading, setLoading] = useState(false);
 
   const form = useForm<CreditCardFormData>({
     resolver: zodResolver(creditCardSchema) as any,
     defaultValues: {
-      limit: "",
+      limit: '',
+      initialBalance: 0,
       closingDay: 0,
       dueDay: 0,
-      accountId: "",
-      color: "#6366f1",
+      accountId: '',
+      color: '#6366f1',
     },
   });
 
@@ -73,18 +82,20 @@ export function CreditCardModal({ isOpen, onClose, onSuccess, creditCard, accoun
     if (creditCard) {
       form.reset({
         limit: String(creditCard.limit),
+        initialBalance: Number(creditCard.initialBalance) || 0,
         closingDay: creditCard.closingDay,
         dueDay: creditCard.dueDay,
         accountId: creditCard.accountId,
-        color: creditCard.color || "#6366f1",
+        color: creditCard.color || '#6366f1',
       });
     } else {
       form.reset({
-        limit: "",
+        limit: '',
+        initialBalance: 0,
         closingDay: 0,
         dueDay: 0,
-        accountId: "",
-        color: "#6366f1",
+        accountId: '',
+        color: '#6366f1',
       });
     }
   }, [creditCard, form, isOpen]);
@@ -94,12 +105,13 @@ export function CreditCardModal({ isOpen, onClose, onSuccess, creditCard, accoun
     try {
       const parsed = creditCardSchema.safeParse(values);
       if (!parsed.success) {
-        toast.error("Dados inválidos");
+        showError('Dados inválidos');
         return;
       }
 
       const data = {
         limit: parseFloat(parsed.data.limit),
+        initialBalance: parsed.data.initialBalance,
         closingDay: parsed.data.closingDay,
         dueDay: parsed.data.dueDay,
         accountId: parsed.data.accountId,
@@ -109,39 +121,24 @@ export function CreditCardModal({ isOpen, onClose, onSuccess, creditCard, accoun
       if (creditCard?.id) {
         const result = await updateCreditCard(creditCard.id, data);
         if (result.success) {
-          toast.success("Cartão atualizado com sucesso", {
-            position: "bottom-center",
-            richColors: true,
-          });
+          showSuccess('Cartão atualizado com sucesso');
           onClose();
           onSuccess?.();
         } else {
-          toast.error(result.error || "Erro ao atualizar cartão", {
-            position: "bottom-center",
-            richColors: true,
-          });
+          showError(result.error || 'Erro ao atualizar cartão');
         }
       } else {
         const result = await createCreditCard(data);
         if (result.success) {
-          toast.success("Cartão criado com sucesso", {
-            position: "bottom-center",
-            richColors: true,
-          });
+          showSuccess('Cartão criado com sucesso');
           onClose();
           onSuccess?.();
         } else {
-          toast.error(result.error || "Erro ao criar cartão", {
-            position: "bottom-center",
-            richColors: true,
-          });
+          showError(result.error || 'Erro ao criar cartão');
         }
       }
-    } catch (error) {
-      toast.error("Ocorreu um erro inesperado", {
-        position: "bottom-center",
-        richColors: true,
-      });
+    } catch {
+      showError('Ocorreu um erro inesperado');
     } finally {
       setLoading(false);
     }
@@ -149,11 +146,13 @@ export function CreditCardModal({ isOpen, onClose, onSuccess, creditCard, accoun
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-width-[425px]">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle>{creditCard ? "Editar Cartão" : "Novo Cartão de Crédito"}</DialogTitle>
+          <DialogTitle>{creditCard ? 'Editar Cartão' : 'Novo Cartão de Crédito'}</DialogTitle>
           <DialogDescription>
-            {creditCard ? "Atualize os dados do cartão de crédito" : "Cadastre um novo cartão de crédito"}
+            {creditCard
+              ? 'Atualize os dados do cartão de crédito'
+              : 'Cadastre um novo cartão de crédito'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -165,12 +164,20 @@ export function CreditCardModal({ isOpen, onClose, onSuccess, creditCard, accoun
                 <FormItem>
                   <FormLabel>Limite</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      {...field}
-                    />
+                    <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="initialBalance"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Saldo Inicial</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.01" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -212,14 +219,20 @@ export function CreditCardModal({ isOpen, onClose, onSuccess, creditCard, accoun
                   <FormLabel>Conta Vinculada</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Selecione uma conta" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {accounts.map((account) => (
                         <SelectItem key={account.id} value={account.id}>
-                          {account.name}
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: account.color }}
+                            />
+                            {account.name}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -250,7 +263,7 @@ export function CreditCardModal({ isOpen, onClose, onSuccess, creditCard, accoun
               </Button>
               <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {creditCard ? "Atualizar" : "Criar"}
+                {creditCard ? 'Atualizar' : 'Criar'}
               </Button>
             </div>
           </form>

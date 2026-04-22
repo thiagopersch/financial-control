@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { FileText, TrendingUp, TrendingDown, DollarSign, Calendar } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useEffect } from 'react';
+import { FileText, TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   BarChart,
   Bar,
@@ -14,9 +14,9 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-} from "recharts";
-import { format, startOfMonth, endOfMonth, subMonths, eachMonthOfInterval } from "date-fns";
-import { ptBR } from "date-fns/locale";
+} from 'recharts';
+import { format, startOfMonth, endOfMonth, subMonths, eachMonthOfInterval } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface DREData {
   period: string;
@@ -33,7 +33,7 @@ interface CategoryData {
 
 export default function DREPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [period, setPeriod] = useState<"3" | "6" | "12">("6");
+  const [period, setPeriod] = useState<'3' | '6' | '12'>('6');
   const [summary, setSummary] = useState<{
     totalRevenue: number;
     totalExpense: number;
@@ -57,16 +57,16 @@ export default function DREPage() {
         setExpensesByCategory(data.expensesByCategory || []);
       }
     } catch (error) {
-      console.error("Error fetching DRE:", error);
+      console.error('Error fetching DRE:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const formatCurrency = (value: number) => {
-    return value.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
+    return value.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
     });
   };
 
@@ -77,7 +77,7 @@ export default function DREPage() {
         <p className="text-muted-foreground">Demonstrativo de Resultado do Exercício</p>
       </div>
 
-      <Tabs value={period} onValueChange={(v) => setPeriod(v as "3" | "6" | "12")}>
+      <Tabs value={period} onValueChange={(v) => setPeriod(v as '3' | '6' | '12')}>
         <TabsList>
           <TabsTrigger value="3">3 meses</TabsTrigger>
           <TabsTrigger value="6">6 meses</TabsTrigger>
@@ -118,7 +118,7 @@ export default function DREPage() {
                 </CardHeader>
                 <CardContent>
                   <div
-                    className={`text-2xl font-bold ${summary.netResult >= 0 ? "text-green-600" : "text-red-600"}`}
+                    className={`text-2xl font-bold ${summary.netResult >= 0 ? 'text-green-600' : 'text-red-600'}`}
                   >
                     {formatCurrency(summary.netResult)}
                   </div>
@@ -151,11 +151,11 @@ export default function DREPage() {
                       <Tooltip
                         formatter={(value, name) => [
                           formatCurrency(Number(value)),
-                          name === "revenue"
-                            ? "Receita"
-                            : name === "expense"
-                              ? "Despesa"
-                              : "Resultado",
+                          name === 'revenue'
+                            ? 'Receita'
+                            : name === 'expense'
+                              ? 'Despesa'
+                              : 'Resultado',
                         ]}
                       />
                       <Legend />

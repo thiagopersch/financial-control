@@ -1,5 +1,5 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 interface FiltersStore {
   period: {
@@ -31,7 +31,7 @@ export const useFilters = create<FiltersStore>()(
       type: undefined,
       minAmount: undefined,
       maxAmount: undefined,
-      search: "",
+      search: '',
       setPeriod: (from, to) => set({ period: { from, to } }),
       setAccountId: (id) => set({ accountId: id }),
       setCategoryId: (id) => set({ categoryId: id }),
@@ -47,11 +47,11 @@ export const useFilters = create<FiltersStore>()(
           type: undefined,
           minAmount: undefined,
           maxAmount: undefined,
-          search: "",
+          search: '',
         }),
     }),
     {
-      name: "financial-filters",
-    }
-  )
+      name: 'financial-filters',
+    },
+  ),
 );

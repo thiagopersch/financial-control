@@ -1,44 +1,44 @@
-"use server";
+'use server';
 
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { createAuditLog } from "@/lib/services/audit";
-import { TransactionStatus, TransactionType } from "@prisma/client";
-import { addMonths } from "date-fns";
-import { getServerSession } from "next-auth";
-import { revalidatePath } from "next/cache";
-import * as z from "zod";
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { createAuditLog } from '@/lib/services/audit';
+import { TransactionStatus, TransactionType } from '@prisma/client';
+import { addMonths } from 'date-fns';
+import { getServerSession } from 'next-auth';
+import { revalidatePath } from 'next/cache';
+import * as z from 'zod';
 
 const transactionSchema = z.object({
-  type: z.nativeEnum(TransactionType),
-  amount: z.coerce.number().positive("Valor deve ser maior que zero"),
+  type: z.enum(TransactionType),
+  amount: z.coerce.number().positive('Valor deve ser maior que zero'),
   date: z.coerce.date(),
   dueDate: z.coerce.date().nullable().optional(),
-  status: z.nativeEnum(TransactionStatus),
-  categoryId: z.string().min(1, "Categoria é obrigatória"),
-  accountId: z.string().min(1, "Conta é obrigatória"),
+  status: z.enum(TransactionStatus),
+  categoryId: z.string().min(1, 'Categoria é obrigatória'),
+  accountId: z.string().min(1, 'Conta é obrigatória'),
   costCenterId: z.string().nullable().optional(),
   supplierId: z.string().nullable().optional(),
   notes: z.string().optional(),
   isRecurring: z.boolean().default(false),
-  recurrenceType: z.enum(["CONTINUOUS", "INSTALLMENTS"]).nullable().optional(),
+  recurrenceType: z.enum(['CONTINUOUS', 'INSTALLMENTS']).nullable().optional(),
   installments: z.coerce.number().min(1).nullable().optional(),
 });
 
 export async function createTransaction(data: z.infer<typeof transactionSchema>) {
   const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: "Não autorizado" };
+  if (!session) return { success: false, error: 'Não autorizado' };
 
   try {
     const validated = transactionSchema.parse(data);
 
     if (validated.isRecurring && validated.recurrenceType) {
-      let count = validated.recurrenceType === "INSTALLMENTS" ? validated.installments || 1 : 12;
+      const count = validated.recurrenceType === 'INSTALLMENTS' ? validated.installments || 1 : 12;
 
-      let baseAmount = validated.amount;
+      const baseAmount = validated.amount;
       let installmentAmount = baseAmount;
 
-      if (validated.recurrenceType === "INSTALLMENTS") {
+      if (validated.recurrenceType === 'INSTALLMENTS') {
         installmentAmount = Number((baseAmount / count).toFixed(2));
       }
 
@@ -63,21 +63,13 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
           },
         });
 
-        // Atualizar saldo se estiver pago
-        if (validated.status === TransactionStatus.PAID) {
-          const amountChange =
-            validated.type === TransactionType.INCOME ? installmentAmount : -installmentAmount;
-          await tx.account.update({
-            where: { id: validated.accountId },
-            data: { balance: { increment: amountChange } },
-          });
-        }
+        
 
         const futureTransactions = [];
         for (let i = 1; i < count; i++) {
           let currentInstallmentAmount = installmentAmount;
 
-          if (validated.recurrenceType === "INSTALLMENTS" && i === count - 1) {
+          if (validated.recurrenceType === 'INSTALLMENTS' && i === count - 1) {
             currentInstallmentAmount = Number(
               (baseAmount - installmentAmount * (count - 1)).toFixed(2),
             );
@@ -93,7 +85,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
             accountId: validated.accountId,
             costCenterId: validated.costCenterId,
             supplierId: validated.supplierId,
-            notes: `${validated.notes || ""} (${i + 1}/${count})`,
+            notes: `${validated.notes || ''} (${i + 1}/${count})`,
             workspaceId: session.user.workspaceId,
             isRecurring: true,
             recurrenceType: validated.recurrenceType,
@@ -111,15 +103,15 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
       });
 
       await createAuditLog({
-        action: "CREATE_RECURRING_TRANSACTION",
-        entity: "Transaction",
+        action: 'CREATE_RECURRING_TRANSACTION',
+        entity: 'Transaction',
         entityId: result.id,
         newValue: validated,
       });
 
-      revalidatePath("/transactions");
-      revalidatePath("/dashboard");
-      revalidatePath("/accounts");
+      revalidatePath('/transactions');
+      revalidatePath('/dashboard');
+      revalidatePath('/accounts');
       return { success: true };
     }
 
@@ -141,29 +133,19 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
         },
       });
 
-      // Atualizar saldo se estiver pago
-      if (validated.status === TransactionStatus.PAID) {
-        const amountChange =
-          validated.type === TransactionType.INCOME ? validated.amount : -validated.amount;
-        await tx.account.update({
-          where: { id: validated.accountId },
-          data: { balance: { increment: amountChange } },
-        });
-      }
-
       return t;
     });
 
     await createAuditLog({
-      action: "CREATE_TRANSACTION",
-      entity: "Transaction",
+      action: 'CREATE_TRANSACTION',
+      entity: 'Transaction',
       entityId: transaction.id,
       newValue: validated,
     });
 
-    revalidatePath("/transactions");
-    revalidatePath("/dashboard");
-    revalidatePath("/accounts");
+    revalidatePath('/transactions');
+    revalidatePath('/dashboard');
+    revalidatePath('/accounts');
     return {
       success: true,
       data: {
@@ -172,14 +154,14 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
       },
     };
   } catch (error) {
-    console.error("Error creating transaction:", error);
-    return { success: false, error: "Erro ao criar transação" };
+    console.error('Error creating transaction:', error);
+    return { success: false, error: 'Erro ao criar transação' };
   }
 }
 
 export async function updateTransaction(id: string, data: z.infer<typeof transactionSchema>) {
   const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: "Não autorizado" };
+  if (!session) return { success: false, error: 'Não autorizado' };
 
   try {
     const validated = transactionSchema.parse(data);
@@ -188,18 +170,11 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
       where: { id, workspaceId: session.user.workspaceId },
     });
 
-    if (!oldTransaction) return { success: false, error: "Transação não encontrada" };
+    if (!oldTransaction) return { success: false, error: 'Transação não encontrada' };
 
     const transaction = await prisma.$transaction(async (tx) => {
       if (oldTransaction.status === TransactionStatus.PAID) {
         const oldAmount = Number(oldTransaction.amount);
-        const reverseChange =
-          oldTransaction.type === TransactionType.INCOME ? -oldAmount : oldAmount;
-        await tx.account.update({
-          where: { id: oldTransaction.accountId! },
-          data: { balance: { increment: reverseChange } },
-        });
-
         if (oldTransaction.debtId) {
           const debt = await tx.debt.findUnique({
             where: { id: oldTransaction.debtId },
@@ -208,7 +183,8 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
             const paidTransactions = await tx.transaction.findMany({
               where: { debtId: oldTransaction.debtId, status: TransactionStatus.PAID },
             });
-            const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0) - oldAmount;
+            const totalPaid =
+              paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0) - oldAmount;
             await tx.debt.update({
               where: { id: oldTransaction.debtId },
               data: {
@@ -240,13 +216,6 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
       });
 
       if (validated.status === TransactionStatus.PAID) {
-        const amountChange =
-          validated.type === TransactionType.INCOME ? validated.amount : -validated.amount;
-        await tx.account.update({
-          where: { id: validated.accountId },
-          data: { balance: { increment: amountChange } },
-        });
-
         if (updated.debtId) {
           const debt = await tx.debt.findUnique({
             where: { id: updated.debtId },
@@ -271,69 +240,57 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
     });
 
     await createAuditLog({
-      action: "UPDATE_TRANSACTION",
-      entity: "Transaction",
+      action: 'UPDATE_TRANSACTION',
+      entity: 'Transaction',
       entityId: transaction.id,
       newValue: validated,
     });
 
-    revalidatePath("/transactions");
-    revalidatePath("/dashboard");
-    revalidatePath("/debts");
+    revalidatePath('/transactions');
+    revalidatePath('/dashboard');
+    revalidatePath('/debts');
     return {
       success: true,
       data: {
         ...transaction,
-        amount: transaction.amount.toNumber(),
+        amount: Number(transaction.amount),
       },
     };
   } catch (error) {
-    console.error("Error updating transaction:", error);
-    return { success: false, error: "Erro ao atualizar transação" };
+    console.error('Error updating transaction:', error);
+    return { success: false, error: 'Erro ao atualizar transação' };
   }
 }
 
 export async function deleteTransaction(id: string) {
   const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: "Não autorizado" };
+  if (!session) return { success: false, error: 'Não autorizado' };
 
   try {
     const transaction = await prisma.transaction.findUnique({
       where: { id, workspaceId: session.user.workspaceId },
     });
 
-    if (!transaction) return { success: false, error: "Transação não encontrada" };
+    if (!transaction) return { success: false, error: 'Transação não encontrada' };
 
     await prisma.$transaction(async (tx) => {
-      // Reverter saldo se estava pago
-      if (transaction.status === TransactionStatus.PAID) {
-        const amountChange =
-          transaction.type === TransactionType.INCOME
-            ? -Number(transaction.amount)
-            : Number(transaction.amount);
-        await tx.account.update({
-          where: { id: transaction.accountId! },
-          data: { balance: { increment: amountChange } },
-        });
-      }
-
       await tx.transaction.delete({
         where: { id },
       });
     });
 
     await createAuditLog({
-      action: "DELETE_TRANSACTION",
-      entity: "Transaction",
+      action: 'DELETE_TRANSACTION',
+      entity: 'Transaction',
       entityId: id,
     });
 
-    revalidatePath("/transactions");
-    revalidatePath("/dashboard");
-    revalidatePath("/accounts");
+    revalidatePath('/transactions');
+    revalidatePath('/dashboard');
+    revalidatePath('/accounts');
     return { success: true };
   } catch (error) {
-    console.error("Error deleting transaction:", error);
-    return { success: false, error: "Erro ao excluir transação" };
+    console.error('Error deleting transaction:', error);
+    return { success: false, error: 'Erro ao excluir transação' };
   }
 }

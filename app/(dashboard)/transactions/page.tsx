@@ -1,11 +1,11 @@
-import { TransactionsHeader } from "@/components/transactions/transactions-header";
-import { TransactionsTable } from "@/components/transactions/transactions-table";
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { getAvailableRange } from "@/lib/queries/dashboard";
-import { TransactionStatus, TransactionType } from "@prisma/client";
-import { endOfMonth, startOfMonth } from "date-fns";
-import { getServerSession } from "next-auth";
+import { TransactionsHeader } from '@/app/(dashboard)/transactions/components/transactions-header';
+import { TransactionsTable } from '@/app/(dashboard)/transactions/components/transactions-table';
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { getAvailableRange } from '@/lib/queries/dashboard';
+import { type TransactionStatus, type TransactionType } from '@prisma/client';
+import { endOfMonth, startOfMonth } from 'date-fns';
+import { getServerSession } from 'next-auth';
 
 export default async function TransactionsPage({
   searchParams: searchParamsPromise,
@@ -38,9 +38,9 @@ export default async function TransactionsPage({
 
   if (!yearParam) {
     // Sem parâmetros - usa mês atual
-  } else if (yearParam === "all") {
+  } else if (yearParam === 'all') {
     // Todos os Períodos - sem filtro de data
-  } else if (monthParam === "all") {
+  } else if (monthParam === 'all') {
     // Ano completo
     const year = parseInt(yearParam);
     where.date = {
@@ -84,7 +84,7 @@ export default async function TransactionsPage({
     where.OR = [
       { notes: { contains: searchParams.q, mode: 'insensitive' } },
       { category: { name: { contains: searchParams.q, mode: 'insensitive' } } },
-      { supplier: { name: { contains: searchParams.q, mode: 'insensitive' } } }
+      { supplier: { name: { contains: searchParams.q, mode: 'insensitive' } } },
     ];
   }
 
@@ -97,36 +97,36 @@ export default async function TransactionsPage({
         account: true,
       },
       orderBy: {
-        date: "desc",
+        date: 'desc',
       },
     }),
     prisma.category.findMany({
       where: { workspaceId: session.user.workspaceId },
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' },
     }),
     prisma.supplier.findMany({
       where: { workspaceId: session.user.workspaceId },
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' },
     }),
     prisma.account.findMany({
       where: { workspaceId: session.user.workspaceId },
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' },
     }),
     getAvailableRange(),
   ]);
 
   const transactions = rawTransactions.map((transaction) => ({
     ...transaction,
-    amount: transaction.amount.toNumber(),
-    account: transaction.account ? {
-      ...transaction.account,
-      balance: transaction.account.balance.toNumber()
-    } : null
+    amount: Number(transaction.amount),
+    account: transaction.account
+      ? {
+          ...transaction.account,
+        }
+      : null,
   }));
 
-  const formattedAccounts = accounts.map(a => ({
+  const formattedAccounts = accounts.map((a) => ({
     ...a,
-    balance: a.balance.toNumber()
   }));
 
   return (

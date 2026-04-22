@@ -1,6 +1,6 @@
 export interface AIMessage {
   id: string;
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
   timestamp: string;
 }
@@ -18,7 +18,6 @@ export interface AIConversation {
 export interface FinancialContext {
   accounts: {
     name: string;
-    balance: number;
     type: string;
   }[];
   creditCards: {
@@ -57,7 +56,7 @@ export interface FinancialContext {
     date: string;
     description: string;
     amount: number;
-    type: "INCOME" | "EXPENSE";
+    type: 'INCOME' | 'EXPENSE';
     category: string;
   }[];
   cashFlowProjection: {

@@ -1,13 +1,13 @@
-"use server";
+'use server';
 
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { revalidatePath } from "next/cache";
-import * as z from "zod";
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { revalidatePath } from 'next/cache';
+import * as z from 'zod';
 
 const conditionalRuleSchema = z.object({
-  name: z.string().min(1, "Nome é obrigatório"),
+  name: z.string().min(1, 'Nome é obrigatório'),
   description: z.string().optional(),
   conditions: z.array(
     z.object({
@@ -27,7 +27,7 @@ const conditionalRuleSchema = z.object({
 
 export async function createConditionalRule(data: z.infer<typeof conditionalRuleSchema>) {
   const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: "Não autorizado" };
+  if (!session) return { success: false, error: 'Não autorizado' };
 
   try {
     const validated = conditionalRuleSchema.parse(data);
@@ -45,11 +45,11 @@ export async function createConditionalRule(data: z.infer<typeof conditionalRule
       },
     });
 
-    revalidatePath("/automation");
+    revalidatePath('/automation');
     return { success: true, data: rule };
   } catch (error) {
-    console.error("Error creating conditional rule:", error);
-    return { success: false, error: "Erro ao criar regra" };
+    console.error('Error creating conditional rule:', error);
+    return { success: false, error: 'Erro ao criar regra' };
   }
 }
 
@@ -58,7 +58,7 @@ export async function updateConditionalRule(
   data: Partial<z.infer<typeof conditionalRuleSchema>>,
 ) {
   const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: "Não autorizado" };
+  if (!session) return { success: false, error: 'Não autorizado' };
 
   try {
     const rule = await prisma.conditionalRule.update({
@@ -66,34 +66,34 @@ export async function updateConditionalRule(
       data,
     });
 
-    revalidatePath("/automation");
+    revalidatePath('/automation');
     return { success: true, data: rule };
   } catch (error) {
-    console.error("Error updating conditional rule:", error);
-    return { success: false, error: "Erro ao atualizar regra" };
+    console.error('Error updating conditional rule:', error);
+    return { success: false, error: 'Erro ao atualizar regra' };
   }
 }
 
 export async function deleteConditionalRule(id: string) {
   const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: "Não autorizado" };
+  if (!session) return { success: false, error: 'Não autorizado' };
 
   try {
     await prisma.conditionalRule.delete({
       where: { id, workspaceId: session.user.workspaceId },
     });
 
-    revalidatePath("/automation");
+    revalidatePath('/automation');
     return { success: true };
   } catch (error) {
-    console.error("Error deleting conditional rule:", error);
-    return { success: false, error: "Erro ao excluir regra" };
+    console.error('Error deleting conditional rule:', error);
+    return { success: false, error: 'Erro ao excluir regra' };
   }
 }
 
 export async function toggleConditionalRule(id: string, isActive: boolean) {
   const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: "Não autorizado" };
+  if (!session) return { success: false, error: 'Não autorizado' };
 
   try {
     await prisma.conditionalRule.update({
@@ -101,10 +101,10 @@ export async function toggleConditionalRule(id: string, isActive: boolean) {
       data: { isActive },
     });
 
-    revalidatePath("/automation");
+    revalidatePath('/automation');
     return { success: true };
   } catch (error) {
-    console.error("Error toggling conditional rule:", error);
-    return { success: false, error: "Erro ao atualizar regra" };
+    console.error('Error toggling conditional rule:', error);
+    return { success: false, error: 'Erro ao atualizar regra' };
   }
 }

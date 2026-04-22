@@ -1,25 +1,12 @@
-import { CategoryHeader } from "@/components/categories/category-header";
-import { CategoryList } from "@/components/categories/category-list";
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
+import { getCategories } from '@/lib/queries/categories';
+import { CategoriesClient } from './categories-client';
 
 export default async function CategoriesPage() {
-  const session = await getServerSession(authOptions);
-
-  const categories = await prisma.category.findMany({
-    where: {
-      workspaceId: session?.user?.workspaceId,
-    },
-    orderBy: {
-      name: "asc",
-    },
-  });
+  const categories = await getCategories();
 
   return (
-    <div className="animate-in fade-in space-y-6 duration-700">
-      <CategoryHeader userRole={session?.user?.role} />
-       <CategoryList categories={categories} userRole={session?.user?.role} />
+    <div className="py-6">
+      <CategoriesClient categories={categories} />
     </div>
   );
 }

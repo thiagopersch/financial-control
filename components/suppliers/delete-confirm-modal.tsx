@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   AlertDialog,
@@ -9,11 +9,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { deleteSupplier } from "@/lib/actions/suppliers";
-import { Loader2 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+} from '@/components/ui/alert-dialog';
+import { deleteSupplier } from '@/lib/actions/suppliers';
+import { showError, showSuccess } from '@/lib/utils/toast';
+import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
 
 interface DeleteConfirmModalProps {
   isOpen: boolean;
@@ -29,13 +29,13 @@ export function DeleteConfirmModal({ isOpen, onClose, id }: DeleteConfirmModalPr
     try {
       const result = await deleteSupplier(id);
       if (result.success) {
-        toast.success("Fornecedor excluído com sucesso.");
+        showSuccess('Fornecedor excluído com sucesso.');
         onClose();
       } else {
-        toast.error(result.error);
+        showError(result.error || 'Erro inesperado.');
       }
     } catch {
-      toast.error("Erro inesperado.");
+      showError('Erro inesperado.');
     } finally {
       setIsLoading(false);
     }
@@ -54,7 +54,7 @@ export function DeleteConfirmModal({ isOpen, onClose, id }: DeleteConfirmModalPr
           <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className="bg-red-600 hover:bg-red-700 text-white"
+            className="bg-red-600 text-white hover:bg-red-700"
             disabled={isLoading}
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

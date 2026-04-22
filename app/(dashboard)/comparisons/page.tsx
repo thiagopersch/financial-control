@@ -1,19 +1,19 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { GitCompare, TrendingUp, TrendingDown } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useEffect } from 'react';
+import { GitCompare, TrendingUp, TrendingDown } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
+} from '@/components/ui/select';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 
 interface ComparisonData {
   label: string;
@@ -23,7 +23,7 @@ interface ComparisonData {
 
 export default function ComparisonsPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [comparisonType, setComparisonType] = useState("month");
+  const [comparisonType, setComparisonType] = useState('month');
   const [chartData, setChartData] = useState<ComparisonData[]>([]);
   const [summary, setSummary] = useState<{
     incomeChange: number;
@@ -45,21 +45,21 @@ export default function ComparisonsPage() {
         setSummary(data.summary || null);
       }
     } catch (error) {
-      console.error("Error fetching comparisons:", error);
+      console.error('Error fetching comparisons:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const formatCurrency = (value: number) => {
-    return value.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
+    return value.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
     });
   };
 
   const formatPercentage = (value: number) => {
-    return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+    return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
   };
 
   return (
@@ -96,7 +96,7 @@ export default function ComparisonsPage() {
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ${summary.incomeChange >= 0 ? "text-green-600" : "text-red-600"}`}
+                className={`text-2xl font-bold ${summary.incomeChange >= 0 ? 'text-green-600' : 'text-red-600'}`}
               >
                 {formatPercentage(summary.incomeChange)}
               </div>
@@ -114,7 +114,7 @@ export default function ComparisonsPage() {
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ${summary.expenseChange <= 0 ? "text-green-600" : "text-red-600"}`}
+                className={`text-2xl font-bold ${summary.expenseChange <= 0 ? 'text-green-600' : 'text-red-600'}`}
               >
                 {formatPercentage(summary.expenseChange)}
               </div>
@@ -132,7 +132,7 @@ export default function ComparisonsPage() {
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ${summary.netChange >= 0 ? "text-green-600" : "text-red-600"}`}
+                className={`text-2xl font-bold ${summary.netChange >= 0 ? 'text-green-600' : 'text-red-600'}`}
               >
                 {formatPercentage(summary.netChange)}
               </div>

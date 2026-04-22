@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -8,27 +8,35 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 
 interface DeleteConfirmModalProps {
+  title: string;
+  description: string;
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  title?: string;
-  description?: string;
   confirmText?: string;
+  cancelText?: string;
 }
 
 export function DeleteConfirmModal({
+  title,
+  description,
   isOpen,
   onClose,
   onConfirm,
-  title = "Tem certeza?",
-  description = "Esta ação não pode ser desfeita.",
-  confirmText = "Excluir",
+  confirmText = 'Confirmar',
+  cancelText = 'Cancelar',
 }: DeleteConfirmModalProps) {
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -36,7 +44,7 @@ export function DeleteConfirmModal({
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancelar
+            {cancelText}
           </Button>
           <Button variant="destructive" onClick={onConfirm}>
             {confirmText}

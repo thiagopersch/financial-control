@@ -1,4 +1,4 @@
-import useSWR from "swr";
+import useSWR from 'swr';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -23,7 +23,7 @@ export function useReconciliation() {
   const { data, error, isLoading, mutate } = useSWR<{
     transactions: BankTransaction[];
     stats: ReconciliationStats;
-  }>("/api/reconciliation", fetcher, {
+  }>('/api/reconciliation', fetcher, {
     revalidateOnFocus: false,
   });
 

@@ -1,6 +1,6 @@
-import useSWR from "swr";
-import { chatWithAI, createConversation, deleteConversation } from "@/lib/actions/ai-assistant";
-import type { AIMessage } from "@/types/ai";
+import { chatWithAI, createConversation, deleteConversation } from '@/lib/actions/ai-assistant';
+import type { AIMessage } from '@/types/ai';
+import useSWR from 'swr';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -14,7 +14,7 @@ interface ConversationListItem {
 
 export function useConversations() {
   const { data, error, isLoading, mutate } = useSWR<ConversationListItem[]>(
-    "/api/ai-conversations",
+    '/api/ai-conversations',
     fetcher,
     {
       revalidateOnFocus: false,

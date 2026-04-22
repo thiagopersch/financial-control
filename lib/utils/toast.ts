@@ -50,13 +50,14 @@ export function showWarning(title: string, description?: string) {
 
 export function showValidationErrors(error: unknown) {
   if (error instanceof ZodError) {
-    error.issues.forEach((issue) => {
-      const path = issue.path.join('.');
-      const message = `${path ? `${path}: ` : ''}${issue.message}`;
-      sonner.error('Erro de validação', {
-        ...defaultOptions,
-        description: message,
-      });
+    const messages = error.issues.map((issue) => issue.message);
+    const description =
+      messages.length > 1
+        ? messages.map((m, i) => `${i + 1}. ${m}`).join('\n')
+        : messages[0] || 'Dados inválidos';
+    sonner.error('Erro de validação', {
+      ...defaultOptions,
+      description,
     });
     return;
   }
@@ -64,7 +65,7 @@ export function showValidationErrors(error: unknown) {
   if (error instanceof Error) {
     sonner.error('Erro de validação', {
       ...defaultOptions,
-      description: error.message,
+      description: error.message || 'Dados inválidos',
     });
     return;
   }
@@ -76,12 +77,16 @@ export function showValidationErrors(error: unknown) {
 }
 
 export function showFormErrors(errors: Record<string, { message?: string }>) {
-  Object.values(errors).forEach((error) => {
-    if (error?.message) {
-      sonner.error('Erro de validação', {
-        ...defaultOptions,
-        description: error.message,
-      });
-    }
-  });
+  const messages = Object.values(errors)
+    .filter((error) => error?.message)
+    .map((error) => error!.message);
+
+  if (messages.length > 0) {
+    const description =
+      messages.length > 1 ? messages.map((m, i) => `${i + 1}. ${m}`).join('\n') : messages[0];
+    sonner.error('Erro de validação', {
+      ...defaultOptions,
+      description,
+    });
+  }
 }

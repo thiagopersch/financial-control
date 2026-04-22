@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
-import { ColumnDef } from "@tanstack/react-table";
-import { ArrowRight, ArrowUpDown, Edit, Trash, Zap } from "lucide-react";
-import { useState } from "react";
-import { DeleteRuleModal } from "./delete-rule-modal";
-import { RuleModal } from "./rule-modal";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { DataTable } from '@/components/ui/data-table';
+import { ColumnDef } from '@tanstack/react-table';
+import { ArrowRight, ArrowUpDown, Edit, Trash, Zap } from 'lucide-react';
+import { useState } from 'react';
+import { DeleteRuleModal } from './delete-rule-modal';
+import { RuleModal } from './rule-modal';
 
 interface RulesListProps {
   rules: any[];
@@ -23,11 +23,11 @@ export function RulesList({ rules, categories, userRole }: RulesListProps) {
 
   const initialColumns: ColumnDef<any>[] = [
     {
-      accessorKey: "keyword",
+      accessorKey: 'keyword',
       header: ({ column }) => (
         <Button
           variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           className="h-8 p-0 font-semibold hover:bg-transparent"
         >
           Palavra-chave
@@ -44,16 +44,16 @@ export function RulesList({ rules, categories, userRole }: RulesListProps) {
       ),
     },
     {
-      id: "arrow",
-      header: "",
+      id: 'arrow',
+      header: '',
       cell: () => <ArrowRight className="text-muted-foreground h-4 w-4" />,
     },
     {
-      accessorKey: "categoryId",
+      accessorKey: 'categoryId',
       header: ({ column }) => (
         <Button
           variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           className="h-8 p-0 font-semibold hover:bg-transparent"
         >
           Categoria Associada
@@ -66,7 +66,7 @@ export function RulesList({ rules, categories, userRole }: RulesListProps) {
           <Badge
             variant="secondary"
             style={{
-              backgroundColor: cat.color + "20",
+              backgroundColor: cat.color + '20',
               color: cat.color,
               border: `1px solid ${cat.color}40`,
             }}
@@ -80,7 +80,7 @@ export function RulesList({ rules, categories, userRole }: RulesListProps) {
       },
     },
     {
-      id: "actions",
+      id: 'actions',
       header: () => <div className="text-right">Ações</div>,
       cell: ({ row }) => (
         <div className="space-x-1 text-right whitespace-nowrap">
@@ -105,7 +105,7 @@ export function RulesList({ rules, categories, userRole }: RulesListProps) {
     },
   ];
 
-  const columns = initialColumns.filter((col) => col.id !== "actions" || userRole !== "VIEWER");
+  const columns = initialColumns.filter((col) => col.id !== 'actions' || userRole !== 'VIEWER');
 
   return (
     <div className="flex flex-col gap-4">
@@ -124,7 +124,7 @@ export function RulesList({ rules, categories, userRole }: RulesListProps) {
       <DeleteRuleModal
         isOpen={!!deletingId}
         onClose={() => setDeletingId(null)}
-        id={deletingId || ""}
+        id={deletingId || ''}
       />
     </div>
   );

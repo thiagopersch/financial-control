@@ -1,15 +1,16 @@
-import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
+import { withAuth } from 'next-auth/middleware';
+import { NextResponse } from 'next/server';
 
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
     const isAuth = !!token;
-    const isAuthPage = req.nextUrl.pathname.startsWith("/login") || req.nextUrl.pathname.startsWith("/register");
+    const isAuthPage =
+      req.nextUrl.pathname.startsWith('/login') || req.nextUrl.pathname.startsWith('/register');
 
     if (isAuthPage) {
       if (isAuth) {
-        return NextResponse.redirect(new URL("/dashboard", req.url));
+        return NextResponse.redirect(new URL('/dashboard', req.url));
       }
       return null;
     }
@@ -20,28 +21,26 @@ export default withAuth(
         from += req.nextUrl.search;
       }
 
-      return NextResponse.redirect(
-        new URL(`/login?from=${encodeURIComponent(from)}`, req.url)
-      );
+      return NextResponse.redirect(new URL(`/login?from=${encodeURIComponent(from)}`, req.url));
     }
   },
   {
     callbacks: {
       authorized: ({ token }) => true, // middleware function handles logic
     },
-  }
+  },
 );
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/users/:path*",
-    "/categories/:path*",
-    "/transactions/:path*",
-    "/suppliers/:path*",
-    "/profiles/:path*",
-    "/rules/:path*",
-    "/login",
-    "/register",
+    '/dashboard/:path*',
+    '/users/:path*',
+    '/categories/:path*',
+    '/transactions/:path*',
+    '/suppliers/:path*',
+    '/profiles/:path*',
+    '/rules/:path*',
+    '/login',
+    '/register',
   ],
 };

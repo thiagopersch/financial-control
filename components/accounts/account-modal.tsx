@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   Form,
   FormControl,
@@ -15,40 +15,39 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { createAccount, updateAccount } from "@/lib/actions/accounts";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { AccountType } from "@prisma/client";
-import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import * as z from "zod";
+} from '@/components/ui/select';
+import { createAccount, updateAccount } from '@/lib/actions/accounts';
+import { showError, showSuccess } from '@/lib/utils/toast';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Account, AccountType } from '@prisma/client';
+import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 
 const accountType: { value: AccountType; label: string }[] = [
-  { value: AccountType.PIX, label: "PIX" },
-  { value: AccountType.CREDIT_CARD, label: "Cartão de Crédito" },
-  { value: AccountType.DEBIT_CARD, label: "Cartão de Débito" },
-  { value: AccountType.BANK, label: "Banco" },
-  { value: AccountType.WALLET, label: "Carteira" },
-  { value: AccountType.INVESTMENT, label: "Investimento" },
-  { value: AccountType.CRYPTO, label: "Cripto" },
-  { value: AccountType.OTHERS, label: "Outros" },
+  { value: AccountType.PIX, label: 'PIX' },
+  { value: AccountType.CREDIT_CARD, label: 'Cartão de Crédito' },
+  { value: AccountType.DEBIT_CARD, label: 'Cartão de Débito' },
+  { value: AccountType.BANK, label: 'Banco' },
+  { value: AccountType.WALLET, label: 'Carteira' },
+  { value: AccountType.INVESTMENT, label: 'Investimento' },
+  { value: AccountType.CRYPTO, label: 'Cripto' },
+  { value: AccountType.OTHERS, label: 'Outros' },
 ];
 
 const accountSchema = z.object({
-  name: z.string().min(1, "Nome é obrigatório"),
+  name: z.string().min(1, 'Nome é obrigatório'),
   type: z.enum(AccountType),
-  balance: z.coerce.number(),
-  color: z.string().optional().default("#000000"),
+  color: z.string().default('#000000'),
 });
 
 type AccountFormValues = z.infer<typeof accountSchema>;
@@ -56,7 +55,7 @@ type AccountFormValues = z.infer<typeof accountSchema>;
 interface AccountModalProps {
   isOpen: boolean;
   onClose: () => void;
-  account?: any;
+  account?: Account;
 }
 
 export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
@@ -65,10 +64,9 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
   const form = useForm<AccountFormValues>({
     resolver: zodResolver(accountSchema) as any,
     defaultValues: {
-      name: "",
+      name: '',
       type: AccountType.PIX,
-      balance: 0,
-      color: "#000000",
+      color: '#000000',
     },
   });
 
@@ -77,15 +75,13 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
       form.reset({
         name: account.name,
         type: account.type,
-        balance: Number(account.balance),
-        color: account.color || "#000000",
+        color: account.color || '#000000',
       });
     } else {
       form.reset({
-        name: "",
+        name: '',
         type: AccountType.PIX,
-        balance: 0,
-        color: "#000000",
+        color: '#000000',
       });
     }
   }, [account, form, isOpen]);
@@ -96,42 +92,22 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
       if (account) {
         const result = await updateAccount(account.id, values);
         if (result.success) {
-          toast.success("Conta atualizada com sucesso", {
-            description: "A conta foi atualizada com sucesso",
-            position: "bottom-center",
-            richColors: true,
-          });
+          showSuccess('Conta atualizada com sucesso', 'A conta foi atualizada com sucesso');
           onClose();
         } else {
-          toast.error(result.error || "Erro ao atualizar conta", {
-            description: "A conta não foi atualizada",
-            position: "bottom-center",
-            richColors: true,
-          });
+          showError('Erro ao atualizar conta', result.error || 'A conta não foi atualizada');
         }
       } else {
         const result = await createAccount(values);
         if (result.success) {
-          toast.success("Conta criada com sucesso", {
-            description: "A conta foi criada com sucesso",
-            position: "bottom-center",
-            richColors: true,
-          });
+          showSuccess('Conta criada com sucesso', 'A conta foi criada com sucesso');
           onClose();
         } else {
-          toast.error(result.error || "Erro ao criar conta", {
-            description: "A conta não foi criada",
-            position: "bottom-center",
-            richColors: true,
-          });
+          showError('Erro ao criar conta', result.error || 'A conta não foi criada');
         }
       }
     } catch (error) {
-      toast.error("Ocorreu um erro inesperado", {
-        description: "Ocorreu um erro inesperado",
-        position: "bottom-center",
-        richColors: true,
-      });
+      showError('Ocorreu um erro inesperado', 'Ocorreu um erro inesperado');
     } finally {
       setLoading(false);
     }
@@ -139,9 +115,9 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-width-[425px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{account ? "Editar Conta" : "Nova Conta"}</DialogTitle>
+          <DialogTitle>{account ? 'Editar Conta' : 'Nova Conta'}</DialogTitle>
           <DialogDescription>Insira os detalhes da conta abaixo.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -159,55 +135,42 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Selecione o tipo" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {accountType.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="balance"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Saldo Inicial</FormLabel>
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <Input type="number" step="0.01" {...field} />
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                    <SelectContent>
+                      {accountType.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="color"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Cor</FormLabel>
+                  <FormLabel>
+                    Cor
+                    <span className="text-muted-foreground text-xs">Identificador visual</span>
+                  </FormLabel>
                   <FormControl>
                     <div className="flex items-center gap-2">
-                      <Input type="color" className="h-10 w-20 p-1" {...field} />
-                      <span className="text-muted-foreground text-xs">Identificador visual</span>
+                      <Input type="color" className="h-10 w-30 p-1" {...field} />
                     </div>
                   </FormControl>
                   <FormMessage />
@@ -220,7 +183,7 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
               </Button>
               <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {account ? "Atualizar" : "Criar"}
+                {account ? 'Atualizar' : 'Criar'}
               </Button>
             </div>
           </form>

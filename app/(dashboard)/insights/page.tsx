@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Sparkles } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
+import { useState } from 'react';
+import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Sparkles } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import {
   BarChart,
   Bar,
@@ -17,18 +17,18 @@ import {
   PieChart,
   Pie,
   Cell,
-} from "recharts";
-import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { useInsights } from "@/lib/queries/insights";
+} from 'recharts';
+import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { useInsights } from '@/lib/queries/insights';
 
 interface Insight {
-  type: "increase" | "decrease" | "warning" | "info";
+  type: 'increase' | 'decrease' | 'warning' | 'info';
   title: string;
   description: string;
   value?: number;
   percentage?: number;
-  severity?: "info" | "warning" | "alert";
+  severity?: 'info' | 'warning' | 'alert';
   createdAt?: string;
 }
 
@@ -44,12 +44,12 @@ interface SpendingHighlight {
   category: string;
   amount: number;
   percentage: number;
-  trend: "up" | "down" | "stable";
+  trend: 'up' | 'down' | 'stable';
   color: string;
 }
 
 export default function InsightsPage() {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState('overview');
   const { insights, isLoading } = useInsights();
 
   const [comparisons, setComparisons] = useState<CategoryComparison[]>([]);
@@ -65,11 +65,11 @@ export default function InsightsPage() {
 
   const getInsightIcon = (type: string) => {
     switch (type) {
-      case "increase":
+      case 'increase':
         return <TrendingUp className="h-5 w-5 text-green-500" />;
-      case "decrease":
+      case 'decrease':
         return <TrendingDown className="h-5 w-5 text-red-500" />;
-      case "warning":
+      case 'warning':
         return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
       default:
         return <Sparkles className="h-5 w-5 text-blue-500" />;
@@ -78,11 +78,11 @@ export default function InsightsPage() {
 
   const getInsightBadge = (type: string) => {
     switch (type) {
-      case "increase":
+      case 'increase':
         return <Badge className="bg-green-500">Aumento</Badge>;
-      case "decrease":
+      case 'decrease':
         return <Badge className="bg-red-500">Redução</Badge>;
-      case "warning":
+      case 'warning':
         return <Badge className="bg-yellow-500">Atenção</Badge>;
       default:
         return <Badge>Info</Badge>;
@@ -90,13 +90,13 @@ export default function InsightsPage() {
   };
 
   const formatCurrency = (value: number) => {
-    return value.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
+    return value.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
     });
   };
 
-  const COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+  const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
   return (
     <div className="space-y-8">
@@ -130,7 +130,7 @@ export default function InsightsPage() {
                 <p className="text-muted-foreground text-xs">
                   {summary && summary.previousIncome > 0
                     ? `${(((summary.totalIncome - summary.previousIncome) / summary.previousIncome) * 100).toFixed(1)}% vs mês anterior`
-                    : "Dados não disponíveis"}
+                    : 'Dados não disponíveis'}
                 </p>
               </CardContent>
             </Card>
@@ -146,7 +146,7 @@ export default function InsightsPage() {
                 <p className="text-muted-foreground text-xs">
                   {summary && summary.previousExpense > 0
                     ? `${(((summary.totalExpense - summary.previousExpense) / summary.previousExpense) * 100).toFixed(1)}% vs mês anterior`
-                    : "Dados não disponíveis"}
+                    : 'Dados não disponíveis'}
                 </p>
               </CardContent>
             </Card>
@@ -161,14 +161,14 @@ export default function InsightsPage() {
               </CardHeader>
               <CardContent>
                 <div
-                  className={`text-2xl font-bold ${summary?.netResult && summary.netResult >= 0 ? "text-green-500" : "text-red-500"}`}
+                  className={`text-2xl font-bold ${summary?.netResult && summary.netResult >= 0 ? 'text-green-500' : 'text-red-500'}`}
                 >
                   {formatCurrency(summary?.netResult || 0)}
                 </div>
                 <p className="text-muted-foreground text-xs">
                   {summary?.previousNetResult
                     ? `${(((summary.netResult - summary.previousNetResult) / Math.abs(summary.previousNetResult)) * 100).toFixed(1)}% vs mês anterior`
-                    : "Dados não disponíveis"}
+                    : 'Dados não disponíveis'}
                 </p>
               </CardContent>
             </Card>
@@ -192,8 +192,8 @@ export default function InsightsPage() {
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={[
-                          { name: "Receitas", value: summary?.totalIncome || 0 },
-                          { name: "Despesas", value: summary?.totalExpense || 0 },
+                          { name: 'Receitas', value: summary?.totalIncome || 0 },
+                          { name: 'Despesas', value: summary?.totalExpense || 0 },
                         ]}
                       >
                         <CartesianGrid strokeDasharray="3 3" />
@@ -289,7 +289,7 @@ export default function InsightsPage() {
                           {formatCurrency(insight.value)}
                           {insight.percentage !== undefined && (
                             <span className="text-muted-foreground ml-2 text-sm font-normal">
-                              ({insight.percentage > 0 ? "+" : ""}
+                              ({insight.percentage > 0 ? '+' : ''}
                               {insight.percentage.toFixed(1)}%)
                             </span>
                           )}

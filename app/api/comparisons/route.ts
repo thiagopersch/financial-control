@@ -1,18 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
+import { type NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get("type") || "month";
+    const type = searchParams.get('type') || 'month';
 
     const now = new Date();
     const currentStart = startOfMonth(now);
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       prisma.transaction.findMany({
         where: {
           workspaceId: session.user.workspaceId,
-          status: "PAID",
+          status: 'PAID',
           date: { gte: currentStart, lte: currentEnd },
         },
         include: { category: true, account: true },
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       prisma.transaction.findMany({
         where: {
           workspaceId: session.user.workspaceId,
-          status: "PAID",
+          status: 'PAID',
           date: { gte: previousStart, lte: previousEnd },
         },
         include: { category: true, account: true },
@@ -42,8 +42,8 @@ export async function GET(request: NextRequest) {
     const calculateTotals = (transactions: typeof currentTransactions) => {
       return transactions.reduce(
         (acc, t) => {
-          if (t.type === "INCOME") acc.income += Number(t.amount);
-          else if (t.type === "EXPENSE") acc.expense += Number(t.amount);
+          if (t.type === 'INCOME') acc.income += Number(t.amount);
+          else if (t.type === 'EXPENSE') acc.expense += Number(t.amount);
           return acc;
         },
         { income: 0, expense: 0 },
@@ -74,32 +74,32 @@ export async function GET(request: NextRequest) {
 
     let chartData: { label: string; current: number; previous: number }[] = [];
 
-    if (type === "month") {
+    if (type === 'month') {
       chartData = [
         {
-          label: "Receitas",
+          label: 'Receitas',
           current: currentTotals.income,
           previous: previousTotals.income,
         },
         {
-          label: "Despesas",
+          label: 'Despesas',
           current: currentTotals.expense,
           previous: previousTotals.expense,
         },
         {
-          label: "Resultado",
+          label: 'Resultado',
           current: currentTotals.income - currentTotals.expense,
           previous: previousTotals.income - previousTotals.expense,
         },
       ];
-    } else if (type === "category") {
+    } else if (type === 'category') {
       const categories = [...new Set(currentTransactions.map((t) => t.category.name))];
       chartData = categories.map((cat) => {
         const currentCatTotal = currentTransactions
-          .filter((t) => t.category.name === cat && t.type === "EXPENSE")
+          .filter((t) => t.category.name === cat && t.type === 'EXPENSE')
           .reduce((sum, t) => sum + Number(t.amount), 0);
         const previousCatTotal = previousTransactions
-          .filter((t) => t.category.name === cat && t.type === "EXPENSE")
+          .filter((t) => t.category.name === cat && t.type === 'EXPENSE')
           .reduce((sum, t) => sum + Number(t.amount), 0);
         return { label: cat, current: currentCatTotal, previous: previousCatTotal };
       });
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error fetching comparisons:", error);
-    return NextResponse.json({ error: "Erro ao buscar comparativos" }, { status: 500 });
+    console.error('Error fetching comparisons:', error);
+    return NextResponse.json({ error: 'Erro ao buscar comparativos' }, { status: 500 });
   }
 }

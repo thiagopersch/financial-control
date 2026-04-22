@@ -1,26 +1,26 @@
-"use server";
+'use server';
 
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { TransactionType, TransactionStatus } from "@prisma/client";
-import { getServerSession } from "next-auth";
-import { revalidatePath } from "next/cache";
-import * as z from "zod";
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { TransactionStatus, TransactionType } from '@prisma/client';
+import { getServerSession } from 'next-auth';
+import { revalidatePath } from 'next/cache';
+import * as z from 'zod';
 
 const transferSchema = z.object({
-  amount: z.coerce.number().positive("Valor deve ser maior que zero"),
+  amount: z.coerce.number().positive('Valor deve ser maior que zero'),
   date: z.coerce.date(),
   description: z.string().optional(),
-  fromAccountId: z.string().min(1, "Conta de origem é obrigatória"),
-  toAccountId: z.string().min(1, "Conta de destino é obrigatória"),
+  fromAccountId: z.string().min(1, 'Conta de origem é obrigatória'),
+  toAccountId: z.string().min(1, 'Conta de destino é obrigatória'),
 });
 
 export async function createTransfer(data: z.infer<typeof transferSchema>) {
   const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: "Não autorizado" };
+  if (!session) return { success: false, error: 'Não autorizado' };
 
   if (data.fromAccountId === data.toAccountId) {
-    return { success: false, error: "As contas de origem e destino devem ser diferentes" };
+    return { success: false, error: 'As contas de origem e destino devem ser diferentes' };
   }
 
   try {
@@ -28,18 +28,18 @@ export async function createTransfer(data: z.infer<typeof transferSchema>) {
 
     // Encontrar ou criar uma categoria de sistema para transferências
     let transferCategory = await prisma.category.findFirst({
-      where: { 
-        name: "Transferência",
-        workspaceId: session.user.workspaceId 
+      where: {
+        name: 'Transferência',
+        workspaceId: session.user.workspaceId,
       },
     });
 
     if (!transferCategory) {
       transferCategory = await prisma.category.create({
         data: {
-          name: "Transferência",
+          name: 'Transferência',
           type: TransactionType.TRANSFER,
-          color: "#94a3b8",
+          color: '#94a3b8',
           workspaceId: session.user.workspaceId,
         },
       });
@@ -62,7 +62,7 @@ export async function createTransfer(data: z.infer<typeof transferSchema>) {
           amount: validated.amount,
           date: validated.date,
           status: TransactionStatus.PAID,
-          notes: `[SAÍDA] Transferência: ${validated.description || ""}`,
+          notes: `[SAÍDA] Transferência: ${validated.description || ''}`,
           accountId: validated.fromAccountId,
           workspaceId: session.user.workspaceId,
           categoryId: transferCategory!.id,
@@ -76,31 +76,20 @@ export async function createTransfer(data: z.infer<typeof transferSchema>) {
           amount: validated.amount,
           date: validated.date,
           status: TransactionStatus.PAID,
-          notes: `[ENTRADA] Transferência: ${validated.description || ""}`,
+          notes: `[ENTRADA] Transferência: ${validated.description || ''}`,
           accountId: validated.toAccountId,
           workspaceId: session.user.workspaceId,
           categoryId: transferCategory!.id,
         },
       });
-
-      // 4. Update account balances
-      await tx.account.update({
-        where: { id: validated.fromAccountId },
-        data: { balance: { decrement: validated.amount } },
-      });
-
-      await tx.account.update({
-        where: { id: validated.toAccountId },
-        data: { balance: { increment: validated.amount } },
-      });
     });
 
-    revalidatePath("/transactions");
-    revalidatePath("/accounts");
-    revalidatePath("/dashboard");
+    revalidatePath('/transactions');
+    revalidatePath('/accounts');
+    revalidatePath('/dashboard');
     return { success: true };
   } catch (error) {
-    console.error("Error creating transfer:", error);
-    return { success: false, error: "Erro ao realizar transferência" };
+    console.error('Error creating transfer:', error);
+    return { success: false, error: 'Erro ao realizar transferência' };
   }
 }

@@ -1,10 +1,29 @@
-"use server";
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
 
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
+export type CreditCardDTO = {
+  id: string;
+  accountId: string;
+  limit: number;
+  initialBalance: number;
+  usedAmount: number;
+  closingDay: number;
+  dueDay: number;
+  color: string | null;
+  createdAt: string;
+  updatedAt: string;
+  account: {
+    id: string;
+    name: string;
+    type: string;
+    color: string | null;
+  };
+  availableLimit: number;
+  usagePercentage: number;
+};
 
-export async function getCreditCards() {
+export async function getCreditCards(): Promise<CreditCardDTO[]> {
   const session = await getServerSession(authOptions);
   if (!session) return [];
 
@@ -17,13 +36,9 @@ export async function getCreditCards() {
       },
       include: {
         account: true,
-        invoices: {
-          orderBy: [{ year: "desc" }, { month: "desc" }],
-          take: 6,
-        },
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
 
@@ -35,40 +50,77 @@ export async function getCreditCards() {
       return {
         id: card.id,
         accountId: card.accountId,
-        availableLimit,
-        usagePercentage,
         limit: Number(card.limit),
+        initialBalance: Number(card.initialBalance),
         usedAmount: Number(card.usedAmount),
         closingDay: card.closingDay,
         dueDay: card.dueDay,
-        color: card.color,
+        color: card.color || '#6366f1',
         createdAt: card.createdAt.toISOString(),
         updatedAt: card.updatedAt.toISOString(),
         account: {
           id: card.account.id,
           name: card.account.name,
           type: card.account.type,
-          balance: card.account.balance.toNumber(),
-          color: card.account.color,
-          workspaceId: card.account.workspaceId,
-          createdAt: card.account.createdAt.toISOString(),
-          updatedAt: card.account.updatedAt.toISOString(),
+          color: card.account.color || '#000000',
         },
-        invoices: card.invoices.map((inv) => ({
-          id: inv.id,
-          creditCardId: inv.creditCardId,
-          month: inv.month,
-          year: inv.year,
-          amount: Number(inv.amount),
-          dueDate: inv.dueDate ? inv.dueDate.toISOString() : null,
-          status: inv.status as string,
-          createdAt: inv.createdAt.toISOString(),
-          updatedAt: inv.updatedAt.toISOString(),
-        })),
+        availableLimit,
+        usagePercentage,
       };
     });
   } catch (error) {
-    console.error("Error fetching credit cards:", error);
+    console.error('Error fetching credit cards:', error);
     return [];
+  }
+}
+
+export async function getCreditCardById(id: string): Promise<CreditCardDTO | null> {
+  const session = await getServerSession(authOptions);
+  if (!session) return null;
+
+  try {
+    const creditCard = await prisma.creditCard.findFirst({
+      where: {
+        id,
+        account: {
+          workspaceId: session.user.workspaceId,
+        },
+      },
+      include: {
+        account: true,
+      },
+    });
+
+    if (!creditCard) return null;
+
+    const availableLimit = Number(creditCard.limit) - Number(creditCard.usedAmount);
+    const usagePercentage =
+      Number(creditCard.limit) > 0
+        ? (Number(creditCard.usedAmount) / Number(creditCard.limit)) * 100
+        : 0;
+
+    return {
+      id: creditCard.id,
+      accountId: creditCard.accountId,
+      limit: Number(creditCard.limit),
+      initialBalance: Number(creditCard.initialBalance),
+      usedAmount: Number(creditCard.usedAmount),
+      closingDay: creditCard.closingDay,
+      dueDay: creditCard.dueDay,
+      color: creditCard.color || '#6366f1',
+      createdAt: creditCard.createdAt.toISOString(),
+      updatedAt: creditCard.updatedAt.toISOString(),
+      account: {
+        id: creditCard.account.id,
+        name: creditCard.account.name,
+        type: creditCard.account.type,
+        color: creditCard.account.color || '#000000',
+      },
+      availableLimit,
+      usagePercentage,
+    };
+  } catch (error) {
+    console.error('Error fetching credit card:', error);
+    return null;
   }
 }

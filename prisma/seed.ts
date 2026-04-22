@@ -1,29 +1,28 @@
-import { PrismaClient, Role, TransactionStatus, TransactionType } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
-import bcrypt from "bcrypt";
-import { config } from "dotenv";
-import { resolve } from "path";
+import { PrismaClient, Role, TransactionStatus, TransactionType } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
+import bcrypt from 'bcrypt';
+import { config } from 'dotenv';
+import { resolve } from 'path';
 
 // Ensure .env is loaded when running seed directly via ts-node
-config({ path: resolve(__dirname, "../.env") });
+config({ path: resolve(__dirname, '../.env') });
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-
 async function main() {
-  const hashedPassword = await bcrypt.hash("admin123", 10);
+  const hashedPassword = await bcrypt.hash('admin123', 10);
 
   // Create workspace
   const workspace = await prisma.workspace.create({
     data: {
-      name: "Main Workspace",
+      name: 'Main Workspace',
       users: {
         create: {
-          name: "Admin User",
-          email: "admin@example.com",
+          name: 'Admin User',
+          email: 'admin@example.com',
           password: hashedPassword,
           role: Role.ADMIN,
         },
@@ -32,7 +31,7 @@ async function main() {
   });
 
   const admin = await prisma.user.findFirst({
-    where: { email: "admin@example.com" },
+    where: { email: 'admin@example.com' },
   });
 
   if (!admin) return;
@@ -41,25 +40,25 @@ async function main() {
   await prisma.profile.create({
     data: {
       userId: admin.id,
-      bio: "Administrator",
+      bio: 'Administrator',
     },
   });
 
   // Create categories
   const catIncome = await prisma.category.create({
     data: {
-      name: "Salary",
+      name: 'Salary',
       type: TransactionType.INCOME,
-      color: "#22c55e",
+      color: '#22c55e',
       workspaceId: workspace.id,
     },
   });
 
   const catExpense = await prisma.category.create({
     data: {
-      name: "Rent",
+      name: 'Rent',
       type: TransactionType.EXPENSE,
-      color: "#ef4444",
+      color: '#ef4444',
       workspaceId: workspace.id,
     },
   });
@@ -67,7 +66,7 @@ async function main() {
   // Create supplier
   const supplier = await prisma.supplier.create({
     data: {
-      name: "Real Estate Inc.",
+      name: 'Real Estate Inc.',
       workspaceId: workspace.id,
     },
   });
@@ -96,7 +95,7 @@ async function main() {
     ],
   });
 
-  console.log("Seed completed!");
+  console.log('Seed completed!');
 }
 
 main()

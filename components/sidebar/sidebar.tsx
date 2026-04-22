@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { Route, routeGroups } from "@/components/sidebar/routes";
-import { Button } from "@/components/ui/button";
-import { useSidebar } from "@/hooks/use-sidebar";
-import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronLeft, ChevronRight, LogOut, Menu, Wallet } from "lucide-react";
-import { signOut } from "next-auth/react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Route, routeGroups } from '@/components/sidebar/routes';
+import { Button } from '@/components/ui/button';
+import { useSidebar } from '@/hooks/use-sidebar';
+import { cn } from '@/lib/utils';
+import { ChevronDown, ChevronLeft, ChevronRight, LogOut, Menu, Wallet } from 'lucide-react';
+import { signOut } from 'next-auth/react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export function Sidebar({ isMobile }: { isMobile?: boolean }) {
   const pathname = usePathname();
@@ -51,13 +51,13 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
       href={route.href}
       onClick={handleLinkClick}
       className={cn(
-        "group hover:bg-accent hover:text-accent-foreground flex w-full cursor-pointer justify-start rounded-lg p-3 text-sm font-medium transition-all duration-150",
-        isRouteActive(route.href) ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+        'group hover:bg-accent hover:text-accent-foreground flex w-full cursor-pointer justify-start rounded-lg p-3 text-sm font-medium transition-all duration-150',
+        isRouteActive(route.href) ? 'bg-accent text-accent-foreground' : 'text-muted-foreground',
       )}
     >
       <div className="flex flex-1 items-center gap-3">
         {route.icon && (
-          <route.icon className={cn("h-5 w-5 shrink-0", route.color || "text-muted-foreground")} />
+          <route.icon className={cn('h-5 w-5 shrink-0', route.color || 'text-muted-foreground')} />
         )}
         {showLabel && <span className="truncate whitespace-nowrap">{route.label}</span>}
       </div>
@@ -69,10 +69,10 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
       onMouseEnter={() => !isMobile && setIsHovered(true)}
       onMouseLeave={() => !isMobile && setIsHovered(false)}
       className={cn(
-        "bg-background text-foreground flex h-full flex-col border-r shadow-sm transition-all duration-200",
-        !isMobile && "fixed top-0 left-0 z-100 hidden md:flex",
-        showFullSidebar ? "w-auto" : "w-[72px]",
-        isMobile && "w-full border-none shadow-none",
+        'bg-background text-foreground flex h-full flex-col border-r shadow-sm transition-all duration-200',
+        !isMobile && 'fixed top-0 left-0 z-100 hidden md:flex',
+        showFullSidebar ? 'w-auto' : 'w-[72px]',
+        isMobile && 'w-full border-none shadow-none',
       )}
     >
       <div className="flex-1 overflow-y-auto px-3 py-2">
@@ -81,8 +81,8 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
             href="/dashboard"
             onClick={handleLinkClick}
             className={cn(
-              "flex items-center overflow-hidden transition-all",
-              !showFullSidebar ? "w-0 opacity-0" : "w-auto opacity-100",
+              'flex items-center overflow-hidden transition-all',
+              !showFullSidebar ? 'w-0 opacity-0' : 'w-auto opacity-100',
             )}
           >
             <div className="relative mr-4 h-8 w-8 shrink-0">
@@ -98,7 +98,7 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
               onClick={toggle}
               variant="ghost"
               size="icon"
-              className={cn("hover:bg-accent shrink-0", !showFullSidebar && "mx-auto")}
+              className={cn('hover:bg-accent shrink-0', !showFullSidebar && 'mx-auto')}
             >
               {showFullSidebar ? <ChevronLeft className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
@@ -117,10 +117,10 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
                     <button
                       onClick={() => toggleGroup(group.title)}
                       className={cn(
-                        "flex w-full items-center justify-between px-3 py-2 text-xs font-semibold uppercase transition-colors",
+                        'flex w-full items-center justify-between px-3 py-2 text-xs font-semibold uppercase transition-colors',
                         isActive
-                          ? "text-foreground"
-                          : "text-muted-foreground hover:text-foreground",
+                          ? 'text-foreground'
+                          : 'text-muted-foreground hover:text-foreground',
                       )}
                     >
                       <div className="flex items-center gap-2">
@@ -135,8 +135,8 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
                     </button>
                     <div
                       className={cn(
-                        "overflow-hidden transition-all duration-150",
-                        isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0",
+                        'overflow-hidden transition-all duration-150',
+                        isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0',
                       )}
                     >
                       {group.routes.map((route) => renderRoute(route, true))}
@@ -147,15 +147,15 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
                     <button
                       onClick={() => toggleGroup(group.title)}
                       className={cn(
-                        "rounded-lg p-3 transition-colors",
-                        isActive ? "bg-accent" : "hover:bg-accent hover:text-accent-foreground",
+                        'rounded-lg p-3 transition-colors',
+                        isActive ? 'bg-accent' : 'hover:bg-accent hover:text-accent-foreground',
                       )}
                       title={group.title}
                     >
                       <group.icon
                         className={cn(
-                          "h-5 w-5",
-                          isActive ? "text-accent-foreground" : "text-muted-foreground",
+                          'h-5 w-5',
+                          isActive ? 'text-accent-foreground' : 'text-muted-foreground',
                         )}
                       />
                     </button>
@@ -171,10 +171,10 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
         <Button
           variant="ghost"
           className={cn(
-            "text-muted-foreground hover:text-foreground w-full justify-start",
-            !showFullSidebar && "justify-center px-0",
+            'text-muted-foreground hover:text-foreground w-full justify-start',
+            !showFullSidebar && 'justify-center px-0',
           )}
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={() => signOut({ callbackUrl: '/login' })}
         >
           <LogOut className="mr-3 h-5 w-5" />
           {showFullSidebar && <span>Sair</span>}

@@ -1,27 +1,27 @@
-"use server";
+'use server';
 
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { revalidatePath } from "next/cache";
-import * as z from "zod";
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { revalidatePath } from 'next/cache';
+import * as z from 'zod';
 
 const NotificationType = {
-  BUDGET_WARNING: "BUDGET_WARNING",
-  BUDGET_EXCEEDED: "BUDGET_EXCEEDED",
-  INVOICE_DUE: "INVOICE_DUE",
-  INVOICE_OVERDUE: "INVOICE_OVERDUE",
-  GOAL_PROGRESS: "GOAL_PROGRESS",
-  DEBT_ALERT: "DEBT_ALERT",
-  RECURRING_REMINDER: "RECURRING_REMINDER",
-  ANOMALY_DETECTED: "ANOMALY_DETECTED",
-  SYSTEM: "SYSTEM",
+  BUDGET_WARNING: 'BUDGET_WARNING',
+  BUDGET_EXCEEDED: 'BUDGET_EXCEEDED',
+  INVOICE_DUE: 'INVOICE_DUE',
+  INVOICE_OVERDUE: 'INVOICE_OVERDUE',
+  GOAL_PROGRESS: 'GOAL_PROGRESS',
+  DEBT_ALERT: 'DEBT_ALERT',
+  RECURRING_REMINDER: 'RECURRING_REMINDER',
+  ANOMALY_DETECTED: 'ANOMALY_DETECTED',
+  SYSTEM: 'SYSTEM',
 } as const;
 
 const AlertLevel = {
-  INFO: "INFO",
-  WARNING: "WARNING",
-  CRITICAL: "CRITICAL",
+  INFO: 'INFO',
+  WARNING: 'WARNING',
+  CRITICAL: 'CRITICAL',
 } as const;
 
 type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
@@ -29,22 +29,22 @@ type AlertLevel = (typeof AlertLevel)[keyof typeof AlertLevel];
 
 const createNotificationSchema = z.object({
   type: z.enum([
-    "BUDGET_WARNING",
-    "BUDGET_EXCEEDED",
-    "INVOICE_DUE",
-    "INVOICE_OVERDUE",
-    "GOAL_PROGRESS",
-    "DEBT_ALERT",
-    "RECURRING_REMINDER",
-    "ANOMALY_DETECTED",
-    "SYSTEM",
+    'BUDGET_WARNING',
+    'BUDGET_EXCEEDED',
+    'INVOICE_DUE',
+    'INVOICE_OVERDUE',
+    'GOAL_PROGRESS',
+    'DEBT_ALERT',
+    'RECURRING_REMINDER',
+    'ANOMALY_DETECTED',
+    'SYSTEM',
   ] as const),
   title: z.string().min(1),
   message: z.string().min(1),
   level: z
-    .enum(["INFO", "WARNING", "CRITICAL"] as const)
+    .enum(['INFO', 'WARNING', 'CRITICAL'] as const)
     .optional()
-    .default("INFO"),
+    .default('INFO'),
   link: z.string().optional(),
   metadata: z.any().optional(),
   userId: z.string().optional(),
@@ -53,7 +53,7 @@ const createNotificationSchema = z.object({
 export async function createNotification(data: z.infer<typeof createNotificationSchema>) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return { success: false, error: "Não autorizado" };
+    if (!session) return { success: false, error: 'Não autorizado' };
 
     const validated = createNotificationSchema.parse(data);
 
@@ -67,8 +67,8 @@ export async function createNotification(data: z.infer<typeof createNotification
 
     return { success: true, data: notification };
   } catch (error) {
-    console.error("Error creating notification:", error);
-    return { success: false, error: "Erro ao criar notificação" };
+    console.error('Error creating notification:', error);
+    return { success: false, error: 'Erro ao criar notificação' };
   }
 }
 
@@ -77,7 +77,7 @@ export async function createBulkNotifications(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return { success: false, error: "Não autorizado" };
+    if (!session) return { success: false, error: 'Não autorizado' };
 
     const results = await prisma.notification.createMany({
       data: notifications.map((n) => ({
@@ -89,15 +89,15 @@ export async function createBulkNotifications(
 
     return { success: true, count: results.count };
   } catch (error) {
-    console.error("Error creating bulk notifications:", error);
-    return { success: false, error: "Erro ao criar notificações" };
+    console.error('Error creating bulk notifications:', error);
+    return { success: false, error: 'Erro ao criar notificações' };
   }
 }
 
 export async function markNotificationAsRead(id: string) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return { success: false, error: "Não autorizado" };
+    if (!session) return { success: false, error: 'Não autorizado' };
 
     await prisma.notification.updateMany({
       where: {
@@ -109,18 +109,18 @@ export async function markNotificationAsRead(id: string) {
       },
     });
 
-    revalidatePath("/dashboard");
+    revalidatePath('/dashboard');
     return { success: true };
   } catch (error) {
-    console.error("Error marking notification as read:", error);
-    return { success: false, error: "Erro ao marcar notificação como lida" };
+    console.error('Error marking notification as read:', error);
+    return { success: false, error: 'Erro ao marcar notificação como lida' };
   }
 }
 
 export async function markAllNotificationsAsRead() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return { success: false, error: "Não autorizado" };
+    if (!session) return { success: false, error: 'Não autorizado' };
 
     await prisma.notification.updateMany({
       where: {
@@ -132,18 +132,18 @@ export async function markAllNotificationsAsRead() {
       },
     });
 
-    revalidatePath("/dashboard");
+    revalidatePath('/dashboard');
     return { success: true };
   } catch (error) {
-    console.error("Error marking all notifications as read:", error);
-    return { success: false, error: "Erro ao marcar notificações como lidas" };
+    console.error('Error marking all notifications as read:', error);
+    return { success: false, error: 'Erro ao marcar notificações como lidas' };
   }
 }
 
 export async function deleteNotification(id: string) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return { success: false, error: "Não autorizado" };
+    if (!session) return { success: false, error: 'Não autorizado' };
 
     await prisma.notification.delete({
       where: {
@@ -152,18 +152,18 @@ export async function deleteNotification(id: string) {
       },
     });
 
-    revalidatePath("/dashboard");
+    revalidatePath('/dashboard');
     return { success: true };
   } catch (error) {
-    console.error("Error deleting notification:", error);
-    return { success: false, error: "Erro ao excluir notificação" };
+    console.error('Error deleting notification:', error);
+    return { success: false, error: 'Erro ao excluir notificação' };
   }
 }
 
 export async function deleteOldNotifications(daysOld: number = 30) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return { success: false, error: "Não autorizado" };
+    if (!session) return { success: false, error: 'Não autorizado' };
 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
@@ -180,15 +180,15 @@ export async function deleteOldNotifications(daysOld: number = 30) {
 
     return { success: true, deleted: result.count };
   } catch (error) {
-    console.error("Error deleting old notifications:", error);
-    return { success: false, error: "Erro ao excluir notificações antigas" };
+    console.error('Error deleting old notifications:', error);
+    return { success: false, error: 'Erro ao excluir notificações antigas' };
   }
 }
 
 export async function checkBudgetAlerts() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return { success: false, error: "Não autorizado" };
+    if (!session) return { success: false, error: 'Não autorizado' };
 
     const now = new Date();
     const month = now.getMonth() + 1;
@@ -221,8 +221,8 @@ export async function checkBudgetAlerts() {
         where: {
           workspaceId: session.user.workspaceId,
           categoryId: budget.categoryId,
-          type: "EXPENSE",
-          status: "PAID",
+          type: 'EXPENSE',
+          status: 'PAID',
           date: {
             gte: startOfMonth,
             lte: endOfMonth,
@@ -244,7 +244,7 @@ export async function checkBudgetAlerts() {
             userId: session.user.id,
             type: NotificationType.BUDGET_EXCEEDED,
             metadata: {
-              path: ["budgetId"],
+              path: ['budgetId'],
               equals: budget.id,
             },
             createdAt: {
@@ -256,7 +256,7 @@ export async function checkBudgetAlerts() {
         if (!existing) {
           notifications.push({
             type: NotificationType.BUDGET_EXCEEDED,
-            title: "Orçamento Estourado!",
+            title: 'Orçamento Estourado!',
             message: `Você estourou o orçamento de ${budget.category.name}. Gastou R$ ${spentAmount.toFixed(2)} de R$ ${budgetAmount.toFixed(2)}`,
             level: AlertLevel.CRITICAL,
             metadata: {
@@ -275,7 +275,7 @@ export async function checkBudgetAlerts() {
             userId: session.user.id,
             type: NotificationType.BUDGET_WARNING,
             metadata: {
-              path: ["budgetId"],
+              path: ['budgetId'],
               equals: budget.id,
             },
             createdAt: {
@@ -287,7 +287,7 @@ export async function checkBudgetAlerts() {
         if (!existing) {
           notifications.push({
             type: NotificationType.BUDGET_WARNING,
-            title: "Atenção: 80% do Orçamento!",
+            title: 'Atenção: 80% do Orçamento!',
             message: `Você já usou ${percentage.toFixed(0)}% do orçamento de ${budget.category.name}. Restam R$ ${(budgetAmount - spentAmount).toFixed(2)}`,
             level: AlertLevel.WARNING,
             metadata: {
@@ -308,15 +308,15 @@ export async function checkBudgetAlerts() {
 
     return { success: true, created: notifications.length };
   } catch (error) {
-    console.error("Error checking budget alerts:", error);
-    return { success: false, error: "Erro ao verificar alertas de orçamento" };
+    console.error('Error checking budget alerts:', error);
+    return { success: false, error: 'Erro ao verificar alertas de orçamento' };
   }
 }
 
 export async function checkInvoiceAlerts() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return { success: false, error: "Não autorizado" };
+    if (!session) return { success: false, error: 'Não autorizado' };
 
     const now = new Date();
     const notifications: Array<{
@@ -337,7 +337,7 @@ export async function checkInvoiceAlerts() {
             workspaceId: session.user.workspaceId,
           },
         },
-        status: "OPEN",
+        status: 'OPEN',
         dueDate: {
           lte: dueInThreeDays,
           gte: now,
@@ -359,7 +359,7 @@ export async function checkInvoiceAlerts() {
           userId: session.user.id,
           type: NotificationType.INVOICE_DUE,
           metadata: {
-            path: ["invoiceId"],
+            path: ['invoiceId'],
             equals: invoice.id,
           },
           createdAt: {
@@ -371,7 +371,7 @@ export async function checkInvoiceAlerts() {
       if (!existing) {
         notifications.push({
           type: NotificationType.INVOICE_DUE,
-          title: "Fatura Próxima do Vencimento",
+          title: 'Fatura Próxima do Vencimento',
           message: `A fatura de ${invoice.creditCard.account.name} (${invoice.month}/${invoice.year}) vence em breve: R$ ${Number(invoice.amount).toFixed(2)}`,
           level: AlertLevel.WARNING,
           metadata: {
@@ -390,7 +390,7 @@ export async function checkInvoiceAlerts() {
             workspaceId: session.user.workspaceId,
           },
         },
-        status: "OPEN",
+        status: 'OPEN',
         dueDate: {
           lt: now,
         },
@@ -411,7 +411,7 @@ export async function checkInvoiceAlerts() {
           userId: session.user.id,
           type: NotificationType.INVOICE_OVERDUE,
           metadata: {
-            path: ["invoiceId"],
+            path: ['invoiceId'],
             equals: invoice.id,
           },
         },
@@ -420,7 +420,7 @@ export async function checkInvoiceAlerts() {
       if (!existing) {
         notifications.push({
           type: NotificationType.INVOICE_OVERDUE,
-          title: "Fatura Atrasada!",
+          title: 'Fatura Atrasada!',
           message: `A fatura de ${invoice.creditCard.account.name} (${invoice.month}/${invoice.year}) está atrasada! Valor: R$ ${Number(invoice.amount).toFixed(2)}`,
           level: AlertLevel.CRITICAL,
           metadata: {
@@ -438,7 +438,7 @@ export async function checkInvoiceAlerts() {
 
     return { success: true, created: notifications.length };
   } catch (error) {
-    console.error("Error checking invoice alerts:", error);
-    return { success: false, error: "Erro ao verificar alertas de fatura" };
+    console.error('Error checking invoice alerts:', error);
+    return { success: false, error: 'Erro ao verificar alertas de fatura' };
   }
 }

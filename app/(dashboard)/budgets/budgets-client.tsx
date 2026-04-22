@@ -2,13 +2,22 @@
 
 import { BudgetDialog } from '@/components/budgets/budget-dialog';
 import { BudgetWidget } from '@/components/dashboard/budget-widget';
+import { MonthSelector } from '@/components/month-selector';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { MonthSelector } from '@/components/month-selector';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { deleteBudget } from '@/lib/actions/budgets';
+import { showError, showSuccess } from '@/lib/utils/toast';
 import { PieChart, Plus } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect, useCallback } from 'react';
-import { toast } from 'sonner';
+import { useCallback, useEffect, useState } from 'react';
 
 interface Category {
   id: string;
@@ -25,33 +34,48 @@ interface BudgetData {
   alertAt80: boolean;
   alertAt100: boolean;
   category: Category;
+  spent?: number;
+  percent?: number;
 }
 
 interface BudgetsPageClientProps {
   categories: Category[];
 }
 
-function parseMonthParams(yearStr: string | null, monthStr: string | null): { month: number; year: number; isAllPeriod: boolean; isYear: boolean } {
+function parseMonthParams(
+  yearStr: string | null,
+  monthStr: string | null,
+): { month: number; year: number; isAllPeriod: boolean; isYear: boolean } {
   const now = new Date();
-  
+
   // Novos parâmetros: year e month
   if (!yearStr) {
     // Sem parâmetros - usa mês atual
-    return { month: now.getMonth() + 1, year: now.getFullYear(), isAllPeriod: false, isYear: false };
+    return {
+      month: now.getMonth() + 1,
+      year: now.getFullYear(),
+      isAllPeriod: false,
+      isYear: false,
+    };
   }
-  
+
   if (yearStr === 'all') {
     return { month: 0, year: 0, isAllPeriod: true, isYear: false };
   }
-  
+
   if (monthStr === 'all') {
     return { month: 0, year: parseInt(yearStr), isAllPeriod: false, isYear: true };
   }
-  
+
   if (monthStr) {
-    return { month: parseInt(monthStr), year: parseInt(yearStr), isAllPeriod: false, isYear: false };
+    return {
+      month: parseInt(monthStr),
+      year: parseInt(yearStr),
+      isAllPeriod: false,
+      isYear: false,
+    };
   }
-  
+
   // Apenas ano selecionado sem mês - treated as full year
   return { month: 0, year: parseInt(yearStr), isAllPeriod: false, isYear: true };
 }
@@ -66,6 +90,8 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<BudgetData | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [budgetToDelete, setBudgetToDelete] = useState<BudgetData | null>(null);
 
   const { month, year, isAllPeriod, isYear } = parseMonthParams(yearParam, monthParam);
 
@@ -73,7 +99,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
-      
+
       if (isAllPeriod) {
         params.set('all', 'true');
       } else if (isYear) {
@@ -86,7 +112,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
         params.set('month', String(now.getMonth() + 1));
         params.set('year', String(now.getFullYear()));
       }
-      
+
       const url = `/api/budgets?${params.toString()}`;
       const response = await fetch(url);
       if (response.ok) {
@@ -108,6 +134,29 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
     await fetchBudgets();
   };
 
+  const handleDelete = (budget: BudgetData) => {
+    setBudgetToDelete(budget);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!budgetToDelete) return;
+
+    try {
+      const result = await deleteBudget(budgetToDelete.id);
+      if (result.success) {
+        showSuccess('Orçamento excluído', 'Orçamento excluído com sucesso.');
+        setIsDeleteDialogOpen(false);
+        setBudgetToDelete(null);
+        handleSuccess();
+      } else {
+        showError('Erro ao excluir orçamento', result.error);
+      }
+    } catch (error) {
+      showError('Erro ao excluir orçamento');
+    }
+  };
+
   const handleEdit = (budget: BudgetData) => {
     setEditingBudget({
       id: budget.id,
@@ -123,8 +172,18 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
   };
 
   const monthNames = [
-    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    'Janeiro',
+    'Fevereiro',
+    'Março',
+    'Abril',
+    'Maio',
+    'Junho',
+    'Julho',
+    'Agosto',
+    'Setembro',
+    'Outubro',
+    'Novembro',
+    'Dezembro',
   ];
 
   return (
@@ -143,16 +202,18 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
         </Button>
       </div>
 
-      <div className="text-sm text-muted-foreground">
+      <div className="text-muted-foreground text-sm">
         {isAllPeriod ? (
           <>Exibindo todos os orçamentos</>
         ) : isYear ? (
-          <>Exibindo orçamentos de <span className="font-medium">{year}</span></>
+          <>
+            Exibindo orçamentos de <span className="font-medium">{year}</span>
+          </>
         ) : null}
       </div>
 
       {isLoading ? (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardHeader className="pb-2">
@@ -168,6 +229,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
         <BudgetWidget
           budgets={budgets}
           onEdit={handleEdit}
+          onDelete={handleDelete}
           onSuccess={handleSuccess}
           showPeriod={isAllPeriod || isYear}
         />
@@ -205,6 +267,26 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
         editingBudget={editingBudget}
         onSuccess={handleSuccess}
       />
+
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir Orçamento</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir o orçamento de "{budgetToDelete?.category.name}"? Esta
+              ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -15,6 +15,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -28,17 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { createDebt, deleteDebt, updateDebt } from '@/lib/actions/debts';
-import { Debt } from '@/lib/queries/debts';
-type Account = {
-  id: string;
-  name: string;
-  type: string;
-  balance: number;
-  color: string | null;
-  workspaceId: string;
-  createdAt: string;
-  updatedAt: string;
-};
+import type { DebtDTO } from '@/lib/queries/debts';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -47,11 +39,21 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  Trash,
   TrendingDown,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
+type Account = {
+  id: string;
+  name: string;
+  type: string;
+  color: string | null;
+  workspaceId: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
 const debtSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -73,7 +75,7 @@ const debtSchema = z.object({
 type DebtFormValues = z.infer<typeof debtSchema>;
 
 interface DebtsFormProps {
-  initialDebts: Debt[];
+  initialDebts: DebtDTO[];
   initialAccounts: Account[];
 }
 
@@ -81,8 +83,8 @@ export function DebtsForm({ initialDebts, initialAccounts }: DebtsFormProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
-  const [debts, setDebts] = useState<Debt[]>(initialDebts);
+  const [selectedDebt, setSelectedDebt] = useState<DebtDTO | null>(null);
+  const [debts, setDebts] = useState<DebtDTO[]>(initialDebts);
   const [accounts] = useState<Account[]>(initialAccounts);
 
   const form = useForm<DebtFormValues>({
@@ -195,7 +197,7 @@ export function DebtsForm({ initialDebts, initialAccounts }: DebtsFormProps) {
     }
   };
 
-  const handleEdit = (debt: Debt) => {
+  const handleEdit = (debt: DebtDTO) => {
     setSelectedDebt(debt);
     editForm.reset({
       name: debt.name,
@@ -210,7 +212,7 @@ export function DebtsForm({ initialDebts, initialAccounts }: DebtsFormProps) {
     setIsEditDialogOpen(true);
   };
 
-  const openDeleteDialog = (debt: Debt) => {
+  const openDeleteDialog = (debt: DebtDTO) => {
     setSelectedDebt(debt);
     setIsDeleteDialogOpen(true);
   };
@@ -259,7 +261,7 @@ export function DebtsForm({ initialDebts, initialAccounts }: DebtsFormProps) {
               Nova Dívida
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>Nova Dívida</DialogTitle>
               <DialogDescription>Adicione uma nova dívida ou financiamento</DialogDescription>
@@ -444,7 +446,7 @@ export function DebtsForm({ initialDebts, initialAccounts }: DebtsFormProps) {
             <DialogHeader>
               <DialogTitle>Excluir Dívida</DialogTitle>
               <DialogDescription>
-                Tem certeza que deseja excluir a dívida "{selectedDebt?.name}"? Todas as{' '}
+                Tem certeza que deseja excluir a dívida &quot;{selectedDebt?.name}&quot;? Todas as{' '}
                 {selectedDebt?.installments || 0} transações vinculadas serão excluídas.
               </DialogDescription>
             </DialogHeader>
@@ -534,14 +536,17 @@ export function DebtsForm({ initialDebts, initialAccounts }: DebtsFormProps) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Ações</DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => handleEdit(debt)}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Editar
                       </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => openDeleteDialog(debt)}
                         className="text-red-600"
                       >
+                        <Trash className="mr-2 h-4 w-4" />
                         Excluir
                       </DropdownMenuItem>
                     </DropdownMenuContent>

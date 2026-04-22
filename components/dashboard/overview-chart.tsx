@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Bar,
   BarChart,
@@ -10,7 +10,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from "recharts";
+} from 'recharts';
 
 interface OverviewChartProps {
   data: {
@@ -19,15 +19,20 @@ interface OverviewChartProps {
     despesas: number;
   }[];
   isFullYear?: boolean;
+  isAllPeriod?: boolean;
 }
 
-export function OverviewChart({ data, isFullYear }: OverviewChartProps) {
+export function OverviewChart({ data, isFullYear, isAllPeriod }: OverviewChartProps) {
+  const getTitle = () => {
+    if (isAllPeriod) return 'Receitas vs Despesas (Todos os Períodos)';
+    if (isFullYear) return 'Receitas vs Despesas (Ano Completo)';
+    return 'Receitas vs Despesas (Últimos 6 Meses)';
+  };
+
   return (
     <Card className="col-span-1 border-none shadow-md">
       <CardHeader>
-        <CardTitle className="text-base font-semibold">
-          Receitas vs Despesas ({isFullYear ? "Ano Completo" : "Últimos 6 Meses"})
-        </CardTitle>
+        <CardTitle className="text-base font-semibold">{getTitle()}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-[300px] w-full">
@@ -50,11 +55,11 @@ export function OverviewChart({ data, isFullYear }: OverviewChartProps) {
               />
               <Tooltip
                 contentStyle={{
-                  borderRadius: "8px",
-                  border: "none",
-                  boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                  borderRadius: '8px',
+                  border: 'none',
+                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                 }}
-                cursor={{ fill: "#f8fafc" }}
+                cursor={{ fill: '#f8fafc' }}
               />
               <Legend verticalAlign="top" height={36} iconType="circle" />
               <Bar

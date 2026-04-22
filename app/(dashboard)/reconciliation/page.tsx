@@ -1,19 +1,14 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { RefreshCw, Upload, Check, X, AlertTriangle } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import {
-  useReconciliation,
-  type BankTransaction,
-  type ReconciliationStats,
-} from "@/lib/queries/reconciliation";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { useReconciliation } from '@/lib/queries/reconciliation';
+import { formatCurrency } from '@/lib/utils';
+import { showError, showSuccess } from '@/lib/utils/toast';
+import { AlertTriangle, Check, RefreshCw, Upload } from 'lucide-react';
+import { useState } from 'react';
 
 export default function ReconciliationPage() {
   const [isUploading, setIsUploading] = useState(false);
@@ -25,33 +20,26 @@ export default function ReconciliationPage() {
 
     setIsUploading(true);
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append('file', file);
 
     try {
-      const response = await fetch("/api/reconciliation/import", {
-        method: "POST",
+      const response = await fetch('/api/reconciliation/import', {
+        method: 'POST',
         body: formData,
       });
 
       if (response.ok) {
-        toast.success("Arquivo importado com sucesso");
+        showSuccess('Arquivo importado com sucesso');
         refresh();
       } else {
         const error = await response.json();
-        toast.error(error.error || "Erro ao importar arquivo");
+        showError(error.error || 'Erro ao importar arquivo');
       }
-    } catch (error) {
-      toast.error("Erro ao importar arquivo");
+    } catch {
+      showError('Erro ao importar arquivo');
     } finally {
       setIsUploading(false);
     }
-  };
-
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
   };
 
   const matchPercentage = stats && stats.total > 0 ? (stats.matched / stats.total) * 100 : 0;
@@ -80,7 +68,7 @@ export default function ReconciliationPage() {
             />
             <Button disabled={isUploading}>
               <Upload className="mr-2 h-4 w-4" />
-              {isUploading ? "Importando..." : "Importar"}
+              {isUploading ? 'Importando...' : 'Importar'}
             </Button>
           </div>
         </div>
@@ -169,18 +157,18 @@ export default function ReconciliationPage() {
                     <div>
                       <p className="font-medium">{tx.description}</p>
                       <p className="text-muted-foreground text-sm">
-                        {new Date(tx.date).toLocaleDateString("pt-BR")}
+                        {new Date(tx.date).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p
-                      className={`font-bold ${tx.type === "INCOME" ? "text-green-500" : "text-red-500"}`}
+                      className={`font-bold ${tx.type === 'INCOME' ? 'text-green-500' : 'text-red-500'}`}
                     >
-                      {tx.type === "INCOME" ? "+" : "-"} {formatCurrency(Math.abs(tx.amount))}
+                      {tx.type === 'INCOME' ? '+' : '-'} {formatCurrency(Math.abs(tx.amount))}
                     </p>
-                    <Badge variant={tx.matched ? "default" : "secondary"}>
-                      {tx.matched ? "Conciliada" : "Pendente"}
+                    <Badge variant={tx.matched ? 'default' : 'secondary'}>
+                      {tx.matched ? 'Conciliada' : 'Pendente'}
                     </Badge>
                   </div>
                 </div>

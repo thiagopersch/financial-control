@@ -1,20 +1,22 @@
-import prisma from "@/lib/prisma";
-import { Role } from "@prisma/client";
-import bcrypt from "bcrypt";
-import { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
+import prisma from '@/lib/prisma';
+import { showError } from '@/lib/utils/toast';
+import { Role } from '@prisma/client';
+import bcrypt from 'bcrypt';
+import { NextAuthOptions } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-      name: "credentials",
+      name: 'credentials',
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Credenciais inválidas");
+          showError('Credenciais inválidas');
+          throw new Error('Credenciais inválidas');
         }
 
         const user = await prisma.user.findUnique({
@@ -23,13 +25,15 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user || !user.password) {
-          throw new Error("Usuário não encontrado");
+          showError('Usuário não encontrado');
+          throw new Error('Usuário não encontrado');
         }
 
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
 
         if (!isPasswordValid) {
-          throw new Error("Senha incorreta");
+          showError('Senha incorreta');
+          throw new Error('Senha incorreta');
         }
 
         return {
@@ -61,10 +65,10 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    signIn: "/login",
+    signIn: '/login',
   },
   session: {
-    strategy: "jwt",
+    strategy: 'jwt',
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

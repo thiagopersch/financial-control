@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,10 +8,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { LogOut, User } from "lucide-react";
-import { signOut, useSession } from "next-auth/react";
-import Link from "next/link";
+} from '@/components/ui/dropdown-menu';
+import { LogOut, User } from 'lucide-react';
+import { signOut, useSession } from 'next-auth/react';
+import Link from 'next/link';
 
 export function UserButton() {
   const { data: session } = useSession();
@@ -19,16 +19,16 @@ export function UserButton() {
   if (!session?.user) return null;
 
   const initials = session.user.name
-    ?.split(" ")
+    ?.split(' ')
     .map((n) => n[0])
-    .join("")
+    .join('')
     .toUpperCase();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Avatar className="h-9 w-9 cursor-pointer border-2 border-indigo-100 transition-all hover:scale-105">
-          <AvatarFallback className="bg-indigo-600 text-white">{initials}</AvatarFallback>
+        <Avatar className="border-primary h-10 w-10 cursor-pointer border-2 transition-all hover:scale-105">
+          <AvatarFallback className="bg-primary text-white">{initials}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

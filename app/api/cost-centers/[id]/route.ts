@@ -1,41 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
+import { type NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const { id } = await params;
-
-    const hasTransactions = await prisma.transaction.findFirst({
-      where: { costCenterId: id },
+    const costCenter = await prisma.costCenter.findFirst({
+      where: { id, workspaceId: session.user.workspaceId },
     });
 
-    if (hasTransactions) {
-      return NextResponse.json(
-        { error: "Este centro de custo possui transações vinculadas e não pode ser excluído." },
-        { status: 400 },
-      );
+    if (!costCenter) {
+      return NextResponse.json({ error: 'Centro de custo não encontrado' }, { status: 404 });
     }
 
-    await prisma.costCenter.delete({
-      where: {
-        id,
-        workspaceId: session.user.workspaceId,
-      },
-    });
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ costCenter });
   } catch (error) {
-    console.error("Error deleting cost center:", error);
-    return NextResponse.json({ error: "Erro ao excluir centro de custo" }, { status: 500 });
+    console.error('Error fetching cost center:', error);
+    return NextResponse.json({ error: 'Erro ao buscar centro de custo' }, { status: 500 });
   }
 }

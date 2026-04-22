@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, BarChart3, Calendar } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useEffect } from 'react';
+import { TrendingUp, TrendingDown, BarChart3, Calendar } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   LineChart,
   Line,
@@ -14,9 +14,9 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-} from "recharts";
-import { format, addMonths, startOfMonth } from "date-fns";
-import { ptBR } from "date-fns/locale";
+} from 'recharts';
+import { format, addMonths, startOfMonth } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ForecastData {
   month: string;
@@ -28,14 +28,14 @@ interface CategoryForecast {
   category: string;
   average: number;
   forecast: number;
-  trend: "up" | "down" | "stable";
+  trend: 'up' | 'down' | 'stable';
 }
 
 export default function ForecastPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [chartData, setChartData] = useState<ForecastData[]>([]);
   const [categoryForecast, setCategoryForecast] = useState<CategoryForecast[]>([]);
-  const [period, setPeriod] = useState<"3" | "6">("3");
+  const [period, setPeriod] = useState<'3' | '6'>('3');
 
   useEffect(() => {
     fetchForecast();
@@ -51,16 +51,16 @@ export default function ForecastPage() {
         setCategoryForecast(data.categoryForecast || []);
       }
     } catch (error) {
-      console.error("Error fetching forecast:", error);
+      console.error('Error fetching forecast:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const formatCurrency = (value: number) => {
-    return value.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
+    return value.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
     });
   };
 
@@ -110,18 +110,18 @@ export default function ForecastPage() {
               {chartData.length >= 2
                 ? chartData[chartData.length - 1].forecast >
                   chartData[chartData.length - 2].forecast
-                  ? "↑ Alta"
+                  ? '↑ Alta'
                   : chartData[chartData.length - 1].forecast <
                       chartData[chartData.length - 2].forecast
-                    ? "↓ Queda"
-                    : "→ Estável"
-                : "N/A"}
+                    ? '↓ Queda'
+                    : '→ Estável'
+                : 'N/A'}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs value={period} onValueChange={(v) => setPeriod(v as "3" | "6")}>
+      <Tabs value={period} onValueChange={(v) => setPeriod(v as '3' | '6')}>
         <TabsList>
           <TabsTrigger value="3">3 meses</TabsTrigger>
           <TabsTrigger value="6">6 meses</TabsTrigger>
@@ -157,7 +157,7 @@ export default function ForecastPage() {
                         stroke="#6366f1"
                         strokeWidth={2}
                         name="Real"
-                        dot={{ fill: "#6366f1" }}
+                        dot={{ fill: '#6366f1' }}
                       />
                       <Line
                         type="monotone"
@@ -166,7 +166,7 @@ export default function ForecastPage() {
                         strokeWidth={2}
                         strokeDasharray="5 5"
                         name="Projeção"
-                        dot={{ fill: "#22c55e" }}
+                        dot={{ fill: '#22c55e' }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -187,7 +187,7 @@ export default function ForecastPage() {
                       <div className="flex items-center gap-2">
                         <span>{cat.category}</span>
                         <Badge variant="outline">
-                          {cat.trend === "up" ? "↑" : cat.trend === "down" ? "↓" : "→"}
+                          {cat.trend === 'up' ? '↑' : cat.trend === 'down' ? '↓' : '→'}
                         </Badge>
                       </div>
                       <div className="text-right">

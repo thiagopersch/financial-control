@@ -1,19 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { startOfMonth, endOfMonth, subMonths, eachMonthOfInterval, format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { type NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { startOfMonth, endOfMonth, subMonths, eachMonthOfInterval, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
-    const months = parseInt(searchParams.get("months") || "6");
+    const months = parseInt(searchParams.get('months') || '6');
 
     const now = new Date();
     const startDate = startOfMonth(subMonths(now, months - 1));
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const transactions = await prisma.transaction.findMany({
       where: {
         workspaceId: session.user.workspaceId,
-        status: "PAID",
+        status: 'PAID',
         date: { gte: startDate, lte: endDate },
       },
       include: { category: true },
@@ -38,15 +38,15 @@ export async function GET(request: NextRequest) {
       );
 
       const revenue = monthTransactions
-        .filter((t) => t.type === "INCOME")
+        .filter((t) => t.type === 'INCOME')
         .reduce((sum, t) => sum + Number(t.amount), 0);
 
       const expense = monthTransactions
-        .filter((t) => t.type === "EXPENSE")
+        .filter((t) => t.type === 'EXPENSE')
         .reduce((sum, t) => sum + Number(t.amount), 0);
 
       return {
-        period: format(month, "MMM/yy", { locale: ptBR }),
+        period: format(month, 'MMM/yy', { locale: ptBR }),
         revenue,
         expense,
         result: revenue - expense,
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     });
 
     const expensesByCategory = currentMonthTransactions
-      .filter((t) => t.type === "EXPENSE")
+      .filter((t) => t.type === 'EXPENSE')
       .reduce(
         (acc, t) => {
           const cat = t.category.name;
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
       expensesByCategory: expensesByCategoryArray,
     });
   } catch (error) {
-    console.error("Error fetching DRE:", error);
-    return NextResponse.json({ error: "Erro ao buscar DRE" }, { status: 500 });
+    console.error('Error fetching DRE:', error);
+    return NextResponse.json({ error: 'Erro ao buscar DRE' }, { status: 500 });
   }
 }

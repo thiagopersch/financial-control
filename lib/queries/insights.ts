@@ -1,4 +1,4 @@
-import useSWR from "swr";
+import useSWR from 'swr';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -9,12 +9,12 @@ export interface Insight {
   description: string;
   value?: number;
   percentage?: number;
-  severity?: "info" | "warning" | "alert";
+  severity?: 'info' | 'warning' | 'alert';
   createdAt: string;
 }
 
 export function useInsights() {
-  const { data, error, isLoading } = useSWR<{ insights: Insight[] }>("/api/insights", fetcher, {
+  const { data, error, isLoading } = useSWR<{ insights: Insight[] }>('/api/insights', fetcher, {
     revalidateOnFocus: false,
   });
 

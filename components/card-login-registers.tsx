@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { motion } from "framer-motion";
-import { usePathname } from "next/navigation";
+import { motion } from 'framer-motion';
+import { usePathname } from 'next/navigation';
 
 export function CardLoginRegisters({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -32,7 +32,7 @@ export function CardLoginRegisters({ children }: { children: React.ReactNode }) 
         className="absolute inset-0 z-0 opacity-20"
         style={{
           backgroundImage: `radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0)`,
-          backgroundSize: "24px 24px",
+          backgroundSize: '24px 24px',
         }}
       />
     </div>

@@ -1,18 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { startOfMonth, subMonths, addMonths, format, eachMonthOfInterval } from "date-fns";
+import { type NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { startOfMonth, subMonths, addMonths, format, eachMonthOfInterval } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
-    const months = parseInt(searchParams.get("months") || "3");
+    const months = parseInt(searchParams.get('months') || '3');
     const forecastMonths = 3;
 
     const now = new Date();
@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
     const historicalTransactions = await prisma.transaction.findMany({
       where: {
         workspaceId: session.user.workspaceId,
-        type: "EXPENSE",
-        status: "PAID",
+        type: 'EXPENSE',
+        status: 'PAID',
         date: { gte: historicalStart, lte: historicalEnd },
       },
       include: { category: true },
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
         : monthlyTotals[index];
 
       return {
-        month: format(month, "MMM/yy", { locale: ptBR }),
+        month: format(month, 'MMM/yy', { locale: ptBR }),
         actual: isForecast ? null : value,
         forecast: value,
       };
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
       .map(([category, values]) => {
         const catAverage = values.reduce((sum, v) => sum + v, 0) / values.length;
         const lastMonth = values[values.length - 1] || catAverage;
-        const trend = lastMonth > catAverage ? "up" : lastMonth < catAverage ? "down" : "stable";
+        const trend = lastMonth > catAverage ? 'up' : lastMonth < catAverage ? 'down' : 'stable';
 
         return {
           category,
@@ -108,9 +108,9 @@ export async function GET(request: NextRequest) {
       categoryForecast,
     });
   } catch (error) {
-    console.error("Error fetching forecast:", error);
-    return NextResponse.json({ error: "Erro ao buscar previsão" }, { status: 500 });
+    console.error('Error fetching forecast:', error);
+    return NextResponse.json({ error: 'Erro ao buscar previsão' }, { status: 500 });
   }
 }
 
-import { ptBR } from "date-fns/locale";
+import { ptBR } from 'date-fns/locale';

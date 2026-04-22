@@ -1,10 +1,10 @@
-"use server";
+'use server';
 
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { revalidatePath } from "next/cache";
-import { type AIMessage, type ChatResponse, type FinancialContext } from "@/types/ai";
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { type AIMessage, type ChatResponse, type FinancialContext } from '@/types/ai';
+import { getServerSession } from 'next-auth';
+import { revalidatePath } from 'next/cache';
 
 function buildSystemPrompt(context: FinancialContext): string {
   const contextJson = JSON.stringify(context, null, 2);
@@ -28,7 +28,7 @@ ${contextJson}
 - Sugira melhorias na gestão financeira quando identificado
 - Responda de forma conversacional, como um consultor financeiro
 
-Contexto financeiro atualizado em: ${new Date().toLocaleString("pt-BR")}`;
+Contexto financeiro atualizado em: ${new Date().toLocaleString('pt-BR')}`;
 }
 
 async function buildFinancialContext(workspaceId: string): Promise<FinancialContext> {
@@ -40,14 +40,14 @@ async function buildFinancialContext(workspaceId: string): Promise<FinancialCont
   const [accounts, creditCards, budgets, debts, goals, transactions] = await Promise.all([
     prisma.account.findMany({
       where: { workspaceId },
-      select: { name: true, balance: true, type: true },
+      select: { name: true, type: true },
     }),
     prisma.creditCard.findMany({
       where: { account: { workspaceId } },
       include: {
         account: { select: { name: true } },
         invoices: {
-          where: { status: "OPEN" },
+          where: { status: 'OPEN' },
           select: { amount: true, dueDate: true, month: true, year: true },
         },
       },
@@ -74,7 +74,7 @@ async function buildFinancialContext(workspaceId: string): Promise<FinancialCont
         workspaceId,
         date: { gte: thirtyDaysAgo },
       },
-      orderBy: { date: "desc" },
+      orderBy: { date: 'desc' },
       take: 50,
       select: {
         date: true,
@@ -88,7 +88,6 @@ async function buildFinancialContext(workspaceId: string): Promise<FinancialCont
 
   const accountBalances = accounts.map((a) => ({
     name: a.name,
-    balance: a.balance.toNumber(),
     type: a.type,
   }));
 
@@ -99,7 +98,7 @@ async function buildFinancialContext(workspaceId: string): Promise<FinancialCont
     );
     return {
       name: card.account.name,
-      limit: card.limit.toNumber(),
+      limit: Number(card.limit),
       currentBalance: totalInvoice,
       dueDate: nextInvoice ? nextInvoice.dueDate?.getDate() || card.dueDay : card.dueDay,
       closingDate: card.closingDay,
@@ -112,7 +111,7 @@ async function buildFinancialContext(workspaceId: string): Promise<FinancialCont
         where: {
           workspaceId,
           categoryId: budget.categoryId,
-          type: "EXPENSE",
+          type: 'EXPENSE',
           date: { gte: startOfMonth, lte: endOfMonth },
         },
         _sum: { amount: true },
@@ -148,11 +147,11 @@ async function buildFinancialContext(workspaceId: string): Promise<FinancialCont
 
   const [incomeAgg, expenseAgg] = await Promise.all([
     prisma.transaction.aggregate({
-      where: { workspaceId, type: "INCOME", date: { gte: startOfMonth, lte: endOfMonth } },
+      where: { workspaceId, type: 'INCOME', date: { gte: startOfMonth, lte: endOfMonth } },
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { workspaceId, type: "EXPENSE", date: { gte: startOfMonth, lte: endOfMonth } },
+      where: { workspaceId, type: 'EXPENSE', date: { gte: startOfMonth, lte: endOfMonth } },
       _sum: { amount: true },
     }),
   ]);
@@ -162,9 +161,9 @@ async function buildFinancialContext(workspaceId: string): Promise<FinancialCont
 
   const recentTx = transactions.map((t) => ({
     date: t.date.toISOString(),
-    description: t.description || "",
+    description: t.description || '',
     amount: Number(t.amount),
-    type: t.type as "INCOME" | "EXPENSE",
+    type: t.type as 'INCOME' | 'EXPENSE',
     category: t.category.name,
   }));
 
@@ -184,8 +183,8 @@ async function callGemini(prompt: string, apiKey: string, model: string): Promis
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
@@ -205,22 +204,22 @@ async function callGemini(prompt: string, apiKey: string, model: string): Promis
   const data = await response.json();
   return (
     data.candidates?.[0]?.content?.parts?.[0]?.text ||
-    "Desculpe, não consegui processar sua solicitação."
+    'Desculpe, não consegui processar sua solicitação.'
   );
 }
 
 export async function chatWithAI(message: string, conversationId?: string): Promise<ChatResponse> {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return { success: false, error: "Não autorizado" };
+    if (!session) return { success: false, error: 'Não autorizado' };
 
     const apiKey = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+    const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 
     if (!apiKey) {
       return {
         success: false,
-        error: "API key do Gemini não configurada. Configure GEMINI_API_KEY no arquivo .env",
+        error: 'API key do Gemini não configurada. Configure GEMINI_API_KEY no arquivo .env',
       };
     }
 
@@ -229,7 +228,7 @@ export async function chatWithAI(message: string, conversationId?: string): Prom
       : null;
 
     if (conversationId && !conversation) {
-      return { success: false, error: "Conversa não encontrada" };
+      return { success: false, error: 'Conversa não encontrada' };
     }
 
     const context = await buildFinancialContext(session.user.workspaceId);
@@ -239,13 +238,13 @@ export async function chatWithAI(message: string, conversationId?: string): Prom
     const systemPrompt = buildSystemPrompt(context);
 
     const conversationHistory = existingMessages
-      .map((m) => `${m.role === "user" ? "Usuário" : "Assistente"}: ${m.content}`)
-      .join("\n\n");
+      .map((m) => `${m.role === 'user' ? 'Usuário' : 'Assistente'}: ${m.content}`)
+      .join('\n\n');
 
     const fullPrompt = `${systemPrompt}
 
 ## Histórico da Conversa
-${conversationHistory || "Nenhuma mensagem anterior"}
+${conversationHistory || 'Nenhuma mensagem anterior'}
 
 ## Nova Mensagem do Usuário
 Usuário: ${message}
@@ -256,14 +255,14 @@ Responda em português brasileiro.`;
 
     const userMessage: AIMessage = {
       id: `msg_${Date.now()}_user`,
-      role: "user",
+      role: 'user',
       content: message,
       timestamp: new Date().toISOString(),
     };
 
     const assistantMessage: AIMessage = {
       id: `msg_${Date.now()}_assistant`,
-      role: "assistant",
+      role: 'assistant',
       content: aiResponse,
       timestamp: new Date().toISOString(),
     };
@@ -272,7 +271,7 @@ Responda em português brasileiro.`;
 
     const newConversationTitle =
       conversation?.title ||
-      `Conversa ${new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "long" })}`;
+      `Conversa ${new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
 
     if (conversation) {
       conversation = await prisma.aIConversation.update({
@@ -300,10 +299,10 @@ Responda em português brasileiro.`;
       conversationId: conversation.id,
     };
   } catch (error) {
-    console.error("Error in chatWithAI:", error);
+    console.error('Error in chatWithAI:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Erro ao processar mensagem",
+      error: error instanceof Error ? error.message : 'Erro ao processar mensagem',
     };
   }
 }
@@ -313,11 +312,11 @@ export async function createConversation(
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return { success: false, error: "Não autorizado" };
+    if (!session) return { success: false, error: 'Não autorizado' };
 
     const conversation = await prisma.aIConversation.create({
       data: {
-        title: title || `Nova Conversa ${new Date().toLocaleDateString("pt-BR")}`,
+        title: title || `Nova Conversa ${new Date().toLocaleDateString('pt-BR')}`,
         messages: [],
         workspaceId: session.user.workspaceId,
         userId: session.user.id,
@@ -326,8 +325,8 @@ export async function createConversation(
 
     return { success: true, id: conversation.id };
   } catch (error) {
-    console.error("Error creating conversation:", error);
-    return { success: false, error: "Erro ao criar conversa" };
+    console.error('Error creating conversation:', error);
+    return { success: false, error: 'Erro ao criar conversa' };
   }
 }
 
@@ -340,7 +339,7 @@ export async function getConversations(): Promise<
 
     const conversations = await prisma.aIConversation.findMany({
       where: { workspaceId: session.user.workspaceId, userId: session.user.id },
-      orderBy: { updatedAt: "desc" },
+      orderBy: { updatedAt: 'desc' },
       take: 50,
     });
 
@@ -354,7 +353,7 @@ export async function getConversations(): Promise<
       messageCount: (c.messages as unknown as AIMessage[]).length,
     }));
   } catch (error) {
-    console.error("Error fetching conversations:", error);
+    console.error('Error fetching conversations:', error);
     return [];
   }
 }
@@ -372,7 +371,7 @@ export async function getConversation(id: string): Promise<AIMessage[] | null> {
 
     return (conversation.messages as unknown as AIMessage[]) || [];
   } catch (error) {
-    console.error("Error fetching conversation:", error);
+    console.error('Error fetching conversation:', error);
     return null;
   }
 }
@@ -382,17 +381,17 @@ export async function deleteConversation(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return { success: false, error: "Não autorizado" };
+    if (!session) return { success: false, error: 'Não autorizado' };
 
     await prisma.aIConversation.delete({
       where: { id, workspaceId: session.user.workspaceId, userId: session.user.id },
     });
 
-    revalidatePath("/ai-assistant");
+    revalidatePath('/ai-assistant');
     return { success: true };
   } catch (error) {
-    console.error("Error deleting conversation:", error);
-    return { success: false, error: "Erro ao excluir conversa" };
+    console.error('Error deleting conversation:', error);
+    return { success: false, error: 'Erro ao excluir conversa' };
   }
 }
 
@@ -414,7 +413,7 @@ async function cleanupOldConversations(workspaceId: string, userId: string) {
   if (count > 50) {
     const toDelete = await prisma.aIConversation.findMany({
       where: { workspaceId, userId },
-      orderBy: { updatedAt: "asc" },
+      orderBy: { updatedAt: 'asc' },
       take: count - 50,
       select: { id: true },
     });

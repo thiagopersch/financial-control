@@ -1,14 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const now = new Date();
@@ -42,9 +42,9 @@ export async function GET() {
     const calculateTotals = (transactions: typeof currentMonthTransactions) => {
       return transactions.reduce(
         (acc, t) => {
-          if (t.type === "INCOME") {
+          if (t.type === 'INCOME') {
             acc.income += Number(t.amount);
-          } else if (t.type === "EXPENSE") {
+          } else if (t.type === 'EXPENSE') {
             acc.expense += Number(t.amount);
           }
           return acc;
@@ -66,7 +66,7 @@ export async function GET() {
     };
 
     const categoryExpenses = currentMonthTransactions
-      .filter((t) => t.type === "EXPENSE")
+      .filter((t) => t.type === 'EXPENSE')
       .reduce(
         (acc, t) => {
           const catId = t.categoryId;
@@ -80,7 +80,7 @@ export async function GET() {
       );
 
     const previousCategoryExpenses = previousMonthTransactions
-      .filter((t) => t.type === "EXPENSE")
+      .filter((t) => t.type === 'EXPENSE')
       .reduce(
         (acc, t) => {
           const catId = t.categoryId;
@@ -113,7 +113,7 @@ export async function GET() {
       .map((cat) => {
         const catId = Object.keys(categoryExpenses).find((k) => categoryExpenses[k] === cat);
         const prevAmount = catId ? previousCategoryExpenses[catId]?.amount || 0 : 0;
-        const trend = cat.amount > prevAmount ? "up" : cat.amount < prevAmount ? "down" : "stable";
+        const trend = cat.amount > prevAmount ? 'up' : cat.amount < prevAmount ? 'down' : 'stable';
 
         return {
           category: cat.category,
@@ -127,16 +127,16 @@ export async function GET() {
       .slice(0, 10);
 
     const insights: Array<{
-      type: "increase" | "decrease" | "warning" | "info";
+      type: 'increase' | 'decrease' | 'warning' | 'info';
       title: string;
       description: string;
     }> = [];
 
     if (summary.netResult < 0) {
       insights.push({
-        type: "warning",
-        title: "Despesas superiores às receitas",
-        description: `Neste mês você gastou R$ ${Math.abs(summary.netResult).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} a mais do que recebeu.`,
+        type: 'warning',
+        title: 'Despesas superiores às receitas',
+        description: `Neste mês você gastou R$ ${Math.abs(summary.netResult).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a mais do que recebeu.`,
       });
     }
 
@@ -146,8 +146,8 @@ export async function GET() {
         100
       ).toFixed(1);
       insights.push({
-        type: "decrease",
-        title: "Aumento nas despesas",
+        type: 'decrease',
+        title: 'Aumento nas despesas',
         description: `Suas despesas aumentaram ${increase}% em relação ao mês anterior.`,
       });
     }
@@ -155,7 +155,7 @@ export async function GET() {
     const topCategory = highlights[0];
     if (topCategory) {
       insights.push({
-        type: "info",
+        type: 'info',
         title: `Maior gasto: ${topCategory.category}`,
         description: `Esta categoria representa ${topCategory.percentage.toFixed(1)}% do total das suas despesas.`,
       });
@@ -167,8 +167,8 @@ export async function GET() {
         100
       ).toFixed(1);
       insights.push({
-        type: "increase",
-        title: "Aumento nas receitas",
+        type: 'increase',
+        title: 'Aumento nas receitas',
         description: `Suas receitas aumentaram ${increase}% em relação ao mês anterior.`,
       });
     }
@@ -180,7 +180,7 @@ export async function GET() {
       insights,
     });
   } catch (error) {
-    console.error("Error fetching insights:", error);
-    return NextResponse.json({ error: "Erro ao buscar insights" }, { status: 500 });
+    console.error('Error fetching insights:', error);
+    return NextResponse.json({ error: 'Erro ao buscar insights' }, { status: 500 });
   }
 }

@@ -1,174 +1,36 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { chatWithAI, createConversation, deleteConversation } from "@/lib/actions/ai-assistant";
-import type { AIMessage } from "@/types/ai";
-import { Bot, Loader2, MessageSquare, Plus, Send, Sparkles, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
-import useSWR from "swr";
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
-interface ConversationListItem {
-  id: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-  messageCount: number;
-}
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAIAssistant } from '@/hooks/ai/use-ai-assistant';
+import { Bot, Loader2, MessageSquare, Plus, Send, Sparkles, Trash2 } from 'lucide-react';
+import { ChatMessage } from './components/chat-message';
 
 const suggestionQuestions = [
-  "Quanto gastei esse mês?",
-  "Quais são minhas maiores despesas?",
-  "Qual o meu saldo atual?",
-  "Quanto devo gastar por categoria?",
-  "Me dá um resumo financeiro do mês",
+  'Quanto gastei esse mês?',
+  'Quais são minhas maiores despesas?',
+  'Qual o meu saldo atual?',
+  'Quanto devo gastar por categoria?',
+  'Me dá um resumo financeiro do mês',
 ];
 
 export default function AIAssistantPage() {
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-  const [localMessages, setLocalMessages] = useState<AIMessage[]>([]);
-  const [isNewConversation, setIsNewConversation] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  console.log({ currentConversationId });
-  console.log({ isNewConversation });
-
   const {
-    data: conversationsData,
-    isLoading: isLoadingConversations,
-    mutate: refreshConversations,
-  } = useSWR<{ conversations: ConversationListItem[] }>("/api/ai-conversations", fetcher, {
-    revalidateOnFocus: false,
-  });
-
-  const {
-    data: messagesData,
-    isLoading: isLoadingMessages,
-    mutate: refreshMessages,
-  } = useSWR<{ messages: AIMessage[] }>(
-    currentConversationId && !isNewConversation
-      ? `/api/ai-conversations/${currentConversationId}`
-      : null,
-    currentConversationId && !isNewConversation ? fetcher : null,
-    {
-      revalidateOnFocus: false,
-    },
-  );
-
-  const conversations = conversationsData?.conversations || [];
-  const fetchedMessages = messagesData?.messages || [];
-  const messages = isNewConversation || !currentConversationId ? localMessages : fetchedMessages;
-
-  const scrollToBottom = () => {
-    const viewport = scrollRef.current?.querySelector("[data-radix-scroll-area-viewport]");
-    if (viewport) {
-      viewport.scrollTop = viewport.scrollHeight;
-    }
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isLoading]);
-
-  const handleNewConversation = async () => {
-    try {
-      const result = await createConversation();
-      if (result.success && result.id) {
-        setCurrentConversationId(result.id);
-        setLocalMessages([]);
-        setIsNewConversation(true);
-        refreshConversations();
-        toast.success("Nova conversa criada");
-      }
-    } catch (error) {
-      console.error("Error creating conversation:", error);
-      toast.error("Erro ao criar conversa");
-    }
-  };
-
-  const handleSelectConversation = (id: string) => {
-    setCurrentConversationId(id);
-    setLocalMessages([]);
-    setIsNewConversation(false);
-  };
-
-  const handleDeleteConversation = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const result = await deleteConversation(id);
-      if (result.success) {
-        if (currentConversationId === id) {
-          setCurrentConversationId(null);
-          setLocalMessages([]);
-          setIsNewConversation(false);
-        }
-        refreshConversations();
-        toast.success("Conversa excluída");
-      }
-    } catch (error) {
-      console.error("Error deleting conversation:", error);
-      toast.error("Erro ao excluir conversa");
-    }
-  };
-
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || isLoading) return;
-
-    const userMessage: AIMessage = {
-      id: `msg_${Date.now()}_user`,
-      role: "user",
-      content: input,
-      timestamp: new Date().toISOString(),
-    };
-
-    setLocalMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsLoading(true);
-
-    try {
-      const result = await chatWithAI(input, currentConversationId || undefined);
-
-      if (result.success && result.message && result.conversationId) {
-        const assistantMessage = result.message;
-        setLocalMessages((prev) => [...prev, assistantMessage]);
-
-        if (!currentConversationId) {
-          setCurrentConversationId(result.conversationId);
-        }
-
-        setIsNewConversation(false);
-        refreshConversations();
-        if (result.conversationId) {
-          refreshMessages();
-        }
-      } else {
-        toast.error(result.error || "Erro ao processar mensagem");
-        setLocalMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
-        setInput(input);
-      }
-    } catch (error) {
-      console.error("Error sending message:", error);
-      toast.error("Erro ao processar mensagem");
-      setLocalMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
-      setInput(input);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
     input,
+    setInput,
     isLoading,
     currentConversationId,
-    isNewConversation,
-    refreshConversations,
-    refreshMessages,
-  ]);
+    scrollRef,
+    conversations,
+    isLoadingConversations,
+    messages,
+    handleNewConversation,
+    handleSelectConversation,
+    handleDeleteConversation,
+    handleSend,
+  } = useAIAssistant();
 
   return (
     <div className="space-y-8">
@@ -181,9 +43,9 @@ export default function AIAssistantPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-4">
+      <div className="grid h-[calc(100vh-250px)] gap-6 lg:grid-cols-4">
         <div className="lg:col-span-1">
-          <Card className="h-[600px]">
+          <Card className="h-full">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Conversas</CardTitle>
@@ -193,7 +55,7 @@ export default function AIAssistantPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[520px] px-2">
+              <ScrollArea className="h-[calc(100%-60px)] px-2">
                 {isLoadingConversations ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
@@ -219,14 +81,14 @@ export default function AIAssistantPage() {
                         onClick={() => handleSelectConversation(conv.id)}
                         className={`group flex cursor-pointer items-center justify-between rounded-lg p-2 transition-colors ${
                           currentConversationId === conv.id
-                            ? "bg-primary/10 text-primary"
-                            : "hover:bg-muted"
+                            ? 'bg-primary/10 text-primary'
+                            : 'hover:bg-muted'
                         }`}
                       >
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium">{conv.title}</p>
                           <p className="text-muted-foreground text-xs">
-                            {new Date(conv.updatedAt).toLocaleDateString("pt-BR")}
+                            {new Date(conv.updatedAt).toLocaleDateString('pt-BR')}
                           </p>
                         </div>
                         <Button
@@ -247,7 +109,7 @@ export default function AIAssistantPage() {
         </div>
 
         <div className="lg:col-span-2">
-          <Card className="flex h-[600px] max-h-[600px] flex-col">
+          <Card className="flex h-full flex-col">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bot className="h-5 w-5" />
@@ -255,8 +117,8 @@ export default function AIAssistantPage() {
               </CardTitle>
               <CardDescription>
                 {!currentConversationId
-                  ? "Crie uma nova conversa para começar"
-                  : "Pergunte sobre suas finanças"}
+                  ? 'Crie uma nova conversa para começar'
+                  : 'Pergunte sobre suas finanças'}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex min-h-0 flex-1 flex-col p-0">
@@ -293,27 +155,12 @@ export default function AIAssistantPage() {
                     </div>
                   ) : (
                     messages.map((msg) => (
-                      <div
+                      <ChatMessage
                         key={msg.id}
-                        className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                      >
-                        <div
-                          className={`max-w-[85%] rounded-lg p-3 ${
-                            msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
-                          }`}
-                        >
-                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                          <p
-                            className={`mt-1 text-xs ${
-                              msg.role === "user"
-                                ? "text-primary-foreground/70"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            {new Date(msg.timestamp).toLocaleTimeString("pt-BR")}
-                          </p>
-                        </div>
-                      </div>
+                        content={msg.content}
+                        role={msg.role}
+                        timestamp={msg.timestamp}
+                      />
                     ))
                   )}
                   {isLoading && (

@@ -1,35 +1,35 @@
-"use server";
+'use server';
 
-import { authOptions } from "@/lib/auth-options";
-import prisma from "@/lib/prisma";
-import { Role } from "@prisma/client";
-import bcrypt from "bcrypt";
-import { getServerSession } from "next-auth";
-import { revalidatePath } from "next/cache";
-import * as z from "zod";
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { Role } from '@prisma/client';
+import bcrypt from 'bcrypt';
+import { getServerSession } from 'next-auth';
+import { revalidatePath } from 'next/cache';
+import * as z from 'zod';
 
 const createUserSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  email: z.string().email("E-mail inválido"),
-  password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
-  role: z.nativeEnum(Role),
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  email: z.email('E-mail inválido'),
+  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
+  role: z.enum(Role),
 });
 
 const updateUserSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  role: z.nativeEnum(Role),
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  role: z.enum(Role),
 });
 
 export async function createUser(data: z.infer<typeof createUserSchema>) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== Role.ADMIN)
-    return { success: false, error: "Sem permissão para criar usuários" };
+    return { success: false, error: 'Sem permissão para criar usuários' };
 
   try {
     const validated = createUserSchema.parse(data);
 
     const existing = await prisma.user.findUnique({ where: { email: validated.email } });
-    if (existing) return { success: false, error: "Já existe um usuário com este e-mail" };
+    if (existing) return { success: false, error: 'Já existe um usuário com este e-mail' };
 
     const hashedPassword = await bcrypt.hash(validated.password, 10);
 
@@ -45,18 +45,18 @@ export async function createUser(data: z.infer<typeof createUserSchema>) {
 
     await prisma.profile.create({ data: { userId: user.id } });
 
-    revalidatePath("/users");
+    revalidatePath('/users');
     return { success: true, data: user };
   } catch (error) {
-    if (error instanceof z.ZodError) return { success: false, error: "Dados inválidos" };
-    return { success: false, error: "Erro ao criar usuário" };
+    if (error instanceof z.ZodError) return { success: false, error: 'Dados inválidos' };
+    return { success: false, error: 'Erro ao criar usuário' };
   }
 }
 
 export async function updateUser(id: string, data: z.infer<typeof updateUserSchema>) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== Role.ADMIN)
-    return { success: false, error: "Sem permissão para editar usuários" };
+    return { success: false, error: 'Sem permissão para editar usuários' };
 
   // Prevent removing the last ADMIN
   if (data.role !== Role.ADMIN) {
@@ -65,7 +65,7 @@ export async function updateUser(id: string, data: z.infer<typeof updateUserSche
     });
     const targetUser = await prisma.user.findUnique({ where: { id } });
     if (admins === 1 && targetUser?.role === Role.ADMIN) {
-      return { success: false, error: "Deve existir pelo menos um administrador no workspace" };
+      return { success: false, error: 'Deve existir pelo menos um administrador no workspace' };
     }
   }
 
@@ -76,27 +76,27 @@ export async function updateUser(id: string, data: z.infer<typeof updateUserSche
       data: { name: validated.name, role: validated.role },
     });
 
-    revalidatePath("/users");
+    revalidatePath('/users');
     return { success: true, data: user };
   } catch (error) {
-    return { success: false, error: "Erro ao atualizar usuário" };
+    return { success: false, error: 'Erro ao atualizar usuário' };
   }
 }
 
 export async function deleteUser(id: string) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== Role.ADMIN)
-    return { success: false, error: "Sem permissão para excluir usuários" };
+    return { success: false, error: 'Sem permissão para excluir usuários' };
 
   if (id === session.user.id)
-    return { success: false, error: "Você não pode excluir sua própria conta" };
+    return { success: false, error: 'Você não pode excluir sua própria conta' };
 
   try {
     await prisma.user.delete({ where: { id, workspaceId: session.user.workspaceId } });
 
-    revalidatePath("/users");
+    revalidatePath('/users');
     return { success: true };
   } catch (error) {
-    return { success: false, error: "Erro ao excluir usuário" };
+    return { success: false, error: 'Erro ao excluir usuário' };
   }
 }

@@ -23,48 +23,84 @@ function serializeBudget(budget: any) {
   };
 }
 
-export async function upsertBudget(data: z.infer<typeof budgetSchema>) {
+export async function upsertBudget(data: z.infer<typeof budgetSchema> & { id?: string }) {
   const session = await getServerSession(authOptions);
   if (!session) return { success: false, error: 'Não autorizado' };
 
   try {
     const validated = budgetSchema.parse(data);
 
-    const existing = await prisma.budget.findFirst({
-      where: {
-        workspaceId: session.user.workspaceId,
-        categoryId: validated.categoryId,
-        month: validated.month,
-        year: validated.year,
-      },
-    });
-
     let budget;
-    if (existing) {
+
+    if (data.id) {
+      const existing = await prisma.budget.findUnique({
+        where: { id: data.id },
+      });
+
+      if (!existing) {
+        return { success: false, error: 'Orçamento não encontrado' };
+      }
+
       budget = await prisma.budget.update({
-        where: { id: existing.id },
+        where: { id: data.id },
         data: {
+          categoryId: validated.categoryId,
           amount: validated.amount,
           alertAt80: validated.alertAt80,
           alertAt100: validated.alertAt100,
         },
       });
+
+      await createAuditLog({
+        action: 'UPDATE_BUDGET',
+        entity: 'Budget',
+        entityId: budget.id,
+        oldValue: { amount: existing.amount },
+        newValue: validated,
+      });
     } else {
-      budget = await prisma.budget.create({
-        data: {
-          ...validated,
+      const existing = await prisma.budget.findFirst({
+        where: {
           workspaceId: session.user.workspaceId,
+          categoryId: validated.categoryId,
+          month: validated.month,
+          year: validated.year,
         },
       });
-    }
 
-    await createAuditLog({
-      action: existing ? 'UPDATE_BUDGET' : 'CREATE_BUDGET',
-      entity: 'Budget',
-      entityId: budget.id,
-      oldValue: existing ? { amount: existing.amount } : undefined,
-      newValue: validated,
-    });
+      if (existing) {
+        budget = await prisma.budget.update({
+          where: { id: existing.id },
+          data: {
+            amount: validated.amount,
+            alertAt80: validated.alertAt80,
+            alertAt100: validated.alertAt100,
+          },
+        });
+
+        await createAuditLog({
+          action: 'UPDATE_BUDGET',
+          entity: 'Budget',
+          entityId: budget.id,
+          oldValue: { amount: existing.amount },
+          newValue: validated,
+        });
+      } else {
+        budget = await prisma.budget.create({
+          data: {
+            ...validated,
+            workspaceId: session.user.workspaceId,
+          },
+        });
+
+        await createAuditLog({
+          action: 'CREATE_BUDGET',
+          entity: 'Budget',
+          entityId: budget.id,
+          newValue: validated,
+        });
+      }
+    }
 
     revalidatePath('/budgets');
     revalidatePath('/dashboard');

@@ -12,18 +12,20 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { deleteAccount } from '@/lib/actions/accounts';
+import { showError, showSuccess } from '@/lib/utils/toast';
 import {
   Building2,
   Coins,
   CreditCard,
   Landmark,
   MoreHorizontal,
+  PencilIcon,
   Plus,
+  TrashIcon,
   TrendingUp,
   Wallet,
 } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import { AccountModal } from './account-modal';
 
 interface AccountsListProps {
@@ -67,9 +69,9 @@ export function AccountsList({ accounts }: AccountsListProps) {
     if (accountToDelete) {
       const result = await deleteAccount(accountToDelete);
       if (result.success) {
-        toast.success('Conta excluída com sucesso');
+        showSuccess('Conta excluída com sucesso');
       } else {
-        toast.error(result.error);
+        showError(result.error || 'Erro ao excluir conta');
       }
       setIsDeleteModalOpen(false);
       setAccountToDelete(null);
@@ -131,6 +133,7 @@ export function AccountsList({ accounts }: AccountsListProps) {
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Ações</DropdownMenuLabel>
                     <DropdownMenuItem onClick={() => openEditModal(account)}>
+                      <PencilIcon className="mr-2 h-4 w-4" />
                       Editar
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -141,6 +144,7 @@ export function AccountsList({ accounts }: AccountsListProps) {
                       }}
                       className="text-destructive focus:text-destructive"
                     >
+                      <TrashIcon className="mr-2 h-4 w-4" />
                       Excluir
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -148,14 +152,8 @@ export function AccountsList({ accounts }: AccountsListProps) {
               </CardHeader>
               <CardContent>
                 <div className="mt-4">
-                  <span className="text-muted-foreground block text-xs">Saldo Atual</span>
-                  <div
-                    className={`text-2xl font-bold ${account.balance < 0 ? 'text-destructive' : 'text-foreground'}`}
-                  >
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                      account.balance,
-                    )}
-                  </div>
+                  <span className="text-muted-foreground block text-xs">Saldo</span>
+                  <span className="text-muted-foreground text-sm">Calculado via transações</span>
                 </div>
               </CardContent>
             </Card>

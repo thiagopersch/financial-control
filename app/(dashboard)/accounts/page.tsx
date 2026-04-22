@@ -1,12 +1,12 @@
-import { AccountsList } from "@/components/accounts/accounts-list";
-import { getAccounts } from "@/lib/queries/accounts";
+import { getAccounts } from '@/lib/queries/accounts';
+import { AccountsClient } from './accounts-client';
 
 export default async function AccountsPage() {
   const accounts = await getAccounts();
 
   return (
     <div className="py-6">
-      <AccountsList accounts={accounts} />
+      <AccountsClient accounts={accounts} />
     </div>
   );
 }

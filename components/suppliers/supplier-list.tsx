@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
-import { Supplier } from "@prisma/client";
+import { Button } from '@/components/ui/button';
+import { DataTable } from '@/components/ui/data-table';
+import { Supplier } from '@prisma/client';
 import {
   ColumnDef,
   SortingState,
@@ -10,11 +10,11 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
-} from "@tanstack/react-table";
-import { ArrowUpDown, Edit, Trash, User } from "lucide-react";
-import { useState } from "react";
-import { DeleteConfirmModal } from "./delete-confirm-modal";
-import { SupplierModal } from "./supplier-modal";
+} from '@tanstack/react-table';
+import { ArrowUpDown, Edit, Trash, User } from 'lucide-react';
+import { useState } from 'react';
+import { DeleteConfirmModal } from './delete-confirm-modal';
+import { SupplierModal } from './supplier-modal';
 
 interface SupplierListProps {
   suppliers: Supplier[];
@@ -28,11 +28,11 @@ export function SupplierList({ suppliers, userRole }: SupplierListProps) {
 
   const initialColumns: ColumnDef<Supplier>[] = [
     {
-      accessorKey: "name",
+      accessorKey: 'name',
       header: ({ column }) => (
         <Button
           variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           className="h-8 p-0 font-semibold hover:bg-transparent"
         >
           Nome
@@ -49,25 +49,25 @@ export function SupplierList({ suppliers, userRole }: SupplierListProps) {
       ),
     },
     {
-      accessorKey: "document",
+      accessorKey: 'document',
       header: ({ column }) => (
         <Button
           variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           className="h-8 p-0 font-semibold hover:bg-transparent"
         >
           Documento
           <ArrowUpDown className="ml-2 h-3 w-3" />
         </Button>
       ),
-      cell: ({ row }) => <span className="font-mono text-sm">{row.original.document || "-"}</span>,
+      cell: ({ row }) => <span className="font-mono text-sm">{row.original.document || '-'}</span>,
     },
     {
-      accessorKey: "contact",
+      accessorKey: 'contact',
       header: ({ column }) => (
         <Button
           variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           className="h-8 p-0 font-semibold hover:bg-transparent"
         >
           Contato
@@ -75,11 +75,11 @@ export function SupplierList({ suppliers, userRole }: SupplierListProps) {
         </Button>
       ),
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm">{row.original.contact || "-"}</span>
+        <span className="text-muted-foreground text-sm">{row.original.contact || '-'}</span>
       ),
     },
     {
-      id: "actions",
+      id: 'actions',
       header: () => <div className="text-right">Ações</div>,
       cell: ({ row }) => (
         <div className="space-x-2 text-right whitespace-nowrap">
@@ -104,7 +104,7 @@ export function SupplierList({ suppliers, userRole }: SupplierListProps) {
     },
   ];
 
-  const columns = initialColumns.filter((col) => col.id !== "actions" || userRole !== "VIEWER");
+  const columns = initialColumns.filter((col) => col.id !== 'actions' || userRole !== 'VIEWER');
 
   const table = useReactTable({
     data: suppliers,
@@ -129,7 +129,7 @@ export function SupplierList({ suppliers, userRole }: SupplierListProps) {
         columns={columns}
         data={suppliers}
         emptyMessage="Nenhum fornecedor cadastrado."
-        getRowClassName={(row) => (row.id === deletingId ? "bg-rose-50 dark:bg-rose-900/20" : "")}
+        getRowClassName={(row) => (row.id === deletingId ? 'bg-rose-50 dark:bg-rose-900/20' : '')}
       />
 
       <SupplierModal
@@ -141,7 +141,7 @@ export function SupplierList({ suppliers, userRole }: SupplierListProps) {
       <DeleteConfirmModal
         isOpen={!!deletingId}
         onClose={() => setDeletingId(null)}
-        id={deletingId || ""}
+        id={deletingId || ''}
       />
     </div>
   );

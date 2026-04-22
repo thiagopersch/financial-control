@@ -1,9 +1,10 @@
-import { getAccounts } from '@/lib/queries/accounts';
-import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
-import { Suspense } from 'react';
 import { DebtsForm } from '@/components/debts/debts-form';
+import { Skeleton } from '@/components/ui/skeleton';
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
+import { getAccounts } from '@/lib/queries/accounts';
+import { getServerSession } from 'next-auth';
+import { Suspense } from 'react';
 
 async function getDebts() {
   const session = await getServerSession(authOptions);
@@ -41,7 +42,6 @@ export default async function DebtsPage() {
     id: account.id,
     name: account.name,
     type: account.type,
-    balance: account.balance,
     color: account.color,
     workspaceId: account.workspaceId,
     createdAt: account.createdAt,
@@ -49,7 +49,7 @@ export default async function DebtsPage() {
   }));
 
   return (
-    <Suspense fallback={<div>Carregando...</div>}>
+    <Suspense fallback={<Skeleton className="h-full w-full" />}>
       <DebtsForm initialDebts={debts} initialAccounts={accountsData} />
     </Suspense>
   );

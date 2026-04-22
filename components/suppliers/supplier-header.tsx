@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import { useState } from "react";
-import { SupplierModal } from "./supplier-modal";
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
+import { useState } from 'react';
+import { SupplierModal } from './supplier-modal';
 
 interface SupplierHeaderProps {
   userRole?: string;
@@ -11,7 +11,7 @@ interface SupplierHeaderProps {
 
 export function SupplierHeader({ userRole }: SupplierHeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const canModify = userRole !== "VIEWER";
+  const canModify = userRole !== 'VIEWER';
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

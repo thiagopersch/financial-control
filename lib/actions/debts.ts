@@ -89,7 +89,9 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
           throw new Error('Conta não encontrada.');
         }
 
-        const installmentAmount = Number((validated.initialValue / validated.installments).toFixed(2));
+        const installmentAmount = Number(
+          (validated.initialValue / validated.installments).toFixed(2),
+        );
         const startDate = new Date(validated.startDate);
 
         for (let i = 0; i < validated.installments; i++) {
@@ -123,7 +125,10 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
     return { success: true, data: serializeDebt(debt) };
   } catch (error) {
     console.error('Error creating debt:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Erro ao criar dívida' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao criar dívida',
+    };
   }
 }
 

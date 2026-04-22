@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, Calendar, AlertTriangle, DollarSign } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useEffect } from 'react';
+import { TrendingUp, TrendingDown, Calendar, AlertTriangle, DollarSign } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AreaChart,
   Area,
@@ -16,9 +16,9 @@ import {
   LineChart,
   Line,
   Legend,
-} from "recharts";
-import { format, addDays, startOfDay, eachDayOfInterval } from "date-fns";
-import { ptBR } from "date-fns/locale";
+} from 'recharts';
+import { format, addDays, startOfDay, eachDayOfInterval } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ProjectedTransaction {
   date: string;
@@ -43,7 +43,7 @@ export default function CashFlowPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [chartData, setChartData] = useState<ProjectedTransaction[]>([]);
   const [summary, setSummary] = useState<CashFlowSummary | null>(null);
-  const [period, setPeriod] = useState<"30" | "60" | "90">("30");
+  const [period, setPeriod] = useState<'30' | '60' | '90'>('30');
 
   useEffect(() => {
     fetchCashFlow();
@@ -59,21 +59,21 @@ export default function CashFlowPage() {
         setSummary(data.summary || null);
       }
     } catch (error) {
-      console.error("Error fetching cash flow:", error);
+      console.error('Error fetching cash flow:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const formatCurrency = (value: number) => {
-    return value.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
+    return value.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
     });
   };
 
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), "dd/MM", { locale: ptBR });
+    return format(new Date(dateString), 'dd/MM', { locale: ptBR });
   };
 
   return (
@@ -85,7 +85,7 @@ export default function CashFlowPage() {
         </p>
       </div>
 
-      <Tabs value={period} onValueChange={(v) => setPeriod(v as "30" | "60" | "90")}>
+      <Tabs value={period} onValueChange={(v) => setPeriod(v as '30' | '60' | '90')}>
         <TabsList>
           <TabsTrigger value="30">30 dias</TabsTrigger>
           <TabsTrigger value="60">60 dias</TabsTrigger>
@@ -116,7 +116,7 @@ export default function CashFlowPage() {
                 </CardHeader>
                 <CardContent>
                   <div
-                    className={`text-2xl font-bold ${summary.projectedEndBalance >= 0 ? "text-green-600" : "text-red-600"}`}
+                    className={`text-2xl font-bold ${summary.projectedEndBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}
                   >
                     {formatCurrency(summary.projectedEndBalance)}
                   </div>
@@ -209,9 +209,9 @@ export default function CashFlowPage() {
                       />
                       <YAxis tickFormatter={(value) => formatCurrency(value)} className="text-xs" />
                       <Tooltip
-                        formatter={(value) => [formatCurrency(Number(value)), "Saldo"]}
+                        formatter={(value) => [formatCurrency(Number(value)), 'Saldo']}
                         labelFormatter={(value) =>
-                          format(new Date(String(value)), "dd MMM yyyy", { locale: ptBR })
+                          format(new Date(String(value)), 'dd MMM yyyy', { locale: ptBR })
                         }
                       />
                       <Area
@@ -252,10 +252,10 @@ export default function CashFlowPage() {
                         <Tooltip
                           formatter={(value, name) => [
                             formatCurrency(Number(value)),
-                            name === "income" ? "Entradas" : "Saídas",
+                            name === 'income' ? 'Entradas' : 'Saídas',
                           ]}
                           labelFormatter={(value) =>
-                            format(new Date(String(value)), "dd MMM yyyy", { locale: ptBR })
+                            format(new Date(String(value)), 'dd MMM yyyy', { locale: ptBR })
                           }
                         />
                         <Legend />
@@ -308,8 +308,8 @@ export default function CashFlowPage() {
                       <span
                         className={
                           summary && summary.projectedEndBalance >= 0
-                            ? "text-green-600"
-                            : "text-red-600"
+                            ? 'text-green-600'
+                            : 'text-red-600'
                         }
                       >
                         {formatCurrency(summary?.projectedEndBalance || 0)}

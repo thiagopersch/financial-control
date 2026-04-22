@@ -25,7 +25,7 @@ import {
   Users,
   Wallet,
   Zap,
-} from "lucide-react";
+} from 'lucide-react';
 
 export interface Route {
   label: string;
@@ -42,217 +42,217 @@ export interface RouteGroup {
 
 const dashboardRoutes: Route[] = [
   {
-    label: "Dashboard",
+    label: 'Dashboard',
     icon: LayoutDashboard,
-    href: "/dashboard",
-    color: "text-sky-500",
+    href: '/dashboard',
+    color: 'text-sky-500',
   },
   {
-    label: "Transações",
+    label: 'Transações',
     icon: Wallet,
-    href: "/transactions",
-    color: "text-violet-500",
+    href: '/transactions',
+    color: 'text-violet-500',
   },
 ];
 
 const accountsRoutes: Route[] = [
   {
-    label: "Contas",
+    label: 'Contas',
     icon: Landmark,
-    href: "/accounts",
-    color: "text-blue-500",
+    href: '/accounts',
+    color: 'text-blue-500',
   },
   {
-    label: "Cartões",
+    label: 'Cartões',
     icon: CreditCard,
-    href: "/credit-cards",
-    color: "text-indigo-500",
+    href: '/credit-cards',
+    color: 'text-indigo-500',
   },
   {
-    label: "Dívidas",
+    label: 'Dívidas',
     icon: AlertTriangle,
-    href: "/debts",
-    color: "text-red-500",
+    href: '/debts',
+    color: 'text-red-500',
   },
 ];
 
 const budgetsRoutes: Route[] = [
   {
-    label: "Orçamentos",
+    label: 'Orçamentos',
     icon: PieChart,
-    href: "/budgets",
-    color: "text-rose-500",
+    href: '/budgets',
+    color: 'text-rose-500',
   },
   {
-    label: "Metas",
+    label: 'Metas',
     icon: Target,
-    href: "/goals",
-    color: "text-amber-500",
+    href: '/goals',
+    color: 'text-amber-500',
   },
 ];
 
 const categoriesRoutes: Route[] = [
   {
-    label: "Categorias",
+    label: 'Categorias',
     icon: Tag,
-    href: "/categories",
-    color: "text-pink-700",
+    href: '/categories',
+    color: 'text-pink-700',
   },
   {
-    label: "Centros de Custo",
+    label: 'Centros de Custo',
     icon: Building2,
-    href: "/cost-centers",
-    color: "text-cyan-500",
+    href: '/cost-centers',
+    color: 'text-cyan-500',
   },
   {
-    label: "Fornecedores",
+    label: 'Fornecedores',
     icon: Truck,
-    href: "/suppliers",
-    color: "text-orange-700",
+    href: '/suppliers',
+    color: 'text-orange-700',
   },
 ];
 
 const financialRoutes: Route[] = [
   {
-    label: "Fluxo de Caixa",
+    label: 'Fluxo de Caixa',
     icon: TrendingUp,
-    href: "/cash-flow",
-    color: "text-green-500",
+    href: '/cash-flow',
+    color: 'text-green-500',
   },
   {
-    label: "DRE",
+    label: 'DRE',
     icon: FileText,
-    href: "/dre",
-    color: "text-emerald-500",
+    href: '/dre',
+    color: 'text-emerald-500',
   },
   {
-    label: "Insights",
+    label: 'Insights',
     icon: BarChart3,
-    href: "/insights",
-    color: "text-purple-500",
+    href: '/insights',
+    color: 'text-purple-500',
   },
   {
-    label: "Previsão",
+    label: 'Previsão',
     icon: Calculator,
-    href: "/forecast",
-    color: "text-teal-500",
+    href: '/forecast',
+    color: 'text-teal-500',
   },
 ];
 
 const automationRoutes: Route[] = [
   {
-    label: "Automação",
+    label: 'Automação',
     icon: GitBranch,
-    href: "/automation",
-    color: "text-orange-500",
+    href: '/automation',
+    color: 'text-orange-500',
   },
   {
-    label: "Agendamentos",
+    label: 'Agendamentos',
     icon: CalendarClock,
-    href: "/scheduled",
-    color: "text-blue-400",
+    href: '/scheduled',
+    color: 'text-blue-400',
   },
   {
-    label: "Regras",
+    label: 'Regras',
     icon: Zap,
-    href: "/rules",
-    color: "text-yellow-500",
+    href: '/rules',
+    color: 'text-yellow-500',
   },
 ];
 
 const reportsRoutes: Route[] = [
   {
-    label: "Relatórios",
+    label: 'Relatórios',
     icon: FileBarChart,
-    href: "/reports",
-    color: "text-slate-500",
+    href: '/reports',
+    color: 'text-slate-500',
   },
   {
-    label: "Comparativos",
+    label: 'Comparativos',
     icon: GitCompare,
-    href: "/comparisons",
-    color: "text-violet-600",
+    href: '/comparisons',
+    color: 'text-violet-600',
   },
   {
-    label: "Conciliação",
+    label: 'Conciliação',
     icon: RefreshCw,
-    href: "/reconciliation",
-    color: "text-cyan-600",
+    href: '/reconciliation',
+    color: 'text-cyan-600',
   },
 ];
 
 const aiRoutes: Route[] = [
   {
-    label: "Assistente IA",
+    label: 'Assistente IA',
     icon: Bot,
-    href: "/ai-assistant",
-    color: "text-pink-500",
+    href: '/ai-assistant',
+    color: 'text-pink-500',
   },
   {
-    label: "Auditoria",
+    label: 'Auditoria',
     icon: ScrollText,
-    href: "/audit",
-    color: "text-gray-500",
+    href: '/audit',
+    color: 'text-gray-500',
   },
 ];
 
 const systemRoutes: Route[] = [
   {
-    label: "Usuários",
+    label: 'Usuários',
     icon: Users,
-    href: "/users",
-    color: "text-emerald-500",
+    href: '/users',
+    color: 'text-emerald-500',
   },
   {
-    label: "Perfil",
+    label: 'Perfil',
     icon: Settings,
-    href: "/profiles",
+    href: '/profiles',
   },
 ];
 
 export const routeGroups: RouteGroup[] = [
   {
-    title: "Principal",
+    title: 'Principal',
     icon: LayoutDashboard,
     routes: dashboardRoutes,
   },
   {
-    title: "Contas",
+    title: 'Contas',
     icon: Landmark,
     routes: accountsRoutes,
   },
   {
-    title: "Orçamento",
+    title: 'Orçamento',
     icon: PieChart,
     routes: budgetsRoutes,
   },
   {
-    title: "Organização",
+    title: 'Organização',
     icon: Tag,
     routes: categoriesRoutes,
   },
   {
-    title: "Financeiro",
+    title: 'Financeiro',
     icon: DollarSign,
     routes: financialRoutes,
   },
   {
-    title: "Automação",
+    title: 'Automação',
     icon: GitBranch,
     routes: automationRoutes,
   },
   {
-    title: "Relatórios",
+    title: 'Relatórios',
     icon: FileBarChart,
     routes: reportsRoutes,
   },
   {
-    title: "Inteligência",
+    title: 'Inteligência',
     icon: Sparkles,
     routes: aiRoutes,
   },
   {
-    title: "Sistema",
+    title: 'Sistema',
     icon: Settings,
     routes: systemRoutes,
   },

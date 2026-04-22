@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip, Legend } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface CategoryPieChartProps {
   data: {
@@ -19,8 +19,8 @@ export function CategoryPieChart({ data, isFullYear }: CategoryPieChartProps) {
         <CardHeader>
           <CardTitle className="text-base font-semibold">Despesas por Categoria</CardTitle>
         </CardHeader>
-        <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
-          Nenhuma transação {isFullYear ? "este ano" : "este mês"}.
+        <CardContent className="text-muted-foreground flex h-[300px] items-center justify-center">
+          Nenhuma transação {isFullYear ? 'este ano' : 'este mês'}.
         </CardContent>
       </Card>
     );
@@ -50,12 +50,16 @@ export function CategoryPieChart({ data, isFullYear }: CategoryPieChartProps) {
               </Pie>
               <Tooltip
                 formatter={(value: any) =>
-                  new Intl.NumberFormat("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
+                  new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL',
                   }).format(Number(value))
                 }
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                contentStyle={{
+                  borderRadius: '8px',
+                  border: 'none',
+                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                }}
               />
               <Legend verticalAlign="bottom" height={36} iconType="circle" />
             </PieChart>

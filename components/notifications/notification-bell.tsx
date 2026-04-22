@@ -1,22 +1,22 @@
 'use client';
 
-import { Bell, Check, CheckCheck, Trash2, AlertTriangle, AlertCircle, Info } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  deleteNotification,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+} from '@/lib/actions/notifications';
+import { useNotifications } from '@/lib/queries/notifications';
 import { cn } from '@/lib/utils';
+import { showError, showSuccess } from '@/lib/utils/toast';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { AlertCircle, AlertTriangle, Bell, Check, CheckCheck, Info, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
-import { toast } from 'sonner';
-import { useNotifications } from '@/lib/queries/notifications';
-import {
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  deleteNotification,
-} from '@/lib/actions/notifications';
 
 interface NotificationBellProps {
   initialCount?: number;
@@ -37,9 +37,9 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
     try {
       await markNotificationAsRead(id);
       refresh();
-      toast.success('Notificação marcada como lida');
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
+      showSuccess('Notificação marcada como lida');
+    } catch {
+      showError('Erro ao marcar notificação como lida');
     }
   };
 
@@ -47,9 +47,9 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
     try {
       await markAllNotificationsAsRead();
       refresh();
-      toast.success('Todas as notificações foram marcadas como lidas');
-    } catch (error) {
-      console.error('Error marking all as read:', error);
+      showSuccess('Todas as notificações foram marcadas como lidas');
+    } catch {
+      showError('Erro ao marcar todas as notificações como lidas');
     }
   };
 
@@ -57,9 +57,9 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
     try {
       await deleteNotification(id);
       refresh();
-      toast.success('Notificação removida');
-    } catch (error) {
-      console.error('Error deleting notification:', error);
+      showSuccess('Notificação removida');
+    } catch {
+      showError('Erro ao remover notificação');
     }
   };
 
@@ -137,14 +137,14 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
                   )}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex-shrink-0">{getLevelIcon(notification.level)}</div>
+                    <div className="mt-0.5 shrink-0">{getLevelIcon(notification.level)}</div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm leading-tight font-medium">{notification.title}</p>
                         {!notification.isRead && (
                           <button
                             onClick={() => handleMarkAsRead(notification.id)}
-                            className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                            className="text-muted-foreground hover:text-foreground shrink-0"
                             title="Marcar como lida"
                           >
                             <Check className="h-4 w-4" />
@@ -163,7 +163,7 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
                     </div>
                     <button
                       onClick={() => handleDeleteNotification(notification.id)}
-                      className="text-muted-foreground flex-shrink-0 hover:text-red-500"
+                      className="text-muted-foreground shrink-0 hover:text-red-500"
                       title="Excluir"
                     >
                       <Trash2 className="h-4 w-4" />

@@ -1,27 +1,40 @@
-"use client";
+'use client';
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { Button } from '@/components/ui/button';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from "@/components/ui/dialog";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from "@/components/ui/form";
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-import { createRule, updateRule } from "@/lib/actions/rules";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { createRule, updateRule } from '@/lib/actions/rules';
+import { showError, showSuccess } from '@/lib/utils/toast';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 
 const ruleSchema = z.object({
-  keyword: z.string().min(2, "Palavra-chave deve ter pelo menos 2 caracteres"),
-  categoryId: z.string().min(1, "Categoria é obrigatória"),
+  keyword: z.string().min(2, 'Palavra-chave deve ter pelo menos 2 caracteres'),
+  categoryId: z.string().min(1, 'Categoria é obrigatória'),
 });
 
 type RuleFormValues = z.infer<typeof ruleSchema>;
@@ -38,32 +51,30 @@ export function RuleModal({ isOpen, onClose, categories, initialData }: RuleModa
 
   const form = useForm<RuleFormValues>({
     resolver: zodResolver(ruleSchema),
-    defaultValues: { keyword: "", categoryId: "" },
+    defaultValues: { keyword: '', categoryId: '' },
   });
 
   useEffect(() => {
     if (initialData) {
       form.reset({ keyword: initialData.keyword, categoryId: initialData.categoryId });
     } else {
-      form.reset({ keyword: "", categoryId: "" });
+      form.reset({ keyword: '', categoryId: '' });
     }
   }, [initialData, form]);
 
   async function onSubmit(data: RuleFormValues) {
     setIsLoading(true);
     try {
-      const result = initialData
-        ? await updateRule(initialData.id, data)
-        : await createRule(data);
+      const result = initialData ? await updateRule(initialData.id, data) : await createRule(data);
 
       if (result.success) {
-        toast.success(initialData ? "Regra atualizada!" : "Regra criada com sucesso!");
+        showSuccess(initialData ? 'Regra atualizada!' : 'Regra criada com sucesso!');
         onClose();
       } else {
-        toast.error(result.error);
+        showError(result.error || 'Erro inesperado.');
       }
     } catch {
-      toast.error("Erro inesperado.");
+      showError('Erro inesperado.');
     } finally {
       setIsLoading(false);
     }
@@ -71,11 +82,12 @@ export function RuleModal({ isOpen, onClose, categories, initialData }: RuleModa
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{initialData ? "Editar Regra" : "Nova Regra de Categorização"}</DialogTitle>
+          <DialogTitle>{initialData ? 'Editar Regra' : 'Nova Regra de Categorização'}</DialogTitle>
           <DialogDescription>
-            Quando uma transação contiver esta palavra-chave na descrição, ela será categorizada automaticamente.
+            Quando uma transação contiver esta palavra-chave na descrição, ela será categorizada
+            automaticamente.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -108,7 +120,7 @@ export function RuleModal({ isOpen, onClose, categories, initialData }: RuleModa
                     <SelectContent>
                       {categories.map((cat) => (
                         <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name} ({cat.type === "INCOME" ? "Receita" : "Despesa"})
+                          {cat.name} ({cat.type === 'INCOME' ? 'Receita' : 'Despesa'})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -121,9 +133,13 @@ export function RuleModal({ isOpen, onClose, categories, initialData }: RuleModa
               <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700">
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {initialData ? "Salvar" : "Criar regra"}
+                {initialData ? 'Salvar' : 'Criar regra'}
               </Button>
             </div>
           </form>

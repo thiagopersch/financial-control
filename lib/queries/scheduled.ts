@@ -1,18 +1,13 @@
-import useSWR from "swr";
-import {
-  createScheduledTransaction,
-  deleteScheduledTransaction,
-  toggleScheduledTransaction,
-} from "@/lib/actions/scheduled";
+import useSWR from 'swr';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export interface ScheduledTransaction {
   id: string;
   name: string;
-  type: "INCOME" | "EXPENSE";
+  type: 'INCOME' | 'EXPENSE';
   amount: number;
-  frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "BUSINESS_DAYS";
+  frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'BUSINESS_DAYS';
   dayOfMonth: number | null;
   nextRun: string;
   isActive: boolean;
@@ -24,7 +19,7 @@ export interface ScheduledTransaction {
 
 export function useScheduledTransactions() {
   const { data, error, isLoading, mutate } = useSWR<{ transactions: ScheduledTransaction[] }>(
-    "/api/scheduled-transactions",
+    '/api/scheduled-transactions',
     fetcher,
     {
       revalidateOnFocus: false,
@@ -41,7 +36,7 @@ export function useScheduledTransactions() {
 
 export function useCategories() {
   const { data, error, isLoading } = useSWR<{ categories: { id: string; name: string }[] }>(
-    "/api/categories",
+    '/api/categories',
     fetcher,
     {
       revalidateOnFocus: false,
