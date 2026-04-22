@@ -15,6 +15,7 @@ import {
   getDebtsData,
   getGoalsData,
   getRecentTransactions,
+  getTransactionCountsByYear,
 } from '@/lib/queries/dashboard';
 import { endOfMonth, parse, startOfMonth } from 'date-fns';
 
@@ -60,6 +61,7 @@ export default async function DashboardPage(props: {
   const categoryData = await getCategoryData(startDate, endDate);
   const recentTransactions = await getRecentTransactions(startDate, endDate);
   const availableRange = await getAvailableRange();
+  const transactionCounts = await getTransactionCountsByYear();
 
   const budgetData = await getBudgetData(selectedMonth.getMonth() + 1, selectedMonth.getFullYear());
   const goalsData = await getGoalsData();
@@ -72,7 +74,11 @@ export default async function DashboardPage(props: {
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">Visão geral das suas finanças</p>
         </div>
-        <MonthSelector availableRange={availableRange} />
+        <MonthSelector
+          availableRange={availableRange}
+          transactionCounts={transactionCounts}
+          useNextYears
+        />
       </div>
 
       <StatsCards stats={stats} />

@@ -20,6 +20,7 @@ type FiltersProps = {
     minDate: Date | string | null;
     maxDate: Date | string | null;
   };
+  transactionCounts?: Record<string, number>;
   categories: { id: string; name: string; type: string; color: string }[];
   accounts: any[];
   types?: { value: string; label: string; color: string }[];
@@ -31,6 +32,7 @@ export function Filters({
   handleFilterChange,
   handleClearFilters,
   availableRange,
+  transactionCounts,
   categories,
   accounts,
   types = [
@@ -50,7 +52,11 @@ export function Filters({
         <span className="text-muted-foreground ml-1 text-xs font-semibold uppercase">
           Mês de Referência
         </span>
-        <MonthSelector availableRange={availableRange} />
+        <MonthSelector
+          availableRange={availableRange}
+          transactionCounts={transactionCounts}
+          useNextYears
+        />
       </div>
 
       <div className="flex flex-col gap-1.5">

@@ -17,6 +17,7 @@ interface TransactionsHeaderProps {
     minDate: Date | string | null;
     maxDate: Date | string | null;
   };
+  transactionCounts?: Record<string, number>;
   userRole?: string;
 }
 
@@ -25,6 +26,7 @@ export function TransactionsHeader({
   suppliers,
   accounts,
   availableRange,
+  transactionCounts,
   userRole,
 }: TransactionsHeaderProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -101,6 +103,7 @@ export function TransactionsHeader({
         handleFilterChange={handleFilterChange}
         handleClearFilters={handleClearFilters}
         availableRange={availableRange}
+        transactionCounts={transactionCounts}
         categories={categories}
         accounts={accounts}
       />

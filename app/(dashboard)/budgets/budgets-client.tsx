@@ -189,7 +189,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <MonthSelector />
+        <MonthSelector useNextYears={true} />
         <Button
           className="gap-2"
           onClick={() => {

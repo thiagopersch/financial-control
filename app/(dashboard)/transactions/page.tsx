@@ -2,7 +2,7 @@ import { TransactionsHeader } from '@/app/(dashboard)/transactions/components/tr
 import { TransactionsTable } from '@/app/(dashboard)/transactions/components/transactions-table';
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
-import { getAvailableRange } from '@/lib/queries/dashboard';
+import { getAvailableRange, getTransactionCountsByYear } from '@/lib/queries/dashboard';
 import { type TransactionStatus, type TransactionType } from '@prisma/client';
 import { endOfMonth, startOfMonth } from 'date-fns';
 import { getServerSession } from 'next-auth';
@@ -24,7 +24,10 @@ export default async function TransactionsPage({
 }) {
   const searchParams = await searchParamsPromise;
   const session = await getServerSession(authOptions);
-  const availableRange = await getAvailableRange();
+  const [availableRange, transactionCounts] = await Promise.all([
+    getAvailableRange(),
+    getTransactionCountsByYear(),
+  ]);
 
   if (!session) return null;
 
@@ -113,6 +116,7 @@ export default async function TransactionsPage({
       orderBy: { name: 'asc' },
     }),
     getAvailableRange(),
+    getTransactionCountsByYear(),
   ]);
 
   const transactions = rawTransactions.map((transaction) => ({
@@ -136,6 +140,7 @@ export default async function TransactionsPage({
         suppliers={suppliers}
         accounts={formattedAccounts}
         availableRange={availableRange}
+        transactionCounts={transactionCounts}
         userRole={session.user.role}
       />
       <TransactionsTable

@@ -15,6 +15,8 @@ interface MonthSelectorProps {
     minDate: Date | string | null;
     maxDate: Date | string | null;
   };
+  transactionCounts?: Record<string, number>;
+  useNextYears?: boolean;
 }
 
 const MONTHS = [
@@ -32,7 +34,11 @@ const MONTHS = [
   { value: '12', label: 'Dezembro' },
 ];
 
-export function MonthSelector({ availableRange }: MonthSelectorProps) {
+export function MonthSelector({
+  availableRange,
+  transactionCounts,
+  useNextYears = false,
+}: MonthSelectorProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -40,18 +46,27 @@ export function MonthSelector({ availableRange }: MonthSelectorProps) {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
-  const minDate = availableRange?.minDate
-    ? new Date(availableRange.minDate)
-    : new Date(currentYear - 5, 0, 1);
-  const maxDate = availableRange?.maxDate ? new Date(availableRange.maxDate) : new Date();
 
   const years = useMemo(() => {
+    if (useNextYears) {
+      const result: number[] = [];
+      for (let year = currentYear; year < currentYear + 10; year++) {
+        result.push(year);
+      }
+      return result;
+    }
+
+    const minDate = availableRange?.minDate
+      ? new Date(availableRange.minDate)
+      : new Date(currentYear - 5, 0, 1);
+    const maxDate = availableRange?.maxDate ? new Date(availableRange.maxDate) : new Date();
+
     const result: number[] = [];
     for (let year = minDate.getFullYear(); year <= maxDate.getFullYear(); year++) {
       result.push(year);
     }
     return result;
-  }, [minDate, maxDate]);
+  }, [availableRange, useNextYears, currentYear]);
 
   const yearParam = searchParams.get('year');
   const monthParam = searchParams.get('month');
@@ -109,22 +124,8 @@ export function MonthSelector({ availableRange }: MonthSelectorProps) {
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  const getYearDisplay = () => {
-    if (selectedYear === null || selectedYear === '') return 'Selecione o ano...';
-    if (selectedYear === 'all') return 'Todos os Períodos';
-    if (selectedYear === 'year') return `Ano Completo ${currentYear}`;
-    return selectedYear;
-  };
-
-  const getMonthDisplay = () => {
-    if (!selectedMonth || selectedMonth === '') return 'Selecione o mês...';
-    if (selectedMonth === 'all') return 'Todos os meses';
-    const month = MONTHS.find((m) => m.value === selectedMonth);
-    return month?.label || 'Selecione o mês...';
-  };
-
   return (
-    <div className="flex items-center gap-2 max-md:w-full">
+    <div className="flex items-center gap-2 max-md:w-full max-md:flex-col">
       <span className="text-muted-foreground hidden text-sm font-medium sm:inline-block">
         Período:
       </span>
@@ -139,7 +140,9 @@ export function MonthSelector({ availableRange }: MonthSelectorProps) {
           <SelectItem value="year">Ano Completo {currentYear}</SelectItem>
           {years.map((year) => (
             <SelectItem key={year} value={year.toString()}>
-              {year}
+              {transactionCounts?.[year.toString()]
+                ? `${year} • ${transactionCounts[year.toString()]} transações`
+                : year}
             </SelectItem>
           ))}
         </SelectContent>

@@ -414,6 +414,24 @@ export async function getAvailableRange() {
   };
 }
 
+export async function getTransactionCountsByYear() {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error('Unauthorized');
+
+  const transactions = await prisma.transaction.findMany({
+    where: { workspaceId: session.user.workspaceId },
+    select: { date: true },
+  });
+
+  const counts: Record<string, number> = {};
+  transactions.forEach((t) => {
+    const year = new Date(t.date).getFullYear().toString();
+    counts[year] = (counts[year] || 0) + 1;
+  });
+
+  return counts;
+}
+
 export async function getDebtsData() {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error('Unauthorized');
