@@ -1,5 +1,6 @@
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
+import { CalculationType, FirstInstallmentMonth } from '@prisma/client';
 import { getServerSession } from 'next-auth';
 
 export type DebtDTO = {
@@ -15,6 +16,9 @@ export type DebtDTO = {
   endDate: string | null;
   isActive: boolean;
   installments: number | null;
+  calculationType: CalculationType | null;
+  installmentValue: number | null;
+  firstInstallmentMonth: FirstInstallmentMonth | null;
   workspaceId: string;
   createdAt: string;
   updatedAt: string;
@@ -48,6 +52,9 @@ export async function getDebts(): Promise<DebtDTO[]> {
       endDate: debt.endDate?.toISOString() || null,
       isActive: debt.isActive,
       installments: debt.installments,
+      calculationType: debt.calculationType,
+      installmentValue: debt.installmentValue != null ? Number(debt.installmentValue) : null,
+      firstInstallmentMonth: debt.firstInstallmentMonth,
       workspaceId: debt.workspaceId,
       createdAt: debt.createdAt.toISOString(),
       updatedAt: debt.updatedAt.toISOString(),
@@ -85,6 +92,9 @@ export async function getDebtById(id: string): Promise<DebtDTO | null> {
       endDate: debt.endDate?.toISOString() || null,
       isActive: debt.isActive,
       installments: debt.installments,
+      calculationType: debt.calculationType,
+      installmentValue: debt.installmentValue != null ? Number(debt.installmentValue) : null,
+      firstInstallmentMonth: debt.firstInstallmentMonth,
       workspaceId: debt.workspaceId,
       createdAt: debt.createdAt.toISOString(),
       updatedAt: debt.updatedAt.toISOString(),

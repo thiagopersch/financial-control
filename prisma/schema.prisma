@@ -38,6 +38,16 @@ enum RecurrenceType {
   INSTALLMENTS
 }
 
+enum CalculationType {
+  TOTAL_DIVIDED
+  FIXED_INSTALLMENT
+}
+
+enum FirstInstallmentMonth {
+  CURRENT
+  NEXT
+}
+
 enum AccountType {
   WALLET
   BANK
@@ -427,23 +437,26 @@ model Goal {
 }
 
 model Debt {
-  id             String        @id @default(cuid())
+  id             String                @id @default(cuid())
   name           String
   description    String?
-  initialValue   Decimal       @db.Decimal(12, 2)
-  currentValue   Decimal       @db.Decimal(12, 2)
-  interestRate   Decimal?      @db.Decimal(5, 2)
-  minimumPayment Decimal       @db.Decimal(12, 2)
+  initialValue   Decimal               @db.Decimal(12, 2)
+  currentValue   Decimal               @db.Decimal(12, 2)
+  interestRate   Decimal?              @db.Decimal(5, 2)
+  minimumPayment Decimal               @db.Decimal(12, 2)
   dueDay         Int?
   startDate      DateTime
   endDate        DateTime?
-  isActive       Boolean       @default(true)
+  isActive       Boolean               @default(true)
   installments   Int?
+  calculationType CalculationType?
+  installmentValue Decimal?            @db.Decimal(12, 2)
+  firstInstallmentMonth FirstInstallmentMonth?
   workspaceId    String
-  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace      Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   transactions   Transaction[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 }
 
 model CostCenter {

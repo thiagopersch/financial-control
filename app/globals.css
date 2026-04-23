@@ -1,7 +1,7 @@
-@import "tailwindcss";
-@plugin "@tailwindcss/typography";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -165,15 +165,15 @@
 }
 
 .markdown-content h1 {
-  @apply text-xl font-bold mb-2;
+  @apply mb-2 text-xl font-bold;
 }
 
 .markdown-content h2 {
-  @apply text-lg font-semibold mb-2;
+  @apply mb-2 text-lg font-semibold;
 }
 
 .markdown-content h3 {
-  @apply text-base font-semibold mb-1;
+  @apply mb-1 text-base font-semibold;
 }
 
 .markdown-content ul,
@@ -194,11 +194,11 @@
 }
 
 .markdown-content code {
-  @apply bg-muted-foreground/20 px-1 py-0.5 rounded text-xs font-mono;
+  @apply bg-muted-foreground/20 rounded px-1 py-0.5 font-mono text-xs;
 }
 
 .markdown-content pre {
-  @apply bg-muted p-2 rounded mb-2 overflow-x-auto;
+  @apply bg-muted mb-2 overflow-x-auto rounded p-2;
 }
 
 .markdown-content pre code {
@@ -206,12 +206,12 @@
 }
 
 .markdown-content table {
-  @apply w-full border-collapse mb-2 text-xs;
+  @apply mb-2 w-full border-collapse text-xs;
 }
 
 .markdown-content th,
 .markdown-content td {
-  @apply border border-border px-2 py-1;
+  @apply border-border border px-2 py-1;
 }
 
 .markdown-content th {
@@ -219,7 +219,7 @@
 }
 
 .markdown-content blockquote {
-  @apply border-l-2 border-primary pl-2 italic text-muted-foreground mb-2;
+  @apply border-primary text-muted-foreground mb-2 border-l-2 pl-2 italic;
 }
 
 .markdown-content strong {

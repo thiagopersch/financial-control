@@ -2,6 +2,20 @@
 
 Sistema profissional de gestão financeira pessoal e empresarial.
 
+---
+
+## 🧠 Princípios de Arquitetura
+
+- Server-first: priorizar Server Components e Server Actions
+- Client mínimo necessário (evitar hidratação excessiva)
+- Separação clara entre UI, lógica e acesso a dados
+- Single source of truth: Prisma Schema é a fonte de verdade
+- Multi-tenant by design: toda entidade deve respeitar `workspaceId`
+- Segurança por padrão (secure by default)
+- Tipagem forte em toda a aplicação (end-to-end typesafe)
+
+---
+
 ## 🚀 Tecnologias
 
 | Categoria      | Tecnologia                           |
@@ -13,6 +27,7 @@ Sistema profissional de gestão financeira pessoal e empresarial.
 | UI             | Tailwind CSS 4 + Shadcn/UI + Base UI |
 | Estado         | Zustand                              |
 | Formulários    | React Hook Form + Zod                |
+| Data Fetching  | SWR                                  |
 | Tabelas        | @tanstack/react-table                |
 | Animações      | Framer Motion                        |
 | Gráficos       | Recharts                             |
@@ -23,195 +38,267 @@ Sistema profissional de gestão financeira pessoal e empresarial.
 
 ```
 financial-control-all/
-├── app/                    # Next.js App Router
-│   ├── (auth)/           # Rotas de autenticação
-│   ├── (dashboard)/     # Rotas autenticadas
-│   │   ├── accounts/
-│   │   ├── budgets/
-│   │   ├── cash-flow/
-│   │   ├── categories/
-│   │   ├── comparisons/
-│   │   ├── cost-centers/
-│   │   ├── credit-cards/
-│   │   ├── debts/
-│   │   ├── dre/
-│   │   ├── forecast/
-│   │   ├── goals/
-│   │   ├── insights/
-│   │   ├── reports/
-│   │   ├── reconciliation/
-│   │   ├── scheduled/
-│   │   ├── suppliers/
-│   │   ├── transactions/
-│   │   └── ...
-│   └── api/              # API Routes
+├── app/
+│   ├── (auth)/
+│   ├── (dashboard)/
+│   └── api/
 ├── components/
-│   ├── ui/              # Componentes Shadcn/UI
-│   ├── dashboard/       # Componentes do Dashboard
-│   ├── sidebar/         # Navegação
-│   └── ...
+├── hooks/                # Hooks SWR (client)
 ├── lib/
-│   ├── queries/        # Queries Prisma (server)
-│   │   ├── accounts.ts
-│   │   ├── accounts-client.ts
-│   │   ├── budgets.ts
-│   │   ├── budgets-client.ts
-│   │   ├── categories.ts
-│   │   ├── categories-client.ts
-│   │   ├── credit-cards.ts
-│   │   ├── credit-cards-client.ts
-│   │   ├── cost-centers.ts
-│   │   ├── cost-centers-client.ts
-│   │   ├── debts.ts
-│   │   ├── debts-client.ts
-│   │   ├── goals.ts
-│   │   ├── goals-client.ts
-│   │   ├── suppliers.ts
-│   │   ├── suppliers-client.ts
-│   │   ├── transactions.ts
-│   │   ├── transactions-client.ts
-│   │   └── ...
-│   ├── prisma.ts       # Prisma Client singleton
-│   └── ...
+│   ├── queries/          # Acesso a dados (server/client)
+│   ├── services/         # Regras de negócio
+│   └── prisma.ts
 ├── prisma/
-│   ├── schema.prisma  # Schema do banco
-│   ├── seed.ts       # Seed do banco
-│   └── migrations/  # Migrações
-└── AGENTS.md        # Este arquivo
+└── AGENTS.md
 ```
 
 ---
 
-## 🗄️ Modelos do Banco (Prisma Schema)
+## 🧱 Camadas da Aplicação
 
-### Modelos Principais
+### 1. Queries (Data Access)
 
-- **Workspace** - Área de trabalho (multi-tenant)
-- **User** - Usuários com roles (ADMIN, MANAGER, VIEWER)
-- **Account** - Contas (carteira, banco, cartão, PIX, investimento)
-- **CreditCard** - Cartões de crédito com limite e faturas
-- **Invoice** - Faturas mensais de cartões
-- **Category** - Categorias de transações (receita/despesa)
-- **Transaction** - Transações financeiras
-- **Supplier** - Fornecedores/Favorecidos
-- **CostCenter** - Centros de custo (hierárquicos)
-- **Tag** - Tags para transações
-- **Transfer** - Transferências entre contas
+- Apenas acesso ao banco via Prisma
+- Nenhuma regra de negócio
+- Server e client separados
 
-### Modelos de Automação
+### 2. Services (Business Logic)
 
-- **RecurringTransaction** - Transações recorrentes
-- **ScheduledTransaction** - Transações agendadas
-- **CategorizationRule** - Regras de categorize automáticas
-- **ConditionalRule** - Regras condicionais
+- Regras de negócio
+- Validações complexas
+- Orquestra queries
 
-### Modelos de Controle
+### 3. Hooks (Client)
 
-- **Budget** - Orçamentos mensais por categoria
-- **Goal** - Metas financeiras
-- **Debt** - Dívidas e empréstimos
+- Consumo via SWR
+- Nunca acessar API direto no componente
 
-### Modelos de Integração Bancária
+### 4. UI (Components)
 
-- **BankAccount** - Contas bancárias vinculadas
-- **BankTransaction** - Transações importadas (OFX/CSV)
-- **Reconciliation** - Reconciliação automática
-
-### Modelos de Análise
-
-- **SpendingPattern** - Padrões de gastos
-- **Anomaly** - Anomalias detectadas
-- **CustomReport** - Relatórios customizados
-- **AIConversation** - Conversas com AI
-
-### Modelos de Sistema
-
-- **Notification** - Notificações
-- **AuditLog** - Logs de auditoria
+- Apenas renderização
+- Sem lógica de dados
 
 ---
 
-## 🛠️ Scripts Disponíveis
+## ⚡ Server Actions vs API Routes
 
-| Comando                   | Descrição                   |
-| :------------------------ | :-------------------------- |
-| `npm run dev`             | Servidor de desenvolvimento |
-| `npm run build`           | Build de produção           |
-| `npm run start`           | Servidor de produção        |
-| `npm run lint`            | Verificação de código       |
-| `npm run docker:dev`      | Subir com Docker            |
-| `npm run docker:dev:down` | Parar Docker                |
+### Server Actions (Padrão)
 
----
+Usar para:
 
-## ⚙️ Como Rodar o Projeto
-
-### 1. Com Docker (Recomendado)
-
-```bash
-npm run docker:dev
-```
-
-Acesse: http://localhost:3000
-
-### 2. Localmente
-
-```bash
-npm install
-npx prisma generate
-npx prisma migrate dev
-npm run dev
-```
-
----
-
-## ✅ Padrões de Código
-
-### Validação e Formulários
-
-- Usar **React Hook Form** + **Zod** para validação
-- Validar campos obrigatórios antes do envio
-- Exibir feedback visual (erros/sucesso)
-- Aplicar máscaras em CPF, telefone, CEP, valores monetários
-- Sanitizar inputs contra XSS
-
-### Arquitetura de Dados
-
-- Todas as consultas ao banco via **Prisma Client**
-- Tipagens automáticas do Prisma
-- Queries separadas em `lib/queries/` (server) e `lib/queries/*-client.ts` (client)
-- API Routes em `/app/api/[recurso]/route.ts`
-
-### UI/UX
-
-- Componentes base do **Shadcn/UI**
-- Design com gradientes suaves e micro-animações
-- **Dark mode** suportado
-- Completamente responsivo
-- Feedback de loading states
+- Create / Update / Delete
+- Ações de formulários
+- Operações internas
 
 ### API Routes
 
-- Retornar `NextResponse.json()` com tipagem Zod
-- Tratar erros com `try/catch` e `NextResponse.error()`
-- Queries server-only: chamar via `lib/queries/`
-- Validação com Zod schema
+Usar apenas quando:
 
-### Naming Conventions
+- Webhooks
+- Integrações externas
+- Endpoints públicos
 
-- PascalCase: arquivos de componentes (`TransactionModal.tsx`)
-- camelCase: variáveis e funções
-- SCREAMING_SNAKE_CASE: constantes e enums
-- Prefixo `-client.ts` para hooks SWR
+❗ Nunca duplicar lógica entre ambos
+
+---
+
+## 🔄 Requisições e Data Fetching (PADRÃO OFICIAL)
+
+### ❌ PROIBIDO
+
+- Fetch direto dentro de componentes
+- Axios/fetch dentro de `useEffect`
+- Lógica de API dentro da UI
+
+---
+
+### ✅ PADRÃO CORRETO
+
+#### 1. Criar Query (server/client)
+
+```ts
+// lib/queries/transactions-client.ts
+export async function getTransactions() {
+  const res = await fetch('/api/transactions');
+  return res.json();
+}
+```
+
+---
+
+#### 2. Criar Hook com SWR
+
+```ts
+// hooks/useTransactions.ts
+import useSWR from 'swr';
+import { getTransactions } from '@/lib/queries/transactions-client';
+
+export function useTransactions() {
+  return useSWR('transactions', getTransactions);
+}
+```
+
+---
+
+#### 3. Usar no componente
+
+```tsx
+const { data, isLoading } = useTransactions();
+```
+
+---
+
+## 🚨 REGRA CRÍTICA
+
+- Componentes **NUNCA** fazem requisições
+- Componentes **SEMPRE** usam hooks
+- Hooks **SEMPRE** usam queries ou Server Actions
+
+---
+
+## 🧠 Gerenciamento de Estado
+
+- Zustand apenas para estado global (UI)
+- NÃO usar para dados do backend
+- Dados remotos → SWR ou Server Components
+- Evitar duplicação de estado
+
+---
+
+## 🧬 Tipagem
+
+- Prisma é a fonte de verdade
+- Nunca duplicar tipos manualmente
+- Usar `z.infer<>` para schemas
+- Tipagem end-to-end obrigatória
+
+---
+
+## 🛠️ Validação e Formulários
+
+- Sempre usar React Hook Form + Zod
+- Schema único por formulário
+- Validar no client e server
+- Feedback visual obrigatório
+- Sanitização contra XSS
+- Evitar useState/useEffect para forms
+
+---
+
+## 🔐 Segurança
+
+- Validar tudo com Zod (server-side)
+- Nunca confiar no client
+- Verificar `workspaceId` sempre
+- Controle por roles (ADMIN, MANAGER, VIEWER)
+  - Só pode criar/alterar/deletar se for ADMIN, MANAGER
+  - Só pode visualizar se for ADMIN, MANAGER ou VIEWER
+- Logs de auditoria obrigatórios
+- Não expor dados sensíveis
+
+---
+
+## ⚡ Performance
+
+- Priorizar Server Components
+- Paginação obrigatória
+- Cache com `revalidate` e SWR
+- Lazy loading quando necessário
+- Evitar re-renderizações
+
+---
+
+## 🧪 Testes
+
+- Unitários para services
+- Integração para queries
+- UI para fluxos críticos
+
+Ferramentas:
+
+- Vitest / Jest
+- Testing Library
+
+---
+
+## 🎨 UI/UX
+
+- Shadcn/UI como base
+- Responsivo
+- Dark mode obrigatório
+- Loading states sempre presentes
+- Micro-animações com Framer Motion
+- Skeleton Loading obrigatorio
+- Empty State obrigatório em tabelas e cards
+
+---
+
+## 🔄 Fluxo Padrão de CRUD
+
+1. Schema (Zod)
+2. Form (React Hook Form)
+3. Server Action / Service
+4. Query (Prisma)
+5. Hook (SWR)
+6. UI (feedback)
+
+❗ Nunca pular etapas
 
 ---
 
 ## 🔐 Autenticação e Autorização
 
-- Roles: `ADMIN`, `MANAGER`, `VIEWER`
-- Autenticação via NextAuth.js
-- Proteger rotas com middleware ou session checks
-- workspaceId sempre requerido para queries multi-tenant
+- NextAuth obrigatório
+- Proteção via middleware/session
+- Multi-tenant com `workspaceId`
+- Controle por roles
+
+---
+
+## 📊 Observabilidade
+
+- Logs estruturados
+- Tratamento centralizado de erros
+- Auditoria em ações críticas
+- Tratamento de erro em todas as ações
+
+---
+
+## 📋 Convenções de Código
+
+- PascalCase → Componentes
+- camelCase → variáveis/funções
+- SCREAMING_SNAKE_CASE → constantes
+- `-client.ts` → client queries
+
+---
+
+## 📦 Scripts
+
+| Comando         | Descrição       |
+| :-------------- | :-------------- |
+| npm run dev     | Desenvolvimento |
+| npm run build   | Build           |
+| npm run start   | Produção        |
+| npm run lint    | Lint            |
+| docker:dev      | Docker up       |
+| docker:dev:down | Docker down     |
+
+---
+
+## 🤖 Diretrizes para Agentes (IA)
+
+- Sempre seguir este documento
+- Nunca criar lógica fora das camadas
+- Nunca fazer fetch em componente
+- Sempre criar hooks para consumo de dados
+- Sempre usar SWR no client
+- Sempre usar Server Actions ou Queries
+- Nunca duplicar código
+- Sempre reutilizar componentes
+- Sempre validar com Zod
+- Sempre respeitar multi-tenant (`workspaceId`)
+- Sempre manter tipagem forte
 
 ---
 
@@ -225,3 +312,19 @@ docs: documentação
 test: testes
 chore: tarefas diversas
 ```
+
+---
+
+## ✅ Checklist antes de implementar
+
+- Existe algo parecido já implementado?
+- Posso reutilizar algum componente/hook?
+- Estou respeitando as camadas?
+- Estou usando tipagem correta?
+- Estou usando Zod?
+- Estou evitando lógica no componente?
+
+---
+
+Este documento é a fonte de verdade para desenvolvimento e uso de IA no projeto.
+Qualquer código fora desses padrões deve ser considerado incorreto.

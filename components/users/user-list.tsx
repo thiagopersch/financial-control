@@ -1,5 +1,6 @@
 'use client';
 
+import { ActionsDataTable } from '@/components/ui/actions-data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
@@ -8,7 +9,7 @@ import { Role, User } from '@prisma/client';
 import { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowUpDown, Edit, Shield, Trash, User as UserIcon } from 'lucide-react';
+import { ArrowUpDown, Shield, User as UserIcon } from 'lucide-react';
 import { useState } from 'react';
 import { DeleteUserModal } from './delete-user-modal';
 import { UserModal } from './user-modal';
@@ -133,25 +134,12 @@ export function UserList({ users, currentUserId, userRole }: UserListProps) {
         const user = row.original;
         const isSelf = user.id === currentUserId;
         return (
-          <div className="space-x-1 text-right whitespace-nowrap">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setEditingUser(user)}
-              className="h-8 w-8 hover:bg-slate-200 dark:hover:bg-slate-700"
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setDeletingId(user.id)}
-              disabled={isSelf}
-              className="h-8 w-8 text-rose-500 hover:bg-rose-50 disabled:opacity-30 dark:hover:bg-rose-900/20"
-            >
-              <Trash className="h-4 w-4" />
-            </Button>
-          </div>
+          <ActionsDataTable
+            row={row}
+            onEdit={() => setEditingUser(user)}
+            onDelete={() => setDeletingId(user.id)}
+            disabledDelete={isSelf}
+          />
         );
       },
     },

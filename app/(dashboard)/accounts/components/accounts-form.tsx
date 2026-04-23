@@ -159,7 +159,7 @@ export function AccountsForm({ isOpen, onClose, account, onSuccess }: AccountsFo
                 <FormLabel>Cor para identificador visual</FormLabel>
                 <FormControl>
                   <div className="flex items-center gap-2">
-                    <Input type="color" className="h-10 w-4/12 p-1" {...field} />
+                    <Input type="color" className="h-10 w-6/12 cursor-pointer p-1" {...field} />
                     <span className="text-muted-foreground ml-2 font-mono text-xs uppercase">
                       {field.value}
                     </span>

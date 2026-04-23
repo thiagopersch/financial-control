@@ -3,7 +3,7 @@
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
 import { TransactionStatus, TransactionType } from '@prisma/client';
-import { addMonths } from 'date-fns';
+import { addMonths, startOfMonth } from 'date-fns';
 import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
@@ -18,6 +18,9 @@ const debtSchema = z.object({
   dueDay: z.number().min(1).max(31).optional().nullable(),
   startDate: z.string(),
   installments: z.coerce.number().min(1).optional().nullable(),
+  calculationType: z.string().optional(),
+  installmentValue: z.coerce.number().positive().optional().nullable(),
+  firstInstallmentMonth: z.string().optional(),
   accountId: z.string().min(1, 'Conta é obrigatória'),
 });
 
@@ -28,8 +31,11 @@ function serializeDebt(debt: any) {
     currentValue: debt.currentValue ? Number(debt.currentValue) : 0,
     interestRate: debt.interestRate != null ? Number(debt.interestRate) : null,
     minimumPayment: debt.minimumPayment ? Number(debt.minimumPayment) : 0,
+    installmentValue: debt.installmentValue != null ? Number(debt.installmentValue) : null,
     dueDay: debt.dueDay ?? null,
     installments: debt.installments ?? null,
+    calculationType: debt.calculationType ?? null,
+    firstInstallmentMonth: debt.firstInstallmentMonth ?? null,
   };
 }
 
@@ -53,6 +59,31 @@ async function getOrCreateDebtCategory(workspaceId: string) {
   });
 }
 
+function calculateInstallmentAmount(
+  initialValue: number,
+  installments: number,
+  calculationType: string | null,
+  installmentValue: number | null
+): number {
+  if (calculationType === 'FIXED_INSTALLMENT' && installmentValue) {
+    return installmentValue;
+  }
+  return Number((initialValue / installments).toFixed(2));
+}
+
+function getStartDateForFirstInstallment(
+  startDate: Date,
+  firstInstallmentMonth: string | null
+): Date {
+  const now = new Date();
+  const currentMonth = startOfMonth(now);
+
+  if (firstInstallmentMonth === 'CURRENT') {
+    return currentMonth;
+  }
+  return addMonths(currentMonth, 1);
+}
+
 export async function createDebt(data: z.infer<typeof debtSchema>) {
   const session = await getServerSession(authOptions);
   if (!session) return { success: false, error: 'Não autorizado' };
@@ -73,6 +104,9 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
           dueDay: validated.dueDay,
           startDate: new Date(validated.startDate),
           installments: validated.installments,
+          calculationType: (validated.calculationType ?? 'TOTAL_DIVIDED') as any,
+          installmentValue: validated.installmentValue,
+          firstInstallmentMonth: (validated.firstInstallmentMonth ?? 'NEXT') as any,
           isActive: true,
           workspaceId,
         },
@@ -89,13 +123,21 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
           throw new Error('Conta não encontrada.');
         }
 
-        const installmentAmount = Number(
-          (validated.initialValue / validated.installments).toFixed(2),
+        const calculationType = validated.calculationType ?? 'TOTAL_DIVIDED';
+        const installmentAmount = calculateInstallmentAmount(
+          validated.initialValue,
+          validated.installments,
+          calculationType,
+          validated.installmentValue ?? null
         );
-        const startDate = new Date(validated.startDate);
+
+        const firstInstallmentDate = getStartDateForFirstInstallment(
+          new Date(validated.startDate),
+          validated.firstInstallmentMonth ?? 'NEXT'
+        );
 
         for (let i = 0; i < validated.installments; i++) {
-          const dueDate = addMonths(startDate, i + 1);
+          const dueDate = addMonths(firstInstallmentDate, i);
 
           await tx.transaction.create({
             data: {
@@ -106,7 +148,7 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
               status: TransactionStatus.PENDING,
               categoryId: category.id,
               accountId: account.id,
-              notes: `[Dívida: ${newDebt.id}] Parcela ${i + 1}/${validated.installments} - ${validated.name}`,
+              notes: `${validated.name} - Parcela ${i + 1}/${validated.installments}`,
               workspaceId,
               debtId: newDebt.id,
               isRecurring: true,
@@ -122,6 +164,7 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
 
     revalidatePath('/debts');
     revalidatePath('/transactions');
+    revalidatePath('/forecast');
     return { success: true, data: serializeDebt(debt) };
   } catch (error) {
     console.error('Error creating debt:', error);
@@ -137,31 +180,146 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
   if (!session) return { success: false, error: 'Não autorizado' };
 
   try {
+    console.log('updateDebt called with:', { id, data });
+    
     const existingDebt = await prisma.debt.findUnique({
       where: { id, workspaceId: session.user.workspaceId },
     });
 
     if (!existingDebt) {
+      console.log('Debt not found:', id);
       return { success: false, error: 'Dívida não encontrada' };
     }
 
-    const paidTransactions = [];
+    console.log('Existing debt:', existingDebt);
+
+    const hasInstallmentChanges =
+      (data.installments !== undefined && data.installments !== existingDebt.installments) ||
+      (data.installmentValue !== undefined && data.installmentValue !== Number(existingDebt.installmentValue)) ||
+      (data.calculationType !== undefined && data.calculationType !== existingDebt.calculationType) ||
+      (data.firstInstallmentMonth !== undefined && data.firstInstallmentMonth !== existingDebt.firstInstallmentMonth);
 
     const updatedData: any = { ...data };
     if (data.startDate) {
       updatedData.startDate = new Date(data.startDate);
     }
+    if (data.calculationType) {
+      updatedData.calculationType = data.calculationType as any;
+    }
+    if (data.firstInstallmentMonth) {
+      updatedData.firstInstallmentMonth = data.firstInstallmentMonth as any;
+    }
+    if (data.installmentValue !== undefined) {
+      updatedData.installmentValue = data.installmentValue;
+    }
+    if (data.installments !== undefined) {
+      updatedData.installments = data.installments;
+    }
 
-    const debt = await prisma.debt.update({
-      where: { id, workspaceId: session.user.workspaceId },
-      data: updatedData,
+    const debt = await prisma.$transaction(async (tx) => {
+      const updatedDebt = await tx.debt.update({
+        where: { id, workspaceId: session.user.workspaceId },
+        data: updatedData,
+      });
+
+      if (hasInstallmentChanges) {
+        const pendingTransactions = await tx.transaction.findMany({
+          where: {
+            debtId: id,
+            status: { in: [TransactionStatus.PENDING, TransactionStatus.OVERDUE] },
+          },
+        });
+
+        if (pendingTransactions.length > 0) {
+          await tx.transaction.deleteMany({
+            where: {
+              id: { in: pendingTransactions.map((t) => t.id) },
+            },
+          });
+        }
+
+        const installments = data.installments ?? existingDebt.installments;
+        const calculationType = data.calculationType ?? existingDebt.calculationType ?? 'TOTAL_DIVIDED';
+        const installmentValue = data.installmentValue != null 
+          ? data.installmentValue 
+          : existingDebt.installmentValue 
+            ? Number(existingDebt.installmentValue) 
+            : null;
+        const firstInstallmentMonth = data.firstInstallmentMonth ?? existingDebt.firstInstallmentMonth ?? 'NEXT';
+
+        if (installments && installments > 0) {
+          const category = await getOrCreateDebtCategory(session.user.workspaceId);
+
+          const accountId = pendingTransactions[0]?.accountId ?? data.accountId;
+          
+          if (!accountId) {
+            const firstTx = await tx.transaction.findFirst({
+              where: { debtId: id },
+              select: { accountId: true },
+            });
+            if (firstTx?.accountId) {
+              const acc = await tx.account.findUnique({ where: { id: firstTx.accountId } });
+              if (!acc) throw new Error('Conta não encontrada para atualizar parcelas');
+            } else {
+              throw new Error('Conta não encontrada para atualizar parcelas');
+            }
+          }
+
+          const account = await tx.account.findUnique({
+            where: { id: accountId },
+          });
+
+          const installmentAmount = calculateInstallmentAmount(
+            Number(existingDebt.initialValue),
+            installments,
+            calculationType,
+            installmentValue
+          );
+
+          const startDate = existingDebt.startDate;
+          const firstInstallmentDate = getStartDateForFirstInstallment(
+            startDate,
+            firstInstallmentMonth
+          );
+
+          for (let i = 0; i < installments; i++) {
+            const dueDate = addMonths(firstInstallmentDate, i);
+
+            await tx.transaction.create({
+              data: {
+                type: TransactionType.EXPENSE,
+                amount: installmentAmount,
+                date: dueDate,
+                dueDate,
+                status: TransactionStatus.PENDING,
+                categoryId: category.id,
+                accountId: account?.id ?? accountId ?? '',
+                notes: `${existingDebt.name} - Parcela ${i + 1}/${installments}`,
+                workspaceId: session.user.workspaceId,
+                debtId: id,
+                isRecurring: true,
+                recurrenceType: 'INSTALLMENTS' as const,
+                installments,
+              },
+            });
+          }
+        }
+      }
+
+      return updatedDebt;
     });
 
     revalidatePath('/debts');
+    revalidatePath('/transactions');
+    revalidatePath('/forecast');
     return { success: true, data: serializeDebt(debt) };
   } catch (error) {
     console.error('Error updating debt:', error);
-    return { success: false, error: 'Erro ao atualizar dívida' };
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao atualizar dívida',
+    };
   }
 }
 
@@ -181,7 +339,7 @@ export async function deleteDebt(id: string) {
     const transactions = await prisma.transaction.findMany({
       where: {
         workspaceId: session.user.workspaceId,
-        notes: { contains: `[Dívida: ${id}]` },
+        debtId: id,
       },
     });
 
@@ -199,6 +357,7 @@ export async function deleteDebt(id: string) {
 
     revalidatePath('/debts');
     revalidatePath('/transactions');
+    revalidatePath('/forecast');
     return { success: true };
   } catch (error) {
     console.error('Error deleting debt:', error);

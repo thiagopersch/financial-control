@@ -1,9 +1,5 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { FormDialog } from '@/components/ui/form-dialog';
 import {
   Form,
   FormControl,
@@ -12,14 +8,18 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { FormDialog } from '@/components/ui/form-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  supplierSchema,
   useSupplierForm,
   type SupplierFormValues,
-  supplierSchema,
 } from '@/hooks/forms/use-supplier-form';
 import type { SupplierDTO } from '@/lib/queries/suppliers';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
 
 interface SuppliersFormProps {
   isOpen: boolean;
@@ -43,9 +43,9 @@ export function SuppliersForm({ isOpen, onClose, supplier, onSuccess }: Supplier
     if (supplier) {
       return {
         name: supplier.name,
-        document: supplier.document || '',
-        contact: supplier.contact || '',
-        address: supplier.address || '',
+        document: supplier.document ?? '',
+        contact: supplier.contact ?? '',
+        address: supplier.address ?? '',
       };
     }
     return {
@@ -65,8 +65,7 @@ export function SuppliersForm({ isOpen, onClose, supplier, onSuccess }: Supplier
     if (isOpen) {
       form.reset(defaultValues);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, defaultValues]);
+  }, [isOpen, defaultValues, form]);
 
   const onSubmit = async (values: SupplierFormValues) => {
     setIsSubmitting(true);
@@ -108,7 +107,7 @@ export function SuppliersForm({ isOpen, onClose, supplier, onSuccess }: Supplier
                   <Input
                     placeholder="Ex: 00.000.000/0001-00"
                     {...field}
-                    value={field.value || ''}
+                    value={field.value ?? ''}
                   />
                 </FormControl>
                 <FormMessage />
@@ -122,7 +121,7 @@ export function SuppliersForm({ isOpen, onClose, supplier, onSuccess }: Supplier
               <FormItem>
                 <FormLabel>Contato</FormLabel>
                 <FormControl>
-                  <Input placeholder="Ex: (11) 99999-9999" {...field} value={field.value || ''} />
+                  <Input placeholder="Ex: (99) 99999-9999" {...field} value={field.value ?? ''} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -138,7 +137,7 @@ export function SuppliersForm({ isOpen, onClose, supplier, onSuccess }: Supplier
                   <Textarea
                     placeholder="Ex: Rua Example, 123 - São Paulo, SP"
                     {...field}
-                    value={field.value || ''}
+                    value={field.value ?? ''}
                   />
                 </FormControl>
                 <FormMessage />

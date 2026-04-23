@@ -214,12 +214,13 @@ export async function chatWithAI(message: string, conversationId?: string): Prom
     if (!session) return { success: false, error: 'Não autorizado' };
 
     const apiKey = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
     if (!apiKey) {
       return {
         success: false,
-        error: 'API key do Gemini não configurada. Configure GEMINI_API_KEY no arquivo .env',
+        error:
+          'API key do Gemini não configurada. Configure a variável de ambiente GEMINI_API_KEY.',
       };
     }
 

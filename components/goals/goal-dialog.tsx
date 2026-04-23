@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Dialog,
   DialogContent,
@@ -10,11 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { createGoal, updateGoal } from '@/lib/actions/goals';
 import { showError, showSuccess, showValidationErrors } from '@/lib/utils/toast';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 
 export interface Goal {
@@ -22,7 +24,7 @@ export interface Goal {
   name: string;
   targetAmount: number;
   currentAmount: number;
-  deadline?: string | null;
+  deadline?: Date | string | null;
   color: string;
 }
 
@@ -51,7 +53,7 @@ const goalSchema = z.object({
     .string()
     .min(1, 'Valor alvo é obrigatório')
     .refine((val) => parseFloat(val) > 0, 'Valor alvo deve ser maior que zero'),
-  deadline: z.string().optional(),
+  deadline: z.coerce.date().nullable().optional(),
   color: z.string(),
 });
 
@@ -63,19 +65,29 @@ export function GoalDialog({ open, onOpenChange, editingGoal, onSuccess }: GoalD
       name: '',
       currentAmount: '0',
       targetAmount: '',
-      deadline: '',
+      deadline: undefined,
       color: '#0ea5e9',
     },
   });
 
   useEffect(() => {
     if (open) {
+      const parseDate = (d: string | Date | null | undefined) => {
+        if (!d) return undefined;
+        if (d instanceof Date) return d;
+        if (typeof d === 'string') {
+          const date = new Date(d);
+          return isNaN(date.getTime()) ? undefined : date;
+        }
+        return undefined;
+      };
+
       if (editingGoal) {
         form.reset({
           name: editingGoal.name || '',
           currentAmount: String(editingGoal.currentAmount || 0),
           targetAmount: String(editingGoal.targetAmount || 0),
-          deadline: editingGoal.deadline || '',
+          deadline: parseDate(editingGoal.deadline),
           color: editingGoal.color || '#0ea5e9',
         });
       } else {
@@ -83,7 +95,7 @@ export function GoalDialog({ open, onOpenChange, editingGoal, onSuccess }: GoalD
           name: '',
           currentAmount: '0',
           targetAmount: '',
-          deadline: '',
+          deadline: undefined,
           color: '#0ea5e9',
         });
       }
@@ -103,7 +115,7 @@ export function GoalDialog({ open, onOpenChange, editingGoal, onSuccess }: GoalD
         name: data.name,
         currentAmount: parseFloat(data.currentAmount),
         targetAmount: parseFloat(data.targetAmount),
-        deadline: data.deadline ? new Date(data.deadline) : null,
+        deadline: data.deadline || null,
         color: data.color,
       };
 
@@ -179,10 +191,21 @@ export function GoalDialog({ open, onOpenChange, editingGoal, onSuccess }: GoalD
               </div>
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="deadline">Prazo (opcional)</Label>
-              <Input id="deadline" type="date" {...form.register('deadline')} />
-            </div>
+            <Controller
+              name="deadline"
+              control={form.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel htmlFor="deadline">Prazo (opcional)</FieldLabel>
+                  <DatePicker
+                    date={field.value ?? undefined}
+                    setDate={(date) => field.onChange(date ?? null)}
+                    placeholder="Selecione uma data"
+                  />
+                  <FieldError errors={[form.formState.errors.deadline]} />
+                </Field>
+              )}
+            />
 
             <div className="grid gap-2">
               <Label>Cor</Label>

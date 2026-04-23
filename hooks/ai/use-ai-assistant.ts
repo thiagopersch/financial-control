@@ -71,7 +71,7 @@ export function useAIAssistant() {
         refreshConversations();
         showSuccess('Nova conversa criada');
       }
-    } catch (error) {
+    } catch {
       showError('Erro ao criar conversa');
     }
   }, [refreshConversations]);

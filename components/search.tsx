@@ -9,7 +9,7 @@ type SearchInputProps = {
 
 export function SearchInput({ searchParams, handleSearch }: SearchInputProps) {
   return (
-    <div className="mb-4 flex w-5xl items-center gap-2">
+    <div className="mb-4 flex w-5xl items-center gap-2 max-md:w-full">
       <div className="relative flex-1">
         <Search className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
         <Input

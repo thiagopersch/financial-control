@@ -1,5 +1,6 @@
 'use client';
 
+import { ActionsDataTable } from '@/components/ui/actions-data-table';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
@@ -7,7 +8,7 @@ import { deleteSupplier } from '@/lib/actions/suppliers';
 import type { SupplierDTO } from '@/lib/queries/suppliers';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, Edit, MapPin, Phone, Trash2 } from 'lucide-react';
+import { ArrowUpDown, MapPin, Phone } from 'lucide-react';
 import { useState } from 'react';
 import { SuppliersForm } from './suppliers-form';
 import { SuppliersHeader } from './suppliers-header';
@@ -89,7 +90,7 @@ export function SuppliersList({ suppliers, onRefresh }: SuppliersListProps) {
       header: 'Endereço',
       cell: ({ row }) => (
         <div className="flex max-w-[200px] items-center gap-1 truncate">
-          <MapPin className="text-muted-foreground h-3 w-3 flex-shrink-0" />
+          <MapPin className="text-muted-foreground h-3 w-3 shrink-0" />
           <span className="truncate">{row.original.address || '-'}</span>
         </div>
       ),
@@ -97,26 +98,7 @@ export function SuppliersList({ suppliers, onRefresh }: SuppliersListProps) {
     {
       id: 'actions',
       header: () => <div className="text-right">Ações</div>,
-      cell: ({ row }) => (
-        <div className="space-x-2 text-right whitespace-nowrap">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => openEdit(row.original)}
-            className="h-8 w-8 hover:bg-slate-200 dark:hover:bg-slate-700"
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleDelete(row.original.id)}
-            className="h-8 w-8 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => <ActionsDataTable row={row} onEdit={openEdit} onDelete={handleDelete} />,
     },
   ];
 
