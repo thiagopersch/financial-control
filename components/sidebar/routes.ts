@@ -19,6 +19,7 @@ import {
   Settings,
   Sparkles,
   Tag,
+  Tags,
   Target,
   TrendingUp,
   Truck,
@@ -109,6 +110,12 @@ const categoriesRoutes: Route[] = [
     icon: Truck,
     href: '/suppliers',
     color: 'text-orange-700',
+  },
+  {
+    label: 'Tags',
+    icon: Tags,
+    href: '/tags',
+    color: 'text-fuchsia-500',
   },
 ];
 

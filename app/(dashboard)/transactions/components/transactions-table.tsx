@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import {
   Category,
   Supplier,
+  Tag,
   Transaction,
   TransactionStatus,
   TransactionType,
@@ -43,6 +44,7 @@ type SerializedTransaction = Omit<Transaction, 'amount'> & {
   category: Category;
   supplier: Supplier | null;
   account: any | null;
+  tags: Tag[];
   isRecurring: boolean;
   recurrenceType: string | null;
 };
@@ -52,6 +54,8 @@ interface TransactionsTableProps {
   categories: Category[];
   suppliers: Supplier[];
   accounts: any[];
+  tags?: { id: string; name: string; color: string | null }[];
+  debts?: { id: string; name: string; currentValue: number; installments: number | null }[];
   userRole?: string;
 }
 
@@ -118,6 +122,8 @@ export function TransactionsTable({
   categories,
   suppliers,
   accounts,
+  tags = [],
+  debts = [],
   userRole,
 }: TransactionsTableProps) {
   const [editingTransaction, setEditingTransaction] = useState<SerializedTransaction | null>(null);
@@ -228,6 +234,33 @@ export function TransactionsTable({
         );
       },
       cell: ({ row }) => row.original.supplier?.name || '-',
+    },
+    {
+      id: 'tags',
+      header: 'Tags',
+      cell: ({ row }) => {
+        const transactionTags = (row.original as any).tags || [];
+        if (transactionTags.length === 0) return null;
+        return (
+          <div className="flex max-w-[160px] flex-wrap gap-1">
+            {transactionTags.slice(0, 3).map((tag: Tag) => (
+              <span
+                key={tag.id}
+                className="inline-block truncate rounded-md px-1.5 py-0.5 text-xs"
+                style={{
+                  backgroundColor: (tag.color || '#6366f1') + '20',
+                  color: tag.color || '#6366f1',
+                }}
+              >
+                {tag.name}
+              </span>
+            ))}
+            {transactionTags.length > 3 && (
+              <span className="text-muted-foreground text-xs">+{transactionTags.length - 3}</span>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'date',
@@ -420,6 +453,8 @@ export function TransactionsTable({
         categories={categories}
         suppliers={suppliers}
         accounts={accounts}
+        tags={tags}
+        debts={debts}
       />
 
       <DeleteConfirmModal

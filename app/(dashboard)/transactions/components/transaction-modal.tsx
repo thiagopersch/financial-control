@@ -2,6 +2,14 @@
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { DatePicker } from '@/components/ui/date-picker';
 import {
   Dialog,
@@ -13,6 +21,7 @@ import {
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -21,12 +30,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import { createTransaction, updateTransaction } from '@/lib/actions/transactions';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TransactionStatus, TransactionType } from '@prisma/client';
 import { parse } from 'date-fns';
-import { Loader2, Repeat } from 'lucide-react';
+import { Check, ChevronsUpDown, Loader2, Repeat, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -45,6 +55,8 @@ const transactionSchema = z.object({
   isRecurring: z.boolean().default(false),
   recurrenceType: z.enum(['CONTINUOUS', 'INSTALLMENTS']).nullable().optional(),
   installments: z.coerce.number().min(1, 'Deve ser no mínimo 1 parcela').nullable().optional(),
+  tagIds: z.array(z.string()).default([]),
+  debtId: z.string().nullable().optional(),
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
@@ -56,6 +68,8 @@ interface TransactionModalProps {
   suppliers: { id: string; name: string }[];
   accounts: { id: string; name: string; color: string }[];
   costCenters?: { id: string; name: string }[];
+  tags?: { id: string; name: string; color: string | null }[];
+  debts?: { id: string; name: string; currentValue: number; installments: number | null }[];
   initialData?: any;
 }
 
@@ -66,9 +80,13 @@ export function TransactionModal({
   suppliers,
   accounts,
   costCenters = [],
+  tags = [],
+  debts = [],
   initialData,
 }: TransactionModalProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [tagSearchOpen, setTagSearchOpen] = useState(false);
+  const [debtSearchOpen, setDebtSearchOpen] = useState(false);
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema) as any,
@@ -85,6 +103,8 @@ export function TransactionModal({
       isRecurring: false,
       recurrenceType: 'CONTINUOUS',
       installments: 1,
+      tagIds: [],
+      debtId: null,
     },
   });
 
@@ -120,6 +140,8 @@ export function TransactionModal({
         isRecurring: initialData.isRecurring || false,
         recurrenceType: initialData.recurrenceType || 'CONTINUOUS',
         installments: initialData.installments || 1,
+        tagIds: initialData.tags?.map((t: any) => t.id) || [],
+        debtId: initialData.debtId || null,
       });
     } else {
       form.reset({
@@ -135,6 +157,8 @@ export function TransactionModal({
         isRecurring: false,
         recurrenceType: 'CONTINUOUS',
         installments: 1,
+        tagIds: [],
+        debtId: null,
       });
     }
   }, [isOpen, initialData, form]);
@@ -173,294 +197,469 @@ export function TransactionModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[95dvh] flex-col sm:max-w-[500px]">
+        <DialogHeader className="shrink-0">
           <DialogTitle>{initialData ? 'Editar Transação' : 'Nova Transação'}</DialogTitle>
           <DialogDescription>Insira os detalhes da receita ou despesa.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="w-full min-w-0 space-y-4 pt-4">
-          <Controller
-            name="status"
-            control={form.control}
-            render={({ field }) => (
-              <Field>
-                <FieldLabel htmlFor="status">Status</FieldLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  value={field.value}
-                >
-                  <SelectTrigger id="status">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={TransactionStatus.PAID}>
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                        Pago
-                      </div>
-                    </SelectItem>
-                    <SelectItem value={TransactionStatus.PENDING}>
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-amber-500" />
-                        Pendente
-                      </div>
-                    </SelectItem>
-                    <SelectItem value={TransactionStatus.OVERDUE}>
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-rose-500" />
-                        Atrasado
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <FieldError errors={[form.formState.errors.status]} />
-              </Field>
-            )}
-          />
-
-          <Controller
-            name="type"
-            control={form.control}
-            render={({ field }) => (
-              <Field>
-                <FieldLabel htmlFor="type">Tipo</FieldLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  value={field.value}
-                >
-                  <SelectTrigger id="type">
-                    <SelectValue placeholder="Tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={TransactionType.INCOME}>
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                        Receita
-                      </div>
-                    </SelectItem>
-                    <SelectItem value={TransactionType.EXPENSE}>
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-rose-500" />
-                        Despesa
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <FieldError errors={[form.formState.errors.type]} />
-              </Field>
-            )}
-          />
-
-          <Controller
-            name="accountId"
-            control={form.control}
-            render={({ field }) => (
-              <Field>
-                <FieldLabel htmlFor="accountId">Conta</FieldLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  value={field.value}
-                >
-                  <SelectTrigger id="accountId">
-                    <SelectValue placeholder="Selecione a conta" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accounts.map((acc) => (
-                      <SelectItem key={acc.id} value={acc.id}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 space-y-4 overflow-y-auto pt-4">
+            <Controller
+              name="status"
+              control={form.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel htmlFor="status">Status</FieldLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    value={field.value}
+                  >
+                    <SelectTrigger id="status">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={TransactionStatus.PAID}>
                         <div className="flex items-center gap-2">
-                          <div
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: acc.color }}
-                          />
-                          {acc.name}
+                          <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                          Pago
                         </div>
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FieldError errors={[form.formState.errors.accountId]} />
-              </Field>
-            )}
-          />
-
-          <Controller
-            name="categoryId"
-            control={form.control}
-            render={({ field }) => (
-              <Field>
-                <FieldLabel htmlFor="categoryId">Categoria</FieldLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  value={field.value}
-                >
-                  <SelectTrigger id="categoryId">
-                    <SelectValue placeholder="Selecione a categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredCategories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
+                      <SelectItem value={TransactionStatus.PENDING}>
                         <div className="flex items-center gap-2">
-                          <div
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: cat.color }}
-                          />
-                          {cat.name}
+                          <div className="h-2 w-2 rounded-full bg-amber-500" />
+                          Pendente
                         </div>
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FieldError errors={[form.formState.errors.categoryId]} />
-              </Field>
-            )}
-          />
-
-          <Field>
-            <FieldLabel htmlFor="amount">Valor (R$)</FieldLabel>
-            <Input
-              id="amount"
-              type="number"
-              step="0.01"
-              placeholder="0,00"
-              {...form.register('amount')}
+                      <SelectItem value={TransactionStatus.OVERDUE}>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-rose-500" />
+                          Atrasado
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FieldError errors={[form.formState.errors.status]} />
+                </Field>
+              )}
             />
-            <FieldError errors={[form.formState.errors.amount]} />
-          </Field>
-          <Controller
-            name="date"
-            control={form.control}
-            render={({ field }) => (
-              <Field>
-                <FieldLabel htmlFor="date">Data</FieldLabel>
-                <DatePicker date={field.value} setDate={field.onChange} />
-                <FieldError errors={[form.formState.errors.date]} />
-              </Field>
-            )}
-          />
 
-          <Controller
-            name="costCenterId"
-            control={form.control}
-            render={({ field }) => (
-              <Field>
-                <FieldLabel htmlFor="costCenterId">Centro de Custo (opcional)</FieldLabel>
-                <Select onValueChange={field.onChange} value={field.value || 'none'}>
-                  <SelectTrigger id="costCenterId">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {costCenters.map((cc) => (
-                      <SelectItem key={cc.id} value={cc.id}>
-                        {cc.name}
+            <Controller
+              name="type"
+              control={form.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel htmlFor="type">Tipo</FieldLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    value={field.value}
+                  >
+                    <SelectTrigger id="type">
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={TransactionType.INCOME}>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                          Receita
+                        </div>
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FieldError errors={[form.formState.errors.costCenterId]} />
-              </Field>
-            )}
-          />
-
-          <Controller
-            name="supplierId"
-            control={form.control}
-            render={({ field }) => (
-              <Field>
-                <FieldLabel htmlFor="supplierId">Fornecedor (opcional)</FieldLabel>
-                <Select onValueChange={field.onChange} value={field.value || 'none'}>
-                  <SelectTrigger id="supplierId">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {suppliers.map((sup) => (
-                      <SelectItem key={sup.id} value={sup.id}>
-                        {sup.name}
+                      <SelectItem value={TransactionType.EXPENSE}>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-rose-500" />
+                          Despesa
+                        </div>
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FieldError errors={[form.formState.errors.supplierId]} />
-              </Field>
-            )}
-          />
+                    </SelectContent>
+                  </Select>
+                  <FieldError errors={[form.formState.errors.type]} />
+                </Field>
+              )}
+            />
 
-          <div className="space-y-4 rounded-lg border p-4">
-            <div className="flex items-center space-x-2">
-              <Controller
-                name="isRecurring"
-                control={form.control}
-                render={({ field }) => (
-                  <Checkbox
-                    id="isRecurring"
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                )}
+            <Controller
+              name="accountId"
+              control={form.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel htmlFor="accountId">Conta</FieldLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    value={field.value}
+                  >
+                    <SelectTrigger id="accountId">
+                      <SelectValue placeholder="Selecione a conta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((acc) => (
+                        <SelectItem key={acc.id} value={acc.id}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: acc.color }}
+                            />
+                            {acc.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldError errors={[form.formState.errors.accountId]} />
+                </Field>
+              )}
+            />
+
+            <Controller
+              name="categoryId"
+              control={form.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel htmlFor="categoryId">Categoria</FieldLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    value={field.value}
+                  >
+                    <SelectTrigger id="categoryId">
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredCategories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: cat.color }}
+                            />
+                            {cat.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldError errors={[form.formState.errors.categoryId]} />
+                </Field>
+              )}
+            />
+
+            <Field>
+              <FieldLabel htmlFor="amount">Valor (R$)</FieldLabel>
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                placeholder="0,00"
+                {...form.register('amount')}
               />
-              <Label htmlFor="isRecurring" className="flex cursor-pointer items-center gap-2">
-                <Repeat className="text-muted-foreground h-4 w-4" />
-                Recorrente?
-              </Label>
-            </div>
+              <FieldError errors={[form.formState.errors.amount]} />
+            </Field>
+            <Controller
+              name="date"
+              control={form.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel htmlFor="date">Data</FieldLabel>
+                  <DatePicker date={field.value} setDate={field.onChange} />
+                  <FieldError errors={[form.formState.errors.date]} />
+                </Field>
+              )}
+            />
 
-            {isRecurring && (
-              <div className="grid grid-cols-2 gap-4 pt-2">
+            <Controller
+              name="costCenterId"
+              control={form.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel htmlFor="costCenterId">Centro de Custo (opcional)</FieldLabel>
+                  <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                    <SelectTrigger id="costCenterId">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {costCenters.map((cc) => (
+                        <SelectItem key={cc.id} value={cc.id}>
+                          {cc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldError errors={[form.formState.errors.costCenterId]} />
+                </Field>
+              )}
+            />
+
+            <Controller
+              name="supplierId"
+              control={form.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel htmlFor="supplierId">Fornecedor (opcional)</FieldLabel>
+                  <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                    <SelectTrigger id="supplierId">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {suppliers.map((sup) => (
+                        <SelectItem key={sup.id} value={sup.id}>
+                          {sup.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldError errors={[form.formState.errors.supplierId]} />
+                </Field>
+              )}
+            />
+
+            <Field>
+              <FieldLabel htmlFor="notes">Observações</FieldLabel>
+              <Textarea
+                id="notes"
+                rows={4}
+                maxLength={100}
+                placeholder="Detalhes da transação..."
+                {...form.register('notes')}
+              />
+              <FieldError errors={[form.formState.errors.notes]} />
+            </Field>
+
+            <Controller
+              name="debtId"
+              control={form.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel>Vincular Dívida (opcional)</FieldLabel>
+                  <Popover open={debtSearchOpen} onOpenChange={setDebtSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={debtSearchOpen}
+                        className="w-full justify-between"
+                      >
+                        {field.value
+                          ? debts.find((d) => d.id === field.value)?.name || 'Selecione...'
+                          : 'Nenhuma'}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Buscar dívida..." />
+                        <CommandList>
+                          <CommandEmpty>Nenhuma dívida encontrada.</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem
+                              value="none"
+                              onSelect={() => {
+                                field.onChange(null);
+                                setDebtSearchOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  'mr-2 h-4 w-4',
+                                  !field.value ? 'opacity-100' : 'opacity-0',
+                                )}
+                              />
+                              Nenhuma
+                            </CommandItem>
+                            {debts.map((debt) => (
+                              <CommandItem
+                                key={debt.id}
+                                value={debt.name}
+                                onSelect={() => {
+                                  field.onChange(debt.id);
+                                  setDebtSearchOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    'mr-2 h-4 w-4',
+                                    field.value === debt.id ? 'opacity-100' : 'opacity-0',
+                                  )}
+                                />
+                                <div className="flex flex-col">
+                                  <span>{debt.name}</span>
+                                  <span className="text-muted-foreground text-xs">
+                                    R${' '}
+                                    {debt.currentValue.toLocaleString('pt-BR', {
+                                      minimumFractionDigits: 2,
+                                    })}
+                                    {debt.installments ? ` - ${debt.installments}x` : ''}
+                                  </span>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <FieldError errors={[form.formState.errors.debtId]} />
+                </Field>
+              )}
+            />
+
+            <Controller
+              name="tagIds"
+              control={form.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel>Tags</FieldLabel>
+                  <Popover open={tagSearchOpen} onOpenChange={setTagSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={tagSearchOpen}
+                        className="w-full justify-between"
+                      >
+                        {field.value.length > 0
+                          ? `${field.value.length} tag(s) selecionada(s)`
+                          : 'Selecione tags...'}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Buscar tag..." />
+                        <CommandList>
+                          <CommandEmpty>Nenhuma tag encontrada.</CommandEmpty>
+                          <CommandGroup>
+                            {tags.map((tag) => {
+                              const isSelected = field.value.includes(tag.id);
+                              return (
+                                <CommandItem
+                                  key={tag.id}
+                                  value={tag.name}
+                                  onSelect={() => {
+                                    if (isSelected) {
+                                      field.onChange(
+                                        field.value.filter((id: string) => id !== tag.id),
+                                      );
+                                    } else {
+                                      field.onChange([...field.value, tag.id]);
+                                    }
+                                  }}
+                                >
+                                  <div
+                                    className="mr-2 h-2 w-2 rounded-full"
+                                    style={{ backgroundColor: tag.color || '#6366f1' }}
+                                  />
+                                  {tag.name}
+                                  <Check
+                                    className={cn(
+                                      'ml-auto h-4 w-4',
+                                      isSelected ? 'opacity-100' : 'opacity-0',
+                                    )}
+                                  />
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {field.value.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {field.value.map((tagId: string) => {
+                        const tag = tags.find((t) => t.id === tagId);
+                        if (!tag) return null;
+                        return (
+                          <span
+                            key={tag.id}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs"
+                            style={{
+                              backgroundColor: tag.color + '20',
+                              color: tag.color || '#6366f1',
+                            }}
+                          >
+                            {tag.name}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                field.onChange(field.value.filter((id: string) => id !== tag.id))
+                              }
+                              className="ml-0.5 hover:opacity-70"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <FieldError errors={[form.formState.errors.tagIds]} />
+                </Field>
+              )}
+            />
+
+            <div className="space-y-4 rounded-lg border p-4">
+              <div className="flex items-center space-x-2">
                 <Controller
-                  name="recurrenceType"
+                  name="isRecurring"
                   control={form.control}
                   render={({ field }) => (
-                    <Field>
-                      <FieldLabel htmlFor="recurrenceType">Frequência</FieldLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ''}>
-                        <SelectTrigger id="recurrenceType">
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="CONTINUOUS">Contínua (12m)</SelectItem>
-                          <SelectItem value="INSTALLMENTS">Parcelada</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FieldError errors={[form.formState.errors.recurrenceType]} />
-                    </Field>
+                    <Checkbox
+                      id="isRecurring"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
                   )}
                 />
-
-                {recurrenceType === 'INSTALLMENTS' && (
-                  <Field>
-                    <FieldLabel htmlFor="installments">Parcelas</FieldLabel>
-                    <Input
-                      id="installments"
-                      type="number"
-                      min="1"
-                      placeholder="Ex: 3"
-                      {...form.register('installments')}
-                    />
-                    <FieldError errors={[form.formState.errors.installments]} />
-                  </Field>
-                )}
+                <Label htmlFor="isRecurring" className="flex cursor-pointer items-center gap-2">
+                  <Repeat className="text-muted-foreground h-4 w-4" />
+                  Recorrente?
+                </Label>
               </div>
-            )}
+
+              {isRecurring && (
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <Controller
+                    name="recurrenceType"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Field>
+                        <FieldLabel htmlFor="recurrenceType">Frequência</FieldLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                          <SelectTrigger id="recurrenceType">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="CONTINUOUS">Contínua (12m)</SelectItem>
+                            <SelectItem value="INSTALLMENTS">Parcelada</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FieldError errors={[form.formState.errors.recurrenceType]} />
+                      </Field>
+                    )}
+                  />
+
+                  {recurrenceType === 'INSTALLMENTS' && (
+                    <Field>
+                      <FieldLabel htmlFor="installments">Parcelas</FieldLabel>
+                      <Input
+                        id="installments"
+                        type="number"
+                        min="1"
+                        placeholder="Ex: 3"
+                        {...form.register('installments')}
+                      />
+                      <FieldError errors={[form.formState.errors.installments]} />
+                    </Field>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-          <Field>
-            <FieldLabel htmlFor="notes">Observações</FieldLabel>
-            <Textarea
-              id="notes"
-              rows={4}
-              maxLength={100}
-              placeholder="Detalhes da transação..."
-              {...form.register('notes')}
-            />
-            <FieldError errors={[form.formState.errors.notes]} />
-          </Field>
-
-          <div className="flex justify-end gap-2 pt-4 max-md:flex-col-reverse">
+          <div className="flex shrink-0 justify-end gap-2 border-t p-4 max-md:flex-col-reverse">
             <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
               Cancelar
             </Button>

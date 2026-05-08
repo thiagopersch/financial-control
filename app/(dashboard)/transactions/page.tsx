@@ -91,13 +91,14 @@ export default async function TransactionsPage({
     ];
   }
 
-  const [rawTransactions, categories, suppliers, accounts] = await Promise.all([
+  const [rawTransactions, categories, suppliers, accounts, tags, debts] = await Promise.all([
     prisma.transaction.findMany({
       where,
       include: {
         category: true,
         supplier: true,
         account: true,
+        tags: true,
       },
       orderBy: {
         date: 'desc',
@@ -115,8 +116,14 @@ export default async function TransactionsPage({
       where: { workspaceId: session.user.workspaceId },
       orderBy: { name: 'asc' },
     }),
-    getAvailableRange(),
-    getTransactionCountsByYear(),
+    prisma.tag.findMany({
+      where: { workspaceId: session.user.workspaceId },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.debt.findMany({
+      where: { workspaceId: session.user.workspaceId, isActive: true },
+      orderBy: { name: 'asc' },
+    }),
   ]);
 
   const transactions = rawTransactions.map((transaction) => ({
@@ -133,12 +140,27 @@ export default async function TransactionsPage({
     ...a,
   }));
 
+  const formattedTags = tags.map((tag) => ({
+    id: tag.id,
+    name: tag.name,
+    color: tag.color,
+  }));
+
+  const formattedDebts = debts.map((debt) => ({
+    id: debt.id,
+    name: debt.name,
+    currentValue: Number(debt.currentValue),
+    installments: debt.installments,
+  }));
+
   return (
     <div className="animate-in fade-in space-y-6 duration-300">
       <TransactionsHeader
         categories={categories}
         suppliers={suppliers}
         accounts={formattedAccounts}
+        tags={formattedTags}
+        debts={formattedDebts}
         availableRange={availableRange}
         transactionCounts={transactionCounts}
         userRole={session.user.role}
@@ -148,6 +170,8 @@ export default async function TransactionsPage({
         categories={categories}
         suppliers={suppliers}
         accounts={formattedAccounts}
+        tags={formattedTags}
+        debts={formattedDebts}
         userRole={session.user.role}
       />
     </div>

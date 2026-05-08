@@ -14,7 +14,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d financial_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d financial_db"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -31,7 +31,7 @@ services:
     user: "1000:1000"
     command: sh -c "npm install && npx prisma generate && npm run dev"
     environment:
-      DATABASE_URL: "postgresql://admin:admin123@postgres:5432/financial_db?schema=public"
+      DATABASE_URL: ${DATABASE_URL}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NEXTAUTH_URL: ${NEXTAUTH_URL}
       WATCHPACK_POLLING: "true"

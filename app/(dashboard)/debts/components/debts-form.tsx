@@ -26,13 +26,14 @@ const defaultValues = {
   create: {
     name: '',
     description: '',
-    initialValue: '',
-    interestRate: '',
-    minimumPayment: '',
+    initialValue: 0 as number | '',
+    currentValue: undefined as number | undefined,
+    interestRate: null as number | null,
+    minimumPayment: 0 as number | '',
     dueDay: 1,
-    installments: '',
+    installments: null as number | null,
     calculationType: 'TOTAL_DIVIDED',
-    installmentValue: '',
+    installmentValue: null as number | null,
     firstInstallmentMonth: 'NEXT',
     accountId: '',
   },
@@ -98,20 +99,21 @@ export function DebtsForm({ isOpen, onClose, debt, accounts = [], onSuccess }: D
   }, [isOpen, debt, form]);
 
   const onSubmit = async (values: any) => {
+    console.log('[DebtsForm] onSubmit triggered', { values, errors: form.formState.errors });
     setIsSubmitting(true);
     try {
       if (type === 'create') {
         const createValues: CreateDebtFormValues = {
           name: values.name,
           description: values.description || undefined,
-          initialValue: parseFloat(values.initialValue) || 0,
-          currentValue: parseFloat(values.initialValue) || 0,
-          minimumPayment: parseFloat(values.minimumPayment) || 0,
-          interestRate: values.interestRate ? parseFloat(values.interestRate) : null,
-          dueDay: values.dueDay ? parseInt(values.dueDay) : null,
-          installments: values.installments ? parseInt(values.installments) : null,
+          initialValue: values.initialValue,
+          currentValue: values.currentValue ?? values.initialValue,
+          minimumPayment: values.minimumPayment,
+          interestRate: values.interestRate ?? null,
+          dueDay: values.dueDay ?? null,
+          installments: values.installments ?? null,
           calculationType: values.calculationType,
-          installmentValue: values.installmentValue ? parseFloat(values.installmentValue) : null,
+          installmentValue: values.installmentValue ?? null,
           firstInstallmentMonth: values.firstInstallmentMonth,
           accountId: values.accountId,
           startDate: new Date().toISOString(),
@@ -130,6 +132,8 @@ export function DebtsForm({ isOpen, onClose, debt, accounts = [], onSuccess }: D
         };
         await handleUpdate(editValues);
       }
+    } catch (err) {
+      console.error('[DebtsForm] onSubmit error:', err);
     } finally {
       setIsSubmitting(false);
     }

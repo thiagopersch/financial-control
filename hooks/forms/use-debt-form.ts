@@ -5,24 +5,33 @@ import type { DebtDTO } from '@/lib/queries/debts';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import * as z from 'zod';
 
+const emptyStringToUndefined = (v: unknown) =>
+  v === '' || v === null || v === undefined ? undefined : Number(v);
+
 export const createDebtSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   description: z.string().optional(),
-  initialValue: z.coerce.number().positive('Valor inicial deve ser maior que zero'),
-  currentValue: z.coerce.number().positive('Valor atual deve ser maior que zero'),
-  interestRate: z.coerce.number().min(0).optional().nullable(),
-  minimumPayment: z.coerce.number().positive('Pagamento mínimo é obrigatório'),
+  initialValue: z.preprocess(
+    (v) => (v === '' || v === undefined ? undefined : Number(v)),
+    z.number().min(0.01, 'Valor inicial deve ser maior que zero'),
+  ),
+  currentValue: z.preprocess(emptyStringToUndefined, z.number().optional()),
+  interestRate: z.preprocess(emptyStringToUndefined, z.number().min(0).optional()),
+  minimumPayment: z.preprocess(
+    (v) => (v === '' || v === undefined ? undefined : Number(v)),
+    z.number().min(0.01, 'Pagamento mínimo é obrigatório'),
+  ),
   dueDay: z.coerce
     .number()
     .min(1, { message: 'Dia do vencimento deve ser maior que zero' })
     .max(31, { message: 'Dia do vencimento deve ser no máximo que 31' })
     .optional()
     .nullable(),
-  startDate: z.string(),
-  installments: z.coerce.number().min(1).optional().nullable(),
+  startDate: z.string().optional(),
+  installments: z.preprocess(emptyStringToUndefined, z.number().min(1).optional()),
   accountId: z.string().min(1, 'Conta é obrigatória'),
   calculationType: z.string().optional(),
-  installmentValue: z.coerce.number().positive().optional().nullable(),
+  installmentValue: z.preprocess(emptyStringToUndefined, z.number().positive().optional()),
   firstInstallmentMonth: z.string().optional(),
 });
 

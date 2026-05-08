@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { CreditCardsList } from './components/credit-cards-list';
 import type { AccountDTO } from '@/lib/queries/accounts';
 
@@ -9,5 +10,13 @@ interface CreditCardsClientProps {
 }
 
 export function CreditCardsClient({ creditCards, accounts }: CreditCardsClientProps) {
-  return <CreditCardsList creditCards={creditCards} accounts={accounts} onRefresh={() => {}} />;
+  const router = useRouter();
+
+  return (
+    <CreditCardsList
+      creditCards={creditCards}
+      accounts={accounts}
+      onRefresh={() => router.refresh()}
+    />
+  );
 }

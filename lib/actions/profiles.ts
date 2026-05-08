@@ -2,6 +2,7 @@
 
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
+import bcrypt from 'bcryptjs';
 import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
@@ -31,7 +32,7 @@ export async function updateProfile(data: z.infer<typeof profileSchema>) {
 
     revalidatePath('/profiles');
     return { success: true };
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Erro ao atualizar perfil' };
   }
 }
@@ -40,12 +41,12 @@ export async function updatePassword(data: { currentPassword: string; newPasswor
   const session = await getServerSession(authOptions);
   if (!session) return { success: false, error: 'Não autorizado' };
 
-  const bcrypt = await import('bcrypt');
+  const { currentPassword, newPassword } = data;
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) return { success: false, error: 'Usuário não encontrado' };
 
-  const isValid = await bcrypt.compare(data.currentPassword, user.password);
+  const isValid = await bcrypt.compare(currentPassword, user.password);
   if (!isValid) return { success: false, error: 'Senha atual incorreta' };
 
   if (data.newPassword.length < 6)

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { DebtsList } from '@/app/(dashboard)/debts/components/debts-list';
 import type { DebtDTO } from '@/lib/queries/debts';
 
@@ -8,5 +9,7 @@ interface DebtsClientProps {
 }
 
 export function DebtsClient({ debts }: DebtsClientProps) {
-  return <DebtsList debts={debts} onRefresh={() => {}} />;
+  const router = useRouter();
+
+  return <DebtsList debts={debts} onRefresh={() => router.refresh()} />;
 }

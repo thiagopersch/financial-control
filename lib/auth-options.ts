@@ -1,7 +1,6 @@
 import prisma from '@/lib/prisma';
-import { showError } from '@/lib/utils/toast';
 import { Role } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
@@ -15,7 +14,6 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          showError('Credenciais inválidas');
           throw new Error('Credenciais inválidas');
         }
 
@@ -25,14 +23,12 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user || !user.password) {
-          showError('Usuário não encontrado');
           throw new Error('Usuário não encontrado');
         }
 
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
 
         if (!isPasswordValid) {
-          showError('Senha incorreta');
           throw new Error('Senha incorreta');
         }
 

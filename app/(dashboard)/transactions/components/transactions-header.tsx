@@ -13,6 +13,8 @@ interface TransactionsHeaderProps {
   categories: { id: string; name: string; type: string; color: string }[];
   suppliers: any[];
   accounts: any[];
+  tags?: { id: string; name: string; color: string | null }[];
+  debts?: { id: string; name: string; currentValue: number; installments: number | null }[];
   availableRange?: {
     minDate: Date | string | null;
     maxDate: Date | string | null;
@@ -25,6 +27,8 @@ export function TransactionsHeader({
   categories,
   suppliers,
   accounts,
+  tags = [],
+  debts = [],
   availableRange,
   transactionCounts,
   userRole,
@@ -114,6 +118,8 @@ export function TransactionsHeader({
         categories={categories}
         suppliers={suppliers}
         accounts={accounts}
+        tags={tags}
+        debts={debts}
       />
 
       <TransferModal

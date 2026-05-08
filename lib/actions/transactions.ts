@@ -23,6 +23,8 @@ const transactionSchema = z.object({
   isRecurring: z.boolean().default(false),
   recurrenceType: z.enum(['CONTINUOUS', 'INSTALLMENTS']).nullable().optional(),
   installments: z.coerce.number().min(1).nullable().optional(),
+  tagIds: z.array(z.string()).default([]),
+  debtId: z.string().nullable().optional(),
 });
 
 export async function createTransaction(data: z.infer<typeof transactionSchema>) {
@@ -43,7 +45,6 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
       }
 
       const result = await prisma.$transaction(async (tx) => {
-        // Criar a primeira transação (pai)
         const parentTransaction = await tx.transaction.create({
           data: {
             type: validated.type,
@@ -60,10 +61,23 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
             isRecurring: true,
             recurrenceType: validated.recurrenceType,
             installments: validated.installments,
+            debtId: validated.debtId ?? null,
           },
         });
 
-        
+        if (validated.debtId && validated.status === TransactionStatus.PAID) {
+          const debt = await tx.debt.findUnique({ where: { id: validated.debtId } });
+          if (debt) {
+            const newCurrentValue = Number(debt.currentValue) - Number(installmentAmount);
+            await tx.debt.update({
+              where: { id: validated.debtId },
+              data: {
+                currentValue: Math.max(0, newCurrentValue),
+                isActive: newCurrentValue > 0,
+              },
+            });
+          }
+        }
 
         const futureTransactions = [];
         for (let i = 1; i < count; i++) {
@@ -90,6 +104,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
             isRecurring: true,
             recurrenceType: validated.recurrenceType,
             parentTransactionId: parentTransaction.id,
+            debtId: validated.debtId ?? null,
           });
         }
 
@@ -102,6 +117,15 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
         return parentTransaction;
       });
 
+      if (validated.tagIds.length > 0) {
+        await prisma.transaction.update({
+          where: { id: result.id },
+          data: {
+            tags: { connect: validated.tagIds.map((id) => ({ id })) },
+          },
+        });
+      }
+
       await createAuditLog({
         action: 'CREATE_RECURRING_TRANSACTION',
         entity: 'Transaction',
@@ -112,6 +136,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
       revalidatePath('/transactions');
       revalidatePath('/dashboard');
       revalidatePath('/accounts');
+      revalidatePath('/debts');
       return { success: true };
     }
 
@@ -130,11 +155,35 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
           supplierId: validated.supplierId,
           notes: validated.notes,
           workspaceId: session.user.workspaceId,
+          debtId: validated.debtId ?? null,
         },
       });
 
+      if (validated.debtId && validated.status === TransactionStatus.PAID) {
+        const debt = await tx.debt.findUnique({ where: { id: validated.debtId } });
+        if (debt) {
+          const newCurrentValue = Number(debt.currentValue) - Number(validated.amount);
+          await tx.debt.update({
+            where: { id: validated.debtId },
+            data: {
+              currentValue: Math.max(0, newCurrentValue),
+              isActive: newCurrentValue > 0,
+            },
+          });
+        }
+      }
+
       return t;
     });
+
+    if (validated.tagIds.length > 0) {
+      await prisma.transaction.update({
+        where: { id: transaction.id },
+        data: {
+          tags: { connect: validated.tagIds.map((id) => ({ id })) },
+        },
+      });
+    }
 
     await createAuditLog({
       action: 'CREATE_TRANSACTION',
@@ -146,6 +195,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
     revalidatePath('/transactions');
     revalidatePath('/dashboard');
     revalidatePath('/accounts');
+    revalidatePath('/debts');
     return {
       success: true,
       data: {
@@ -212,32 +262,48 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
           isRecurring: validated.isRecurring,
           recurrenceType: validated.recurrenceType,
           installments: validated.installments,
+          debtId: validated.debtId ?? null,
         },
       });
 
-      if (validated.status === TransactionStatus.PAID) {
-        if (updated.debtId) {
-          const debt = await tx.debt.findUnique({
-            where: { id: updated.debtId },
+      const debtId = validated.debtId ?? oldTransaction.debtId;
+      if (validated.status === TransactionStatus.PAID && debtId) {
+        const debt = await tx.debt.findUnique({
+          where: { id: debtId },
+        });
+        if (debt) {
+          const paidTransactions = await tx.transaction.findMany({
+            where: { debtId, status: TransactionStatus.PAID },
           });
-          if (debt) {
-            const paidTransactions = await tx.transaction.findMany({
-              where: { debtId: updated.debtId, status: TransactionStatus.PAID },
-            });
-            const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
-            await tx.debt.update({
-              where: { id: updated.debtId },
-              data: {
-                currentValue: Number(debt.initialValue) - totalPaid,
-                isActive: Number(debt.initialValue) - totalPaid > 0,
-              },
-            });
-          }
+          const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+          await tx.debt.update({
+            where: { id: debtId },
+            data: {
+              currentValue: Number(debt.initialValue) - totalPaid,
+              isActive: Number(debt.initialValue) - totalPaid > 0,
+            },
+          });
         }
       }
 
       return updated;
     });
+
+    if (validated.tagIds.length > 0) {
+      await prisma.transaction.update({
+        where: { id },
+        data: {
+          tags: { set: validated.tagIds.map((id) => ({ id })) },
+        },
+      });
+    } else {
+      await prisma.transaction.update({
+        where: { id },
+        data: {
+          tags: { set: [] },
+        },
+      });
+    }
 
     await createAuditLog({
       action: 'UPDATE_TRANSACTION',
@@ -274,6 +340,27 @@ export async function deleteTransaction(id: string) {
     if (!transaction) return { success: false, error: 'Transação não encontrada' };
 
     await prisma.$transaction(async (tx) => {
+      if (transaction.status === TransactionStatus.PAID && transaction.debtId) {
+        const debt = await tx.debt.findUnique({
+          where: { id: transaction.debtId },
+        });
+        if (debt) {
+          const paidTransactions = await tx.transaction.findMany({
+            where: { debtId: transaction.debtId, status: TransactionStatus.PAID },
+          });
+          const totalPaid =
+            paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0) -
+            Number(transaction.amount);
+          await tx.debt.update({
+            where: { id: transaction.debtId },
+            data: {
+              currentValue: Number(debt.initialValue) - Math.max(0, totalPaid),
+              isActive: Number(debt.initialValue) - Math.max(0, totalPaid) > 0,
+            },
+          });
+        }
+      }
+
       await tx.transaction.delete({
         where: { id },
       });
@@ -288,6 +375,7 @@ export async function deleteTransaction(id: string) {
     revalidatePath('/transactions');
     revalidatePath('/dashboard');
     revalidatePath('/accounts');
+    revalidatePath('/debts');
     return { success: true };
   } catch (error) {
     console.error('Error deleting transaction:', error);
