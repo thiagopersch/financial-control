@@ -117,7 +117,7 @@ export default function InsightsPage() {
         </div>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 max-sm:grid-cols-1 sm:grid-cols-3">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Receita do Mês</CardTitle>
@@ -182,30 +182,65 @@ export default function InsightsPage() {
             </TabsList>
 
             <TabsContent value="overview" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Resumo do Mês</CardTitle>
-                  <CardDescription>Comparação entre receitas e despesas</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={[
-                          { name: 'Receitas', value: summary?.totalIncome || 0 },
-                          { name: 'Despesas', value: summary?.totalExpense || 0 },
-                        ]}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey="value" fill="#0ea5e9" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="grid gap-4 max-sm:grid-cols-1 sm:grid-cols-3">
+                <Card className="sm:col-span-2">
+                  <CardHeader>
+                    <CardTitle>Resumo do Mês</CardTitle>
+                    <CardDescription>Comparação entre receitas e despesas</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[350px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={[
+                            { name: 'Receitas', value: summary?.totalIncome || 0 },
+                            { name: 'Despesas', value: summary?.totalExpense || 0 },
+                          ]}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="name" />
+                          <YAxis tickFormatter={(value) => formatCurrency(value)} />
+                          <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                          <Bar dataKey="value" fill="#10B981" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Categorias</CardTitle>
+                    <CardDescription>Distribuição por tipo</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[350px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: 'Receitas', value: summary?.totalIncome || 0 },
+                              { name: 'Despesas', value: summary?.totalExpense || 0 },
+                            ]}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={100}
+                            label={({ name, percent }: any) =>
+                              `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`
+                            }
+                          >
+                            <Cell fill="#10B981" />
+                            <Cell fill="#EF4444" />
+                          </Pie>
+                          <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
 
               {highlights.length > 0 && (
                 <Card>
@@ -214,9 +249,12 @@ export default function InsightsPage() {
                     <CardDescription>Categorias com maior participação</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
+                    <div className="grid gap-4 max-sm:grid-cols-1 sm:grid-cols-3">
                       {highlights.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between">
+                        <div
+                          key={index}
+                          className="flex items-center justify-between rounded-lg border p-4"
+                        >
                           <div className="flex items-center gap-2">
                             <div
                               className="h-3 w-3 rounded-full"
@@ -245,15 +283,25 @@ export default function InsightsPage() {
                   <CardDescription>Evolução por categoria</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px]">
+                  <div className="h-[400px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={comparisons}>
-                        <CartesianGrid strokeDasharray="3 3" />
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis dataKey="category" />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey="currentMonth" fill="#0ea5e9" name="Mês Atual" />
-                        <Bar dataKey="previousMonth" fill="#94a3b8" name="Mês Anterior" />
+                        <YAxis tickFormatter={(value) => formatCurrency(value)} />
+                        <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                        <Bar
+                          dataKey="currentMonth"
+                          fill="#10B981"
+                          name="Mês Atual"
+                          radius={[4, 4, 0, 0]}
+                        />
+                        <Bar
+                          dataKey="previousMonth"
+                          fill="#94a3b8"
+                          name="Mês Anterior"
+                          radius={[4, 4, 0, 0]}
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -273,31 +321,33 @@ export default function InsightsPage() {
                   </CardContent>
                 </Card>
               ) : (
-                insights.map((insight, index) => (
-                  <Card key={index}>
-                    <CardHeader className="flex flex-row items-center gap-4">
-                      {getInsightIcon(insight.type)}
-                      <div className="flex-1">
-                        <CardTitle className="text-base">{insight.title}</CardTitle>
-                        <CardDescription>{insight.description}</CardDescription>
-                      </div>
-                      {getInsightBadge(insight.type)}
-                    </CardHeader>
-                    {insight.value !== undefined && (
-                      <CardContent>
-                        <div className="text-2xl font-bold">
-                          {formatCurrency(insight.value)}
-                          {insight.percentage !== undefined && (
-                            <span className="text-muted-foreground ml-2 text-sm font-normal">
-                              ({insight.percentage > 0 ? '+' : ''}
-                              {insight.percentage.toFixed(1)}%)
-                            </span>
-                          )}
+                <div className="grid gap-4 md:grid-cols-3">
+                  {insights.map((insight, index) => (
+                    <Card key={index}>
+                      <CardHeader className="flex flex-row items-center gap-4">
+                        {getInsightIcon(insight.type)}
+                        <div className="flex-1">
+                          <CardTitle className="text-base">{insight.title}</CardTitle>
+                          <CardDescription>{insight.description}</CardDescription>
                         </div>
-                      </CardContent>
-                    )}
-                  </Card>
-                ))
+                        {getInsightBadge(insight.type)}
+                      </CardHeader>
+                      {insight.value !== undefined && (
+                        <CardContent>
+                          <div className="text-2xl font-bold">
+                            {formatCurrency(insight.value)}
+                            {insight.percentage !== undefined && (
+                              <span className="text-muted-foreground ml-2 text-sm font-normal">
+                                ({insight.percentage > 0 ? '+' : ''}
+                                {insight.percentage.toFixed(1)}%)
+                              </span>
+                            )}
+                          </div>
+                        </CardContent>
+                      )}
+                    </Card>
+                  ))}
+                </div>
               )}
             </TabsContent>
           </Tabs>

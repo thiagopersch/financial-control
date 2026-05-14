@@ -22,10 +22,7 @@ export function UsersHeader({ userRole }: UsersHeaderProps) {
         <p className="text-muted-foreground">Gerencie os acessos e permissões do sistema.</p>
       </div>
       {canModify && (
-        <Button
-          onClick={() => setIsOpen(true)}
-          className="w-full bg-indigo-600 shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 sm:w-auto dark:shadow-none"
-        >
+        <Button onClick={() => setIsOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Novo Usuário
         </Button>

@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get('type') as TransactionType | null;
   const status = searchParams.get('status') as TransactionStatus | null;
   const category = searchParams.get('category');
+  const formatParam = searchParams.get('format');
 
   const where: any = {
     workspaceId: session.user.workspaceId,
@@ -34,6 +35,22 @@ export async function GET(request: NextRequest) {
     include: { category: true, supplier: true },
     orderBy: { date: 'desc' },
   });
+
+  // Return JSON when format=json is requested (used by XLSX/PDF client exports)
+  if (formatParam === 'json') {
+    return NextResponse.json({
+      transactions: transactions.map((t) => ({
+        id: t.id,
+        date: format(new Date(t.date), 'dd/MM/yyyy', { locale: ptBR }),
+        type: t.type,
+        amount: Number(t.amount),
+        categoryName: t.category.name,
+        supplierName: t.supplier?.name || null,
+        status: t.status,
+        notes: t.notes,
+      })),
+    });
+  }
 
   const typeLabel = (t: TransactionType) => (t === TransactionType.INCOME ? 'Receita' : 'Despesa');
   const statusLabel = (s: TransactionStatus) => {

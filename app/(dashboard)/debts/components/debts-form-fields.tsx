@@ -9,6 +9,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -30,7 +31,7 @@ export function DebtsFormFields({ form, type, accounts }: DebtsFormFieldsProps) 
 
   return (
     <Form {...form}>
-      <div className="space-y-4 max-md:grid max-md:grid-cols-1 max-md:space-y-4">
+      <div className="space-y-4">
         {type === 'create' && (
           <FormField
             control={form.control}
@@ -75,19 +76,6 @@ export function DebtsFormFields({ form, type, accounts }: DebtsFormFieldsProps) 
               <FormLabel>Nome</FormLabel>
               <FormControl>
                 <Input placeholder="Ex: Empréstimo do banco" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Descrição (opcional)</FormLabel>
-              <FormControl>
-                <Input placeholder="Descrição" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -233,6 +221,24 @@ export function DebtsFormFields({ form, type, accounts }: DebtsFormFieldsProps) 
             )}
           />
         </div>
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Descrição (opcional)</FormLabel>
+              <FormControl>
+                <Textarea
+                  maxLength={255}
+                  rows={3}
+                  placeholder="Descrição da dívida..."
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
       </div>
     </Form>
   );

@@ -57,7 +57,10 @@ interface TransactionsTableProps {
 
 function OverdueBadge({ transaction }: { transaction: SerializedTransaction }) {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const timer = setTimeout(() => setMounted(true));
+    return () => clearTimeout(timer);
+  }, []);
 
   if (!mounted)
     return <div className="h-6 w-16 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />;

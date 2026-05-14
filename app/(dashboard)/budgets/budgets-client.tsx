@@ -273,8 +273,8 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
           <DialogHeader>
             <DialogTitle>Excluir Orçamento</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir o orçamento de "{budgetToDelete?.category.name}"? Esta
-              ação não pode ser desfeita.
+              Tem certeza que deseja excluir o orçamento de &ldquo;{budgetToDelete?.category.name}
+              &rdquo;? Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

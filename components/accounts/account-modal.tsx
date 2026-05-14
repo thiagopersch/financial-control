@@ -1,13 +1,6 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { FormDialog } from '@/components/ui/form-dialog';
 import {
   Form,
   FormControl,
@@ -28,7 +21,6 @@ import { createAccount, updateAccount } from '@/lib/actions/accounts';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Account, AccountType } from '@prisma/client';
-import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -114,81 +106,74 @@ export function AccountModal({ isOpen, onClose, account }: AccountModalProps) {
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{account ? 'Editar Conta' : 'Nova Conta'}</DialogTitle>
-          <DialogDescription>Insira os detalhes da conta abaixo.</DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome</FormLabel>
+    <FormDialog
+      title={account ? 'Editar Conta' : 'Nova Conta'}
+      description="Insira os detalhes da conta abaixo."
+      isOpen={isOpen}
+      onClose={onClose}
+      onSubmit={form.handleSubmit(onSubmit)}
+      confirmText={account ? 'Atualizar' : 'Criar'}
+      isSubmitting={loading}
+    >
+      <Form {...form}>
+        <div className="space-y-4">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nome</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ex: Nubank, Banco do Brasil, Sicoob" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tipo</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
-                    <Input placeholder="Ex: Nubank, Banco do Brasil, Sicoob" {...field} />
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {accountType.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="color"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Cor
-                    <span className="text-muted-foreground text-xs">Identificador visual</span>
-                  </FormLabel>
-                  <FormControl>
-                    <div className="flex items-center gap-2">
-                      <Input type="color" className="h-10 w-30 p-1" {...field} />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {account ? 'Atualizar' : 'Criar'}
-              </Button>
-            </div>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+                  <SelectContent>
+                    {accountType.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="color"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Cor
+                  <span className="text-muted-foreground text-xs">Identificador visual</span>
+                </FormLabel>
+                <FormControl>
+                  <div className="flex items-center gap-2">
+                    <Input type="color" className="h-10 w-30 p-1" {...field} />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+      </Form>
+    </FormDialog>
   );
 }

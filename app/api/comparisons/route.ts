@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
-import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
+import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, subYears } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,10 +15,27 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') || 'month';
 
     const now = new Date();
-    const currentStart = startOfMonth(now);
-    const currentEnd = endOfMonth(now);
-    const previousStart = startOfMonth(subMonths(now, 1));
-    const previousEnd = endOfMonth(subMonths(now, 1));
+    let currentStart: Date;
+    let currentEnd: Date;
+    let previousStart: Date;
+    let previousEnd: Date;
+
+    if (type === 'year') {
+      currentStart = startOfYear(now);
+      currentEnd = endOfYear(now);
+      previousStart = startOfYear(subYears(now, 1));
+      previousEnd = endOfYear(subYears(now, 1));
+    } else if (type === 'account' || type === 'cost_center') {
+      currentStart = startOfMonth(now);
+      currentEnd = endOfMonth(now);
+      previousStart = startOfMonth(subMonths(now, 1));
+      previousEnd = endOfMonth(subMonths(now, 1));
+    } else {
+      currentStart = startOfMonth(now);
+      currentEnd = endOfMonth(now);
+      previousStart = startOfMonth(subMonths(now, 1));
+      previousEnd = endOfMonth(subMonths(now, 1));
+    }
 
     const [currentTransactions, previousTransactions] = await Promise.all([
       prisma.transaction.findMany({
@@ -27,7 +44,7 @@ export async function GET(request: NextRequest) {
           status: 'PAID',
           date: { gte: currentStart, lte: currentEnd },
         },
-        include: { category: true, account: true },
+        include: { category: true, account: true, costCenter: true },
       }),
       prisma.transaction.findMany({
         where: {
@@ -35,7 +52,7 @@ export async function GET(request: NextRequest) {
           status: 'PAID',
           date: { gte: previousStart, lte: previousEnd },
         },
-        include: { category: true, account: true },
+        include: { category: true, account: true, costCenter: true },
       }),
     ]);
 
@@ -74,7 +91,7 @@ export async function GET(request: NextRequest) {
 
     let chartData: { label: string; current: number; previous: number }[] = [];
 
-    if (type === 'month') {
+    if (type === 'month' || type === 'year') {
       chartData = [
         {
           label: 'Receitas',
@@ -102,6 +119,30 @@ export async function GET(request: NextRequest) {
           .filter((t) => t.category.name === cat && t.type === 'EXPENSE')
           .reduce((sum, t) => sum + Number(t.amount), 0);
         return { label: cat, current: currentCatTotal, previous: previousCatTotal };
+      });
+    } else if (type === 'account') {
+      const accounts = [...new Set(currentTransactions.map((t) => t.account?.name || 'Sem conta'))];
+      chartData = accounts.map((acc) => {
+        const currentAccTotal = currentTransactions
+          .filter((t) => (t.account?.name || 'Sem conta') === acc)
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+        const previousAccTotal = previousTransactions
+          .filter((t) => (t.account?.name || 'Sem conta') === acc)
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+        return { label: acc, current: currentAccTotal, previous: previousAccTotal };
+      });
+    } else if (type === 'cost_center') {
+      const centers = [
+        ...new Set(currentTransactions.map((t) => t.costCenter?.name || 'Sem centro')),
+      ];
+      chartData = centers.map((cc) => {
+        const currentCcTotal = currentTransactions
+          .filter((t) => (t.costCenter?.name || 'Sem centro') === cc)
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+        const previousCcTotal = previousTransactions
+          .filter((t) => (t.costCenter?.name || 'Sem centro') === cc)
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+        return { label: cc, current: currentCcTotal, previous: previousCcTotal };
       });
     }
 

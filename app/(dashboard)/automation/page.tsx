@@ -3,22 +3,25 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { FormDialog } from '@/components/ui/form-dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -27,17 +30,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import {
-  createConditionalRule,
-  deleteConditionalRule,
-  toggleConditionalRule,
-} from '@/lib/actions/conditional-rules';
+import { deleteConditionalRule, toggleConditionalRule } from '@/lib/actions/conditional-rules';
 import { useConditionalRules } from '@/lib/queries/automation';
-import { showError, showSuccess, showValidationErrors } from '@/lib/utils/toast';
-import { GitBranch, MoreHorizontal, Play, Plus, Zap } from 'lucide-react';
-import { useState } from 'react';
+import { showError, showSuccess } from '@/lib/utils/toast';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { GitBranch, MoreHorizontal, Pencil, Play, Plus, Zap } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import {
+  automationSchema,
+  useAutomationForm,
+  type AutomationFormValues,
+} from '@/hooks/forms/use-automation-form';
+import type { ConditionalRule } from '@/lib/queries/automation';
 
 const conditionOptions = [
   { value: 'AMOUNT_GREATER', label: 'Valor maior que' },
@@ -55,75 +60,66 @@ const actionOptions = [
   { value: 'NOTIFY', label: 'Enviar notificação' },
 ];
 
-const automationSchema = z.object({
-  name: z.string().min(1, 'Nome é obrigatório'),
-  description: z.string().optional(),
-  conditionType: z.string().min(1, 'Selecione uma condição'),
-  conditionValue: z.string().min(1, 'Valor é obrigatório'),
-  actionType: z.string().min(1, 'Selecione uma ação'),
-  actionValue: z.string().min(1, 'Parâmetro é obrigatório'),
-});
-
-type AutomationFormValues = z.infer<typeof automationSchema>;
-
 export default function AutomationPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedRule, setSelectedRule] = useState<ConditionalRule | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [ruleToDelete, setRuleToDelete] = useState<string | null>(null);
   const { rules, isLoading, refresh } = useConditionalRules();
 
-  const form = useForm<AutomationFormValues>({
-    defaultValues: {
+  const { handleSubmit: handleFormSubmit, isEditing } = useAutomationForm({
+    rule: selectedRule,
+    onSuccess: () => {
+      setIsDialogOpen(false);
+      setSelectedRule(null);
+      refresh();
+    },
+  });
+
+  const defaultValues = useMemo<AutomationFormValues>(() => {
+    if (selectedRule) {
+      return {
+        name: selectedRule.name,
+        description: selectedRule.description || '',
+        conditionType: Array.isArray(selectedRule.conditions)
+          ? selectedRule.conditions[0]?.type || ''
+          : '',
+        conditionValue: Array.isArray(selectedRule.conditions)
+          ? String(selectedRule.conditions[0]?.value || '')
+          : '',
+        actionType: Array.isArray(selectedRule.actions) ? selectedRule.actions[0]?.type || '' : '',
+        actionValue: Array.isArray(selectedRule.actions)
+          ? String(selectedRule.actions[0]?.value || '')
+          : '',
+      };
+    }
+    return {
       name: '',
       description: '',
       conditionType: '',
       conditionValue: '',
       actionType: '',
       actionValue: '',
-    },
+    };
+  }, [selectedRule]);
+
+  const form = useForm<AutomationFormValues>({
+    resolver: zodResolver(automationSchema),
+    defaultValues,
   });
 
-  const onSubmit = async (data: AutomationFormValues) => {
-    const result = automationSchema.safeParse(data);
-
-    if (!result.success) {
-      showValidationErrors(result.error);
-      return;
+  useEffect(() => {
+    if (isDialogOpen) {
+      form.reset(defaultValues);
     }
+  }, [isDialogOpen, defaultValues, form]);
 
-    try {
-      const conditions = [
-        {
-          type: data.conditionType,
-          value: data.conditionValue,
-        },
-      ];
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-      const actions = [
-        {
-          type: data.actionType,
-          value: data.actionValue,
-        },
-      ];
-
-      const actionResult = await createConditionalRule({
-        name: data.name,
-        description: data.description || undefined,
-        conditions,
-        actions,
-        priority: 0,
-        isActive: true,
-      });
-
-      if (actionResult.success) {
-        showSuccess('Regra criada com sucesso');
-        form.reset();
-        setIsDialogOpen(false);
-        refresh();
-      } else {
-        showError('Erro ao criar regra', actionResult.error);
-      }
-    } catch (error) {
-      showError('Erro ao criar regra');
-    }
+  const onSubmit = async (values: AutomationFormValues) => {
+    setIsSubmitting(true);
+    await handleFormSubmit(values);
+    setIsSubmitting(false);
   };
 
   const toggleRule = async (id: string, isActive: boolean) => {
@@ -132,24 +128,45 @@ export default function AutomationPage() {
       if (result.success) {
         showSuccess(isActive ? 'Regra desativada' : 'Regra ativada');
         refresh();
+      } else {
+        showError('Erro ao atualizar regra', result.error);
       }
-    } catch (error) {
+    } catch {
       showError('Erro ao atualizar regra');
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta regra?')) return;
+  const handleDelete = (id: string) => {
+    setRuleToDelete(id);
+    setIsDeleteOpen(true);
+  };
 
-    try {
-      const result = await deleteConditionalRule(id);
-      if (result.success) {
-        showSuccess('Regra excluída com sucesso');
-        refresh();
+  const confirmDelete = async () => {
+    if (ruleToDelete) {
+      try {
+        const result = await deleteConditionalRule(ruleToDelete);
+        if (result.success) {
+          showSuccess('Regra excluída', 'A regra foi excluída com sucesso!');
+          refresh();
+        } else {
+          showError('Erro ao excluir regra', result.error);
+        }
+      } catch {
+        showError('Erro ao excluir regra');
       }
-    } catch (error) {
-      showError('Erro ao excluir regra');
+      setIsDeleteOpen(false);
+      setRuleToDelete(null);
     }
+  };
+
+  const openCreate = () => {
+    setSelectedRule(null);
+    setIsDialogOpen(true);
+  };
+
+  const openEdit = (rule: ConditionalRule) => {
+    setSelectedRule(rule);
+    setIsDialogOpen(true);
   };
 
   const activeCount = rules.filter((r) => r.isActive).length;
@@ -161,118 +178,10 @@ export default function AutomationPage() {
           <h1 className="text-3xl font-bold tracking-tight">Automação</h1>
           <p className="text-muted-foreground">Crie regras condicionais para automatizar tarefas</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Regra
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Nova Regra de Automação</DialogTitle>
-              <DialogDescription>
-                Configure condições e ações para automatizar transações
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome da Regra</Label>
-                <Input id="name" {...form.register('name')} />
-                {form.formState.errors.name && (
-                  <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Descrição (opcional)</Label>
-                <Input
-                  id="description"
-                  {...form.register('description')}
-                  placeholder="Descrição da regra"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Condição</Label>
-                  <Select
-                    value={form.watch('conditionType')}
-                    onValueChange={(value) => form.setValue('conditionType', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {conditionOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {form.formState.errors.conditionType && (
-                    <p className="text-sm text-red-500">
-                      {form.formState.errors.conditionType.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="conditionValue">Valor</Label>
-                  <Input
-                    id="conditionValue"
-                    {...form.register('conditionValue')}
-                    placeholder="Valor da condição"
-                  />
-                  {form.formState.errors.conditionValue && (
-                    <p className="text-sm text-red-500">
-                      {form.formState.errors.conditionValue.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Ação</Label>
-                  <Select
-                    value={form.watch('actionType')}
-                    onValueChange={(value) => form.setValue('actionType', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {actionOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {form.formState.errors.actionType && (
-                    <p className="text-sm text-red-500">
-                      {form.formState.errors.actionType.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="actionValue">Parâmetro</Label>
-                  <Input
-                    id="actionValue"
-                    {...form.register('actionValue')}
-                    placeholder="Parâmetro da ação"
-                  />
-                  {form.formState.errors.actionValue && (
-                    <p className="text-sm text-red-500">
-                      {form.formState.errors.actionValue.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Criando...' : 'Criar Regra'}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={openCreate}>
+          <Plus className="mr-2 h-4 w-4" />
+          Nova Regra
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -310,7 +219,8 @@ export default function AutomationPage() {
           {[1, 2, 3].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardContent className="py-4">
-                <div className="bg-muted h-6 rounded" />
+                <div className="bg-muted h-6 w-1/3 rounded" />
+                <div className="bg-muted mt-2 h-4 w-2/3 rounded" />
               </CardContent>
             </Card>
           ))}
@@ -351,6 +261,11 @@ export default function AutomationPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEdit(rule)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => handleDelete(rule.id)}
                         className="text-red-600"
@@ -365,11 +280,157 @@ export default function AutomationPage() {
                 <p className="text-muted-foreground text-sm">
                   {rule.description || 'Sem descrição'}
                 </p>
+                {Array.isArray(rule.conditions) && rule.conditions.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {rule.conditions.map((cond: any, idx: number) => (
+                      <Badge key={idx} variant="outline" className="text-xs">
+                        {conditionOptions.find((o) => o.value === cond.type)?.label || cond.type}:{' '}
+                        {String(cond.value)}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <FormDialog
+        title={isEditing ? 'Editar Regra de Automação' : 'Nova Regra de Automação'}
+        description="Configure condições e ações para automatizar transações"
+        isOpen={isDialogOpen}
+        onClose={() => {
+          setIsDialogOpen(false);
+          setSelectedRule(null);
+        }}
+        onSubmit={form.handleSubmit(onSubmit)}
+        isSubmitting={isSubmitting}
+      >
+        <Form {...form}>
+          <div className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nome da Regra</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: Categorizar alimentação" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+              <FormField
+                control={form.control}
+                name="conditionType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Condição</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {conditionOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="conditionValue"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Valor</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: 100.00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+              <FormField
+                control={form.control}
+                name="actionType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ação</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {actionOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="actionValue"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Parâmetro</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: Alimentação" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Descrição (opcional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      maxLength={255}
+                      rows={3}
+                      placeholder="Descrição da regra"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </Form>
+      </FormDialog>
+
+      <DeleteConfirmModal
+        title="Excluir Regra de Automação"
+        description="Tem certeza que deseja excluir esta regra? Esta ação não pode ser desfeita."
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={confirmDelete}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+      />
     </div>
   );
 }

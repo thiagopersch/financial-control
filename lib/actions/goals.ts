@@ -147,7 +147,11 @@ export async function depositToGoal(id: string, amount: number) {
       action: 'DEPOSIT_TO_GOAL',
       entity: 'Goal',
       entityId: goal.id,
-      newValue: { amount, previousAmount: goal.currentAmount, newAmount: updatedGoal.currentAmount },
+      newValue: {
+        amount,
+        previousAmount: goal.currentAmount,
+        newAmount: updatedGoal.currentAmount,
+      },
     });
 
     revalidatePath('/goals');

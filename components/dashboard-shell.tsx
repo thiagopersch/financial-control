@@ -5,14 +5,15 @@ import { flatRoutes } from '@/components/sidebar/routes';
 import { Sidebar } from '@/components/sidebar/sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { UserButton } from '@/components/user-button';
 import { useSidebar } from '@/hooks/use-sidebar';
 import { cn } from '@/lib/utils';
-import { Menu } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Menu } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { isCollapsed, isOpen, onOpen, onClose } = useSidebar();
+  const { isCollapsed, isOpen, onOpen, onClose, toggle } = useSidebar();
   const pathname = usePathname();
   const route = flatRoutes.find((route) => route.href === pathname);
   const title = route?.label.toUpperCase();
@@ -34,12 +35,28 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       <main className={cn('flex min-h-screen flex-col', isCollapsed ? 'md:pl-[72px]' : 'md:pl-72')}>
         <header className="bg-background text-foreground sticky top-0 z-50 flex h-16 items-center justify-between border-b px-4 md:px-8">
-          <div className="flex items-center gap-x-2 md:hidden">
+          <div className="flex items-center gap-x-2">
             <Button onClick={onOpen} variant="ghost" size="icon" className="md:hidden">
               <Menu className="h-6 w-6" />
             </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button onClick={toggle} variant="ghost" size="icon" className="hidden md:flex">
+                    {isCollapsed ? (
+                      <ChevronRight className="h-5 w-5" />
+                    ) : (
+                      <ChevronLeft className="h-5 w-5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <span className="text-muted-foreground px-4 text-lg font-bold">{title}</span>
           </div>
-          <span className="text-muted-foreground px-4 text-lg font-bold">{title}</span>
           <div className="flex-1" />
           <div className="flex items-center gap-x-4">
             <ModeToggle />

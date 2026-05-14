@@ -2,7 +2,7 @@
 
 import { GoalsWidget } from '@/components/dashboard/goals-widget';
 import { DepositDialog } from '@/components/goals/deposit-dialog';
-import { type Goal, GoalDialog } from '@/components/goals/goal-dialog';
+import { GoalDialog } from '@/components/goals/goal-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
@@ -19,7 +19,7 @@ interface GoalsPageClientProps {
 export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
   const [goals, setGoals] = useState<GoalData[]>(initialGoals);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [editingGoal, setEditingGoal] = useState<any | null>(null);
 
   const [depositGoalId, setDepositGoalId] = useState<string | null>(null);
   const [deleteGoalId, setDeleteGoalId] = useState<string | null>(null);

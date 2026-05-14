@@ -63,8 +63,6 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
           },
         });
 
-        
-
         const futureTransactions = [];
         for (let i = 1; i < count; i++) {
           let currentInstallmentAmount = installmentAmount;

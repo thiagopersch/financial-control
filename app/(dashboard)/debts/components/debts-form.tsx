@@ -27,6 +27,7 @@ const defaultValues = {
     name: '',
     description: '',
     initialValue: '',
+    currentValue: 0,
     interestRate: '',
     minimumPayment: '',
     dueDay: 1,
@@ -35,12 +36,13 @@ const defaultValues = {
     installmentValue: '',
     firstInstallmentMonth: 'NEXT',
     accountId: '',
+    startDate: new Date().toISOString(),
   },
   edit: {
     name: '',
     description: '',
     interestRate: '',
-    dueDay: 1,
+    dueDay: '1',
     installments: '',
     calculationType: 'TOTAL_DIVIDED',
     installmentValue: '',
@@ -69,7 +71,7 @@ export function DebtsForm({ isOpen, onClose, debt, accounts = [], onSuccess }: D
           name: debt.name,
           description: debt.description || '',
           interestRate: debt.interestRate?.toString() || '',
-          dueDay: debt.dueDay?.toString() || '',
+          dueDay: debt.dueDay?.toString() || '1',
           installments: debt.installments?.toString() || '',
           calculationType: debt.calculationType || 'TOTAL_DIVIDED',
           installmentValue: debt.installmentValue?.toString() || '',
@@ -85,7 +87,7 @@ export function DebtsForm({ isOpen, onClose, debt, accounts = [], onSuccess }: D
           name: debt.name,
           description: debt.description || '',
           interestRate: debt.interestRate?.toString() || '',
-          dueDay: debt.dueDay?.toString() || '',
+          dueDay: debt.dueDay?.toString() || '1',
           installments: debt.installments?.toString() || '',
           calculationType: debt.calculationType || 'TOTAL_DIVIDED',
           installmentValue: debt.installmentValue?.toString() || '',
@@ -93,6 +95,8 @@ export function DebtsForm({ isOpen, onClose, debt, accounts = [], onSuccess }: D
         });
       } else {
         form.reset(defaultValues.create);
+        form.register('currentValue');
+        form.register('startDate');
       }
     }
   }, [isOpen, debt, form]);
@@ -108,8 +112,8 @@ export function DebtsForm({ isOpen, onClose, debt, accounts = [], onSuccess }: D
           currentValue: parseFloat(values.initialValue) || 0,
           minimumPayment: parseFloat(values.minimumPayment) || 0,
           interestRate: values.interestRate ? parseFloat(values.interestRate) : null,
-          dueDay: values.dueDay ? parseInt(values.dueDay) : null,
-          installments: values.installments ? parseInt(values.installments) : null,
+          dueDay: parseInt(values.dueDay) || 1,
+          installments: parseInt(values.installments) || 1,
           calculationType: values.calculationType,
           installmentValue: values.installmentValue ? parseFloat(values.installmentValue) : null,
           firstInstallmentMonth: values.firstInstallmentMonth,

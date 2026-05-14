@@ -15,7 +15,7 @@ const debtSchema = z.object({
   currentValue: z.coerce.number().positive('Valor atual deve ser maior que zero'),
   interestRate: z.coerce.number().min(0).optional().nullable(),
   minimumPayment: z.coerce.number().positive('Pagamento mínimo é obrigatório'),
-  dueDay: z.number().min(1).max(31).optional().nullable(),
+  dueDay: z.coerce.number().min(1).max(31).optional().nullable(),
   startDate: z.string(),
   installments: z.coerce.number().min(1).optional().nullable(),
   calculationType: z.string().optional(),
@@ -63,7 +63,7 @@ function calculateInstallmentAmount(
   initialValue: number,
   installments: number,
   calculationType: string | null,
-  installmentValue: number | null
+  installmentValue: number | null,
 ): number {
   if (calculationType === 'FIXED_INSTALLMENT' && installmentValue) {
     return installmentValue;
@@ -73,7 +73,7 @@ function calculateInstallmentAmount(
 
 function getStartDateForFirstInstallment(
   startDate: Date,
-  firstInstallmentMonth: string | null
+  firstInstallmentMonth: string | null,
 ): Date {
   const now = new Date();
   const currentMonth = startOfMonth(now);
@@ -128,12 +128,12 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
           validated.initialValue,
           validated.installments,
           calculationType,
-          validated.installmentValue ?? null
+          validated.installmentValue ?? null,
         );
 
         const firstInstallmentDate = getStartDateForFirstInstallment(
           new Date(validated.startDate),
-          validated.firstInstallmentMonth ?? 'NEXT'
+          validated.firstInstallmentMonth ?? 'NEXT',
         );
 
         for (let i = 0; i < validated.installments; i++) {
@@ -181,7 +181,7 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
 
   try {
     console.log('updateDebt called with:', { id, data });
-    
+
     const existingDebt = await prisma.debt.findUnique({
       where: { id, workspaceId: session.user.workspaceId },
     });
@@ -195,9 +195,12 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
 
     const hasInstallmentChanges =
       (data.installments !== undefined && data.installments !== existingDebt.installments) ||
-      (data.installmentValue !== undefined && data.installmentValue !== Number(existingDebt.installmentValue)) ||
-      (data.calculationType !== undefined && data.calculationType !== existingDebt.calculationType) ||
-      (data.firstInstallmentMonth !== undefined && data.firstInstallmentMonth !== existingDebt.firstInstallmentMonth);
+      (data.installmentValue !== undefined &&
+        data.installmentValue !== Number(existingDebt.installmentValue)) ||
+      (data.calculationType !== undefined &&
+        data.calculationType !== existingDebt.calculationType) ||
+      (data.firstInstallmentMonth !== undefined &&
+        data.firstInstallmentMonth !== existingDebt.firstInstallmentMonth);
 
     const updatedData: any = { ...data };
     if (data.startDate) {
@@ -239,19 +242,22 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
         }
 
         const installments = data.installments ?? existingDebt.installments;
-        const calculationType = data.calculationType ?? existingDebt.calculationType ?? 'TOTAL_DIVIDED';
-        const installmentValue = data.installmentValue != null 
-          ? data.installmentValue 
-          : existingDebt.installmentValue 
-            ? Number(existingDebt.installmentValue) 
-            : null;
-        const firstInstallmentMonth = data.firstInstallmentMonth ?? existingDebt.firstInstallmentMonth ?? 'NEXT';
+        const calculationType =
+          data.calculationType ?? existingDebt.calculationType ?? 'TOTAL_DIVIDED';
+        const installmentValue =
+          data.installmentValue != null
+            ? data.installmentValue
+            : existingDebt.installmentValue
+              ? Number(existingDebt.installmentValue)
+              : null;
+        const firstInstallmentMonth =
+          data.firstInstallmentMonth ?? existingDebt.firstInstallmentMonth ?? 'NEXT';
 
         if (installments && installments > 0) {
           const category = await getOrCreateDebtCategory(session.user.workspaceId);
 
           const accountId = pendingTransactions[0]?.accountId ?? data.accountId;
-          
+
           if (!accountId) {
             const firstTx = await tx.transaction.findFirst({
               where: { debtId: id },
@@ -273,13 +279,13 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
             Number(existingDebt.initialValue),
             installments,
             calculationType,
-            installmentValue
+            installmentValue,
           );
 
           const startDate = existingDebt.startDate;
           const firstInstallmentDate = getStartDateForFirstInstallment(
             startDate,
-            firstInstallmentMonth
+            firstInstallmentMonth,
           );
 
           for (let i = 0; i < installments; i++) {

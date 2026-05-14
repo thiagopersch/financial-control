@@ -1,9 +1,10 @@
 import { PasswordForm } from '@/components/profiles/password-form';
 import { ProfileForm } from '@/components/profiles/profile-form';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
-import { User } from 'lucide-react';
 import { getServerSession } from 'next-auth';
+import { Mail, Shield, User as UserIcon } from 'lucide-react';
 
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);
@@ -16,19 +17,46 @@ export default async function ProfilePage() {
 
   if (!user) return null;
 
+  const roleLabels: Record<string, string> = {
+    ADMIN: 'Administrador',
+    MANAGER: 'Gerente',
+    VIEWER: 'Visualizador',
+  };
+
   return (
-    <div className="animate-in fade-in mx-auto max-w-2xl space-y-8 duration-700">
-      <div className="flex items-center gap-4">
-        <div className="rounded-2xl bg-indigo-100 p-4 dark:bg-indigo-900/30">
-          <User className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Meu Perfil
-          </h1>
-          <p className="text-muted-foreground">Gerencie suas informações pessoais e senha.</p>
-        </div>
+    <div className="mx-auto max-w-3xl space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Meu Perfil</h1>
+        <p className="text-muted-foreground">Gerencie suas informações pessoais e senha.</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <UserIcon className="h-5 w-5 text-emerald-500" />
+            Informações da Conta
+          </CardTitle>
+          <CardDescription>Seus dados de acesso e permissões</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="space-y-1">
+              <p className="text-muted-foreground flex items-center gap-1 text-xs font-semibold tracking-wider uppercase">
+                <Mail className="h-3 w-3" />
+                E-mail
+              </p>
+              <p className="font-medium">{user.email}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-muted-foreground flex items-center gap-1 text-xs font-semibold tracking-wider uppercase">
+                <Shield className="h-3 w-3" />
+                Função
+              </p>
+              <p className="font-medium">{roleLabels[user.role] || user.role}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <ProfileForm
         initialName={user.name || ''}

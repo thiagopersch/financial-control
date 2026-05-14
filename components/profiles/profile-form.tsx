@@ -17,7 +17,7 @@ import { updateProfile } from '@/lib/actions/profiles';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Role } from '@prisma/client';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, User } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -33,6 +33,12 @@ const roleLabels: Record<Role, string> = {
   ADMIN: 'Administrador',
   MANAGER: 'Gerente',
   VIEWER: 'Visualizador',
+};
+
+const roleColors: Record<Role, string> = {
+  ADMIN: 'bg-purple-500 hover:bg-purple-500',
+  MANAGER: 'bg-blue-500 hover:bg-blue-500',
+  VIEWER: 'bg-slate-500 hover:bg-slate-500',
 };
 
 interface ProfileFormProps {
@@ -57,29 +63,27 @@ export function ProfileForm({ initialName, initialBio, email, role }: ProfileFor
       if (result.success) {
         showSuccess('Perfil atualizado com sucesso!');
       } else {
-        showError(result.error || 'Erro inesperado.');
+        showError('Erro ao atualizar perfil', result.error || 'Erro inesperado.');
       }
     } catch {
-      showError('Erro inesperado.');
+      showError('Erro ao atualizar perfil', 'Erro inesperado.');
     } finally {
       setIsLoading(false);
     }
   }
 
   return (
-    <Card className="border-none shadow-md">
+    <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-lg">Informações Pessoais</CardTitle>
-            <CardDescription>Atualize seu nome e biografia.</CardDescription>
+          <div className="flex items-center gap-2">
+            <User className="h-5 w-5 text-emerald-500" />
+            <div>
+              <CardTitle className="text-lg">Informações Pessoais</CardTitle>
+              <CardDescription>Atualize seu nome e biografia.</CardDescription>
+            </div>
           </div>
-          <Badge
-            variant="secondary"
-            className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"
-          >
-            {roleLabels[role]}
-          </Badge>
+          <Badge className={roleColors[role]}>{roleLabels[role]}</Badge>
         </div>
       </CardHeader>
       <CardContent>
@@ -87,11 +91,13 @@ export function ProfileForm({ initialName, initialBio, email, role }: ProfileFor
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-1">
               <label className="text-muted-foreground text-sm font-medium">E-mail</label>
-              <Input
-                value={email}
-                disabled
-                className="cursor-not-allowed bg-slate-50 dark:bg-slate-800"
-              />
+              <div className="relative">
+                <Input
+                  value={email}
+                  disabled
+                  className="cursor-not-allowed bg-slate-50 pl-9 dark:bg-slate-800"
+                />
+              </div>
               <p className="text-muted-foreground text-xs">O e-mail não pode ser alterado.</p>
             </div>
             <FormField
@@ -118,6 +124,7 @@ export function ProfileForm({ initialName, initialBio, email, role }: ProfileFor
                       placeholder="Fale um pouco sobre você..."
                       className="resize-none"
                       rows={3}
+                      maxLength={300}
                       {...field}
                     />
                   </FormControl>
@@ -126,11 +133,7 @@ export function ProfileForm({ initialName, initialBio, email, role }: ProfileFor
               )}
             />
             <div className="flex justify-end">
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="bg-indigo-600 hover:bg-indigo-700"
-              >
+              <Button type="submit" disabled={isLoading}>
                 {isLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (

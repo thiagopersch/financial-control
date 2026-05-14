@@ -5,26 +5,49 @@ import type { DebtDTO } from '@/lib/queries/debts';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import * as z from 'zod';
 
-export const createDebtSchema = z.object({
-  name: z.string().min(1, 'Nome é obrigatório'),
-  description: z.string().optional(),
-  initialValue: z.coerce.number().positive('Valor inicial deve ser maior que zero'),
-  currentValue: z.coerce.number().positive('Valor atual deve ser maior que zero'),
-  interestRate: z.coerce.number().min(0).optional().nullable(),
-  minimumPayment: z.coerce.number().positive('Pagamento mínimo é obrigatório'),
-  dueDay: z.coerce
-    .number()
-    .min(1, { message: 'Dia do vencimento deve ser maior que zero' })
-    .max(31, { message: 'Dia do vencimento deve ser no máximo que 31' })
-    .optional()
-    .nullable(),
-  startDate: z.string(),
-  installments: z.coerce.number().min(1).optional().nullable(),
-  accountId: z.string().min(1, 'Conta é obrigatória'),
-  calculationType: z.string().optional(),
-  installmentValue: z.coerce.number().positive().optional().nullable(),
-  firstInstallmentMonth: z.string().optional(),
-});
+export const createDebtSchema = z
+  .object({
+    name: z.string().min(1, 'Nome é obrigatório'),
+    description: z.string().optional(),
+    initialValue: z.coerce.number().positive('Valor inicial deve ser maior que zero'),
+    currentValue: z.preprocess(
+      (v) => (v === '' || v === undefined || v === null ? 0 : v),
+      z.coerce.number().min(0, 'Valor atual deve ser maior ou igual a zero'),
+    ),
+    interestRate: z.coerce.number().min(0).optional().nullable(),
+    minimumPayment: z.coerce.number().positive('Pagamento mínimo é obrigatório'),
+    dueDay: z.coerce
+      .number()
+      .min(1, 'Dia do vencimento deve ser maior que zero')
+      .max(31, 'Dia do vencimento deve ser no máximo 31'),
+    startDate: z.preprocess(
+      (v) => (v === '' || v === undefined || v === null ? new Date().toISOString() : v),
+      z.string(),
+    ),
+    installments: z.preprocess(
+      (v) => (v === '' || v === undefined ? 1 : v),
+      z.coerce.number().min(1, 'Número de parcelas é obrigatório'),
+    ),
+    accountId: z.string().min(1, 'Conta é obrigatória'),
+    calculationType: z.string().min(1, 'Tipo de cálculo é obrigatório'),
+    installmentValue: z.preprocess(
+      (v) => (v === '' || v === undefined ? null : v),
+      z.coerce.number().positive().nullable().optional(),
+    ),
+    firstInstallmentMonth: z.string().min(1, 'Primeira parcela é obrigatória'),
+  })
+  .refine(
+    (data) => {
+      if (data.calculationType === 'FIXED_INSTALLMENT') {
+        return data.installmentValue != null && data.installmentValue > 0;
+      }
+      return true;
+    },
+    {
+      message: 'Valor da parcela é obrigatório para cálculo de valor fixo',
+      path: ['installmentValue'],
+    },
+  );
 
 export const editDebtSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -61,9 +84,9 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
     currentValue: 0,
     interestRate: null,
     minimumPayment: 0,
-    dueDay: null,
+    dueDay: 1,
     startDate: new Date().toISOString(),
-    installments: null,
+    installments: 1,
     accountId: '',
     calculationType: 'TOTAL_DIVIDED',
     installmentValue: null,

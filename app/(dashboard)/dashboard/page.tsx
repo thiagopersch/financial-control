@@ -1,20 +1,16 @@
-import { BudgetWidget } from '@/components/dashboard/budget-widget';
 import { CategoryPieChart } from '@/components/dashboard/category-pie-chart';
-import { DebtsWidget } from '@/components/dashboard/debts-widget';
-import { GoalsWidget } from '@/components/dashboard/goals-widget';
 import { OverviewChart } from '@/components/dashboard/overview-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { StatsCards } from '@/components/dashboard/stats-cards';
+import { SummaryCard } from '@/components/dashboard/summary-card';
 import { MonthSelector } from '@/components/month-selector';
 import {
   getAvailableRange,
-  getBudgetData,
   getCategoryData,
   getChartData,
   getDashboardStats,
-  getDebtsData,
-  getGoalsData,
   getRecentTransactions,
+  getSummaryCount,
   getTransactionCountsByYear,
 } from '@/lib/queries/dashboard';
 import { endOfMonth, parse, startOfMonth } from 'date-fns';
@@ -63,9 +59,12 @@ export default async function DashboardPage(props: {
   const availableRange = await getAvailableRange();
   const transactionCounts = await getTransactionCountsByYear();
 
-  const budgetData = await getBudgetData(selectedMonth.getMonth() + 1, selectedMonth.getFullYear());
-  const goalsData = await getGoalsData();
-  const debtsData = await getDebtsData();
+  const { goalsCount, budgetsCount, debtsCount } = await getSummaryCount(
+    startDate,
+    endDate,
+    selectedMonth.getMonth() + 1,
+    selectedMonth.getFullYear(),
+  );
 
   return (
     <div className="animate-in fade-in space-y-8 duration-700">
@@ -83,17 +82,7 @@ export default async function DashboardPage(props: {
 
       <StatsCards stats={stats} />
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="h-full">
-          <GoalsWidget goals={goalsData} />
-        </div>
-        <div className="h-full">
-          <DebtsWidget debts={debtsData.debts} totalDebt={debtsData.totalDebt} />
-        </div>
-        <div className="h-full">
-          <BudgetWidget budgets={budgetData} />
-        </div>
-      </div>
+      <SummaryCard goalsCount={goalsCount} budgetsCount={budgetsCount} debtsCount={debtsCount} />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <div className="col-span-4">
@@ -104,7 +93,9 @@ export default async function DashboardPage(props: {
         </div>
       </div>
 
-      <RecentTransactions transactions={recentTransactions} />
+      <RecentTransactions
+        transactions={recentTransactions.map((t) => ({ ...t, amount: Number(t.amount) }))}
+      />
     </div>
   );
 }

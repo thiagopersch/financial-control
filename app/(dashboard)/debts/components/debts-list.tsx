@@ -120,7 +120,7 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
       {debts.length === 0 && <NotFoundDebts openCreate={openCreate} />}
 
       {debts.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           {debts.map((debt) => (
             <DebtsCard key={debt.id} debt={debt} onEdit={openEdit} onDelete={openDelete} />
           ))}

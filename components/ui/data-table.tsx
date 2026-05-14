@@ -29,6 +29,7 @@ interface DataTableProps<TData, TValue> {
   emptyMessage?: string;
   initialSorting?: SortingState;
   getRowClassName?: (row: TData) => string;
+  pageSize?: number;
 }
 
 export function DataTable<TData, TValue>({
@@ -37,6 +38,7 @@ export function DataTable<TData, TValue>({
   emptyMessage = 'Nenhum resultado encontrado.',
   initialSorting = [],
   getRowClassName,
+  pageSize = 15,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>(initialSorting);
 
@@ -52,7 +54,7 @@ export function DataTable<TData, TValue>({
     },
     initialState: {
       pagination: {
-        pageSize: 15,
+        pageSize,
       },
     },
   });

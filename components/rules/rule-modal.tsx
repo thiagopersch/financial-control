@@ -1,13 +1,6 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { FormDialog } from '@/components/ui/form-dialog';
 import {
   Form,
   FormControl,
@@ -24,11 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { createRule, updateRule } from '@/lib/actions/rules';
-import { showError, showSuccess } from '@/lib/utils/toast';
+import { useRuleForm } from '@/hooks/forms/use-rule-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -42,109 +33,107 @@ type RuleFormValues = z.infer<typeof ruleSchema>;
 interface RuleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  categories: { id: string; name: string; type: string }[];
+  categories: { id: string; name: string; type: string; color: string }[];
   initialData?: any;
 }
 
 export function RuleModal({ isOpen, onClose, categories, initialData }: RuleModalProps) {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { handleSubmit, isEditing } = useRuleForm({
+    rule: initialData || null,
+    onSuccess: () => {
+      onClose();
+    },
+  });
+
+  const defaultValues = useMemo<RuleFormValues>(() => {
+    if (initialData) {
+      return {
+        keyword: initialData.keyword,
+        categoryId: initialData.categoryId,
+      };
+    }
+    return { keyword: '', categoryId: '' };
+  }, [initialData]);
 
   const form = useForm<RuleFormValues>({
     resolver: zodResolver(ruleSchema),
-    defaultValues: { keyword: '', categoryId: '' },
+    defaultValues,
   });
 
   useEffect(() => {
-    if (initialData) {
-      form.reset({ keyword: initialData.keyword, categoryId: initialData.categoryId });
-    } else {
-      form.reset({ keyword: '', categoryId: '' });
+    if (isOpen) {
+      form.reset(defaultValues);
     }
-  }, [initialData, form]);
+  }, [isOpen, defaultValues, form]);
 
-  async function onSubmit(data: RuleFormValues) {
-    setIsLoading(true);
-    try {
-      const result = initialData ? await updateRule(initialData.id, data) : await createRule(data);
-
-      if (result.success) {
-        showSuccess(initialData ? 'Regra atualizada!' : 'Regra criada com sucesso!');
-        onClose();
-      } else {
-        showError(result.error || 'Erro inesperado.');
-      }
-    } catch {
-      showError('Erro inesperado.');
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const onSubmit = async (values: RuleFormValues) => {
+    setIsSubmitting(true);
+    await handleSubmit(values);
+    setIsSubmitting(false);
+  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{initialData ? 'Editar Regra' : 'Nova Regra de Categorização'}</DialogTitle>
-          <DialogDescription>
-            Quando uma transação contiver esta palavra-chave na descrição, ela será categorizada
-            automaticamente.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-            <FormField
-              control={form.control}
-              name="keyword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Palavra-chave</FormLabel>
+    <FormDialog
+      title={isEditing ? 'Editar Regra' : 'Nova Regra de Categorização'}
+      description="Quando uma transação contiver esta palavra-chave na descrição, ela será categorizada automaticamente."
+      isOpen={isOpen}
+      onClose={onClose}
+      onSubmit={form.handleSubmit(onSubmit)}
+      confirmText={isEditing ? 'Salvar' : 'Criar regra'}
+      isSubmitting={isSubmitting}
+    >
+      <Form {...form}>
+        <div className="space-y-4">
+          <FormField
+            control={form.control}
+            name="keyword"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Palavra-chave</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ex: mercado, uber, aluguel..." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="categoryId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Categoria associada</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
-                    <Input placeholder="Ex: mercado, uber, aluguel..." {...field} />
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="categoryId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Categoria associada</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a categoria" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name} ({cat.type === 'INCOME' ? 'Receita' : 'Despesa'})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="bg-indigo-600 hover:bg-indigo-700"
-              >
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {initialData ? 'Salvar' : 'Criar regra'}
-              </Button>
-            </div>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: cat.color }}
+                          />
+                          {cat.name}
+                          <span className="text-muted-foreground text-xs">
+                            ({cat.type === 'INCOME' ? 'Receita' : 'Despesa'})
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+      </Form>
+    </FormDialog>
   );
 }

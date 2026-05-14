@@ -21,10 +21,7 @@ export function RulesHeader({ categories, userRole }: RulesHeaderProps) {
         <p className="text-muted-foreground">Automatize a categorização de transações.</p>
       </div>
       {canModify && (
-        <Button
-          onClick={() => setIsOpen(true)}
-          className="w-full bg-indigo-600 shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 sm:w-auto dark:shadow-none"
-        >
+        <Button onClick={() => setIsOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Nova Regra
         </Button>

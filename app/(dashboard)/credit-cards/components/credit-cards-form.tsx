@@ -103,53 +103,61 @@ export function CreditCardsForm({
     >
       <Form {...form}>
         <div className="space-y-4">
-          <FormField
-            control={form.control}
-            name="accountId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Conta Vinculada</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="accountId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Conta Vinculada</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione uma conta" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {accounts
+                        .filter((acc) => acc.type === 'BANK' || acc.type === 'CREDIT_CARD')
+                        .map((acc) => (
+                          <SelectItem key={acc.id} value={acc.id}>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="h-2 w-2 rounded-full"
+                                style={{ backgroundColor: acc.color }}
+                              />
+                              {acc.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="limit"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Limite</FormLabel>
                   <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecione uma conta" />
-                    </SelectTrigger>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="5000.00"
+                      {...field}
+                      value={field.value || ''}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    />
                   </FormControl>
-                  <SelectContent>
-                    {accounts
-                      .filter((acc) => acc.type === 'BANK' || acc.type === 'CREDIT_CARD')
-                      .map((acc) => (
-                        <SelectItem key={acc.id} value={acc.id}>
-                          {acc.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="limit"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Limite</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="5000.00"
-                    {...field}
-                    value={field.value || ''}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <div className="grid grid-cols-2 gap-4">
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField
               control={form.control}
               name="closingDay"

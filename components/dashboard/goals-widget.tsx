@@ -79,7 +79,11 @@ export function GoalsWidget({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <Card className="border-primary/20 h-full w-full overflow-hidden shadow-sm transition-all hover:shadow-md">
+        <Card className="border-primary/20 relative h-full w-full overflow-hidden shadow-sm transition-all hover:shadow-md">
+          <div
+            className="absolute top-0 bottom-0 left-0 w-1.5"
+            style={{ backgroundColor: goals[0].color ?? '#10b981' }}
+          />
           {onDeposit && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -160,8 +164,12 @@ export function GoalsWidget({
         {goals.slice(0, 3).map((goal) => (
           <Card
             key={goal.id}
-            className="border-primary/20 h-full w-full cursor-pointer overflow-hidden shadow-sm transition-all hover:shadow-md"
+            className="border-primary/20 relative h-full w-full cursor-pointer overflow-hidden shadow-sm transition-all hover:shadow-md"
           >
+            <div
+              className="absolute top-0 bottom-0 left-0 w-1.5"
+              style={{ backgroundColor: goal.color ?? '#10b981' }}
+            />
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2">
                 <Target className="text-primary h-5 w-5" />

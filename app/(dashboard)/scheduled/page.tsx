@@ -1,25 +1,26 @@
 'use client';
 
 import { useState } from 'react';
-import { CalendarClock, Plus, MoreHorizontal, Play, Pause, Trash2 } from 'lucide-react';
+import { CalendarClock, Plus, MoreHorizontal, Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { FormDialog } from '@/components/ui/form-dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -29,8 +30,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { showError, showSuccess, showValidationErrors } from '@/lib/utils/toast';
+import { showError, showSuccess } from '@/lib/utils/toast';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   useScheduledTransactions,
@@ -56,11 +58,14 @@ type ScheduledFormData = z.infer<typeof scheduledSchema>;
 
 export default function ScheduledPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selectedToDelete, setSelectedToDelete] = useState<string | null>(null);
 
   const { transactions, isLoading, refresh } = useScheduledTransactions();
   const { categories } = useCategories();
 
   const form = useForm<ScheduledFormData>({
+    resolver: zodResolver(scheduledSchema),
     defaultValues: {
       name: '',
       type: 'EXPENSE',
@@ -92,24 +97,25 @@ export default function ScheduledPage() {
       });
 
       if (result.success) {
-        showSuccess('Agendamento criado com sucesso');
+        showSuccess(
+          'Agendamento criado com sucesso!',
+          'A transação agendada foi criada e será executada automaticamente.',
+        );
         setIsDialogOpen(false);
         form.reset();
         refresh();
       } else {
-        showError(result.error || 'Erro ao criar agendamento');
+        showError(
+          'Erro ao criar agendamento',
+          result.error || 'Não foi possível criar o agendamento.',
+        );
       }
     } catch (error) {
-      showError('Erro ao criar agendamento');
+      showError('Erro ao criar agendamento', 'Ocorreu um erro inesperado ao criar o agendamento.');
     }
   };
 
   const onSubmit = form.handleSubmit(async (data) => {
-    const parsed = scheduledSchema.safeParse(data);
-    if (!parsed.success) {
-      showValidationErrors(parsed.error);
-      return;
-    }
     await handleSubmit(data);
   });
 
@@ -125,17 +131,26 @@ export default function ScheduledPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este agendamento?')) return;
+  const handleDelete = (id: string) => {
+    setSelectedToDelete(id);
+    setIsDeleteOpen(true);
+  };
 
-    try {
-      const result = await deleteScheduledTransaction(id);
-      if (result.success) {
-        showSuccess('Agendamento excluído com sucesso');
-        refresh();
+  const confirmDelete = async () => {
+    if (selectedToDelete) {
+      try {
+        const result = await deleteScheduledTransaction(selectedToDelete);
+        if (result.success) {
+          showSuccess('Agendamento excluído com sucesso');
+          refresh();
+        } else {
+          showError('Erro ao excluir agendamento', result.error);
+        }
+      } catch {
+        showError('Erro ao excluir agendamento');
       }
-    } catch (error) {
-      showError('Erro ao excluir agendamento');
+      setIsDeleteOpen(false);
+      setSelectedToDelete(null);
     }
   };
 
@@ -162,122 +177,10 @@ export default function ScheduledPage() {
           <h1 className="text-3xl font-bold tracking-tight">Transações Agendadas</h1>
           <p className="text-muted-foreground">Gerencie transações recorrentes e agendadas</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Agendamento
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Novo Agendamento</DialogTitle>
-              <DialogDescription>Configure uma transação recorrente ou agendada</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={onSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome</Label>
-                <Input id="name" {...form.register('name')} placeholder="Ex: Aluguel, Salário" />
-                {form.formState.errors.name && (
-                  <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <Select
-                    value={form.watch('type')}
-                    onValueChange={(value) => form.setValue('type', value as 'INCOME' | 'EXPENSE')}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="INCOME">Receita</SelectItem>
-                      <SelectItem value="EXPENSE">Despesa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Valor</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    {...form.register('amount')}
-                    placeholder="0.00"
-                  />
-                  {form.formState.errors.amount && (
-                    <p className="text-sm text-red-500">{form.formState.errors.amount.message}</p>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Frequência</Label>
-                  <Select
-                    value={form.watch('frequency')}
-                    onValueChange={(value) =>
-                      form.setValue(
-                        'frequency',
-                        value as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'BUSINESS_DAYS',
-                      )
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DAILY">Diário</SelectItem>
-                      <SelectItem value="WEEKLY">Semanal</SelectItem>
-                      <SelectItem value="MONTHLY">Mensal</SelectItem>
-                      <SelectItem value="BUSINESS_DAYS">Dias úteis</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dayOfMonth">Dia do mês</Label>
-                  <Input
-                    id="dayOfMonth"
-                    type="number"
-                    min="1"
-                    max="31"
-                    {...form.register('dayOfMonth')}
-                  />
-                  {form.formState.errors.dayOfMonth && (
-                    <p className="text-sm text-red-500">
-                      {form.formState.errors.dayOfMonth.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Categoria</Label>
-                <Select
-                  value={form.watch('categoryId')}
-                  onValueChange={(value) => form.setValue('categoryId', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {form.formState.errors.categoryId && (
-                  <p className="text-sm text-red-500">{form.formState.errors.categoryId.message}</p>
-                )}
-              </div>
-              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Criando...' : 'Criar Agendamento'}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setIsDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Novo Agendamento
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -388,6 +291,155 @@ export default function ScheduledPage() {
           ))}
         </div>
       )}
+
+      <FormDialog
+        title="Novo Agendamento"
+        description="Configure uma transação recorrente ou agendada"
+        isOpen={isDialogOpen}
+        onClose={() => {
+          setIsDialogOpen(false);
+          form.reset();
+        }}
+        onSubmit={onSubmit}
+        confirmText="Agendar"
+        cancelText="Cancelar"
+        isSubmitting={form.formState.isSubmitting}
+      >
+        <Form {...form}>
+          <div className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nome</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: Aluguel, Salário" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="INCOME">Receita</SelectItem>
+                        <SelectItem value="EXPENSE">Despesa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Valor</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+              <FormField
+                control={form.control}
+                name="frequency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Frequência</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="DAILY">Diário</SelectItem>
+                        <SelectItem value="WEEKLY">Semanal</SelectItem>
+                        <SelectItem value="MONTHLY">Mensal</SelectItem>
+                        <SelectItem value="BUSINESS_DAYS">Dias úteis</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="dayOfMonth"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Dia do mês</FormLabel>
+                    <FormControl>
+                      <Input type="number" min="1" max="31" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="categoryId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Categoria</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione uma categoria" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: cat.color || '#666' }}
+                            />
+                            {cat.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </Form>
+      </FormDialog>
+
+      <DeleteConfirmModal
+        title="Excluir Agendamento"
+        description="Tem certeza que deseja excluir este agendamento? Esta ação não pode ser desfeita."
+        isOpen={isDeleteOpen}
+        onClose={() => {
+          setIsDeleteOpen(false);
+          setSelectedToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+      />
     </div>
   );
 }

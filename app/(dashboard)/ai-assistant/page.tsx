@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAIAssistant } from '@/hooks/ai/use-ai-assistant';
 import { Bot, Loader2, MessageSquare, Plus, Send, Sparkles, Trash2 } from 'lucide-react';
 import { ChatMessage } from './components/chat-message';
@@ -21,6 +22,7 @@ export default function AIAssistantPage() {
     input,
     setInput,
     isLoading,
+    isLoadingMessages,
     currentConversationId,
     scrollRef,
     conversations,
@@ -146,6 +148,23 @@ export default function AIAssistantPage() {
                         ))}
                       </div>
                     </div>
+                  ) : isLoadingMessages ? (
+                    <div className="space-y-4 p-4">
+                      {[1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div className={`space-y-2 ${i % 2 === 0 ? 'items-end' : 'items-start'}`}>
+                            <Skeleton className={`h-4 w-24 ${i % 2 === 0 ? '' : ''}`} />
+                            <Skeleton
+                              className={`h-16 w-64 rounded-lg ${i % 2 === 0 ? 'bg-primary/20' : 'bg-muted'}`}
+                            />
+                            <Skeleton className="h-3 w-16" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   ) : messages.length === 0 && !isLoading ? (
                     <div className="py-8 text-center">
                       <MessageSquare className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
@@ -165,9 +184,12 @@ export default function AIAssistantPage() {
                   )}
                   {isLoading && (
                     <div className="flex justify-start">
-                      <div className="bg-muted flex items-center gap-2 rounded-lg p-3">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="text-sm">Pensando...</span>
+                      <div className="bg-muted flex items-center gap-3 rounded-lg p-4">
+                        <div className="flex flex-col gap-2">
+                          <Skeleton className="h-4 w-48" />
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-4 w-40" />
+                        </div>
                       </div>
                     </div>
                   )}

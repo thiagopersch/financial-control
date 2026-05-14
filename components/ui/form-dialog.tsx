@@ -43,7 +43,7 @@ export function FormDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex max-h-[95dvh] flex-col sm:max-w-2xl">
+      <DialogContent className="flex max-h-[95dvh] flex-col sm:max-w-3xl">
         <DialogHeader className="shrink-0">
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

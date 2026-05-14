@@ -1,13 +1,6 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { FormDialog } from '@/components/ui/form-dialog';
 import {
   Form,
   FormControl,
@@ -17,11 +10,9 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { createSupplier, updateSupplier } from '@/lib/actions/suppliers';
-import { showError, showSuccess } from '@/lib/utils/toast';
+import { useSupplierForm } from '@/hooks/forms/use-supplier-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -41,129 +32,113 @@ interface SupplierModalProps {
 }
 
 export function SupplierModal({ isOpen, onClose, initialData }: SupplierModalProps) {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm<SupplierFormValues>({
-    resolver: zodResolver(supplierSchema),
-    defaultValues: { name: '', document: '', contact: '', address: '' },
+  const { handleSubmit, isEditing } = useSupplierForm({
+    supplier: initialData || null,
+    onSuccess: () => {
+      onClose();
+    },
   });
 
-  useEffect(() => {
+  const defaultValues = useMemo<SupplierFormValues>(() => {
     if (initialData) {
-      form.reset({
+      return {
         name: initialData.name,
         document: initialData.document || '',
         contact: initialData.contact || '',
         address: initialData.address || '',
-      });
-    } else {
-      form.reset({ name: '', document: '', contact: '', address: '' });
+      };
     }
-  }, [initialData, form]);
+    return { name: '', document: '', contact: '', address: '' };
+  }, [initialData]);
 
-  async function onSubmit(data: SupplierFormValues) {
-    setIsLoading(true);
-    try {
-      const result = initialData
-        ? await updateSupplier(initialData.id, data)
-        : await createSupplier(data);
+  const form = useForm<SupplierFormValues>({
+    resolver: zodResolver(supplierSchema),
+    defaultValues,
+  });
 
-      if (result.success) {
-        showSuccess(initialData ? 'Fornecedor atualizado!' : 'Fornecedor criado!');
-        onClose();
-      } else {
-        showError(result.error || 'Erro inesperado.');
-      }
-    } catch {
-      showError('Erro inesperado.');
-    } finally {
-      setIsLoading(false);
+  useEffect(() => {
+    if (isOpen) {
+      form.reset(defaultValues);
     }
-  }
+  }, [isOpen, defaultValues, form]);
+
+  const onSubmit = async (values: SupplierFormValues) => {
+    setIsSubmitting(true);
+    await handleSubmit(values);
+    setIsSubmitting(false);
+  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{initialData ? 'Editar Fornecedor' : 'Novo Fornecedor'}</DialogTitle>
-          <DialogDescription>
-            Defina os dados básicos do seu fornecedor ou cliente.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome / Razão Social</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Fornecedor Ltda" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="document"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>CPF / CNPJ</FormLabel>
-                  <FormControl>
-                    <Input placeholder="00.000.000/0000-00" {...field} value={field.value || ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="contact"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contato (E-mail / Telefone)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="contato@exemplo.com" {...field} value={field.value || ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Endereço (Opcional)</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Rua Exemplo, 100 — São Paulo/SP"
-                      {...field}
-                      value={field.value || ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="bg-indigo-600 hover:bg-indigo-700"
-              >
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {initialData ? 'Salvar' : 'Criar'}
-              </Button>
-            </div>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      title={isEditing ? 'Editar Fornecedor' : 'Novo Fornecedor'}
+      description="Defina os dados básicos do seu fornecedor ou cliente."
+      isOpen={isOpen}
+      onClose={onClose}
+      onSubmit={form.handleSubmit(onSubmit)}
+      isSubmitting={isSubmitting}
+    >
+      <Form {...form}>
+        <div className="space-y-4">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nome / Razão Social</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ex: Fornecedor Ltda" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="document"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>CPF / CNPJ</FormLabel>
+                <FormControl>
+                  <Input placeholder="00.000.000/0000-00" {...field} value={field.value || ''} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="contact"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Contato (E-mail / Telefone)</FormLabel>
+                <FormControl>
+                  <Input placeholder="contato@exemplo.com" {...field} value={field.value || ''} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="address"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Endereço (Opcional)</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Rua Exemplo, 100 — São Paulo/SP"
+                    {...field}
+                    value={field.value || ''}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+      </Form>
+    </FormDialog>
   );
 }

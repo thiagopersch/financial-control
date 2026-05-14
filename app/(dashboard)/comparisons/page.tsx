@@ -1,10 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { GitCompare, TrendingUp, TrendingDown } from 'lucide-react';
+import { useComparisons } from '@/lib/queries/comparisons-client';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -12,44 +10,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
-
-interface ComparisonData {
-  label: string;
-  current: number;
-  previous: number;
-}
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
+import { useState } from 'react';
 
 export default function ComparisonsPage() {
-  const [isLoading, setIsLoading] = useState(true);
   const [comparisonType, setComparisonType] = useState('month');
-  const [chartData, setChartData] = useState<ComparisonData[]>([]);
-  const [summary, setSummary] = useState<{
-    incomeChange: number;
-    expenseChange: number;
-    netChange: number;
-  } | null>(null);
-
-  useEffect(() => {
-    fetchComparisons();
-  }, [comparisonType]);
-
-  const fetchComparisons = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/comparisons?type=${comparisonType}`);
-      if (response.ok) {
-        const data = await response.json();
-        setChartData(data.chartData || []);
-        setSummary(data.summary || null);
-      }
-    } catch (error) {
-      console.error('Error fetching comparisons:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { chartData, summary, isLoading } = useComparisons(comparisonType);
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', {
@@ -64,13 +39,13 @@ export default function ComparisonsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Comparativos</h1>
           <p className="text-muted-foreground">Compare períodos, categorias e muito mais</p>
         </div>
         <Select value={comparisonType} onValueChange={setComparisonType}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -163,8 +138,13 @@ export default function ComparisonsPage() {
                   <XAxis dataKey="label" />
                   <YAxis tickFormatter={(value) => formatCurrency(value)} />
                   <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                  <Bar dataKey="current" fill="#6366f1" name="Atual" />
-                  <Bar dataKey="previous" fill="#94a3b8" name="Anterior" />
+                  <Legend />
+                  <Bar dataKey="current" fill="var(--color-primary, #10B981)" name="Atual" />
+                  <Bar
+                    dataKey="previous"
+                    fill="var(--color-muted-foreground, #94a3b8)"
+                    name="Anterior"
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>

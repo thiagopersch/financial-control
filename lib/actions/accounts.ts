@@ -42,7 +42,7 @@ export async function createAccount(data: z.infer<typeof accountSchema>) {
       success: true,
       data: {
         ...account,
-        
+
         createdAt: account.createdAt.toISOString(),
         updatedAt: account.updatedAt.toISOString(),
       },
@@ -84,7 +84,7 @@ export async function updateAccount(id: string, data: z.infer<typeof accountSche
       success: true,
       data: {
         ...account,
-        
+
         createdAt: account.createdAt.toISOString(),
         updatedAt: account.updatedAt.toISOString(),
       },

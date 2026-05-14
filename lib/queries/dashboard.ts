@@ -1,6 +1,6 @@
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
-import { TransactionType } from '@prisma/client';
+import { Prisma, TransactionType } from '@prisma/client';
 import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getServerSession } from 'next-auth';
@@ -430,6 +430,37 @@ export async function getTransactionCountsByYear() {
   });
 
   return counts;
+}
+
+export async function getSummaryCount(
+  startDate: Date | undefined,
+  endDate: Date | undefined,
+  month: number,
+  year: number,
+) {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error('Unauthorized');
+
+  const workspaceId = session.user.workspaceId;
+
+  const budgetCount = await prisma.budget.count({
+    where: { workspaceId, month, year },
+  });
+
+  const goalWhere: Prisma.GoalWhereInput = { workspaceId };
+  if (startDate && endDate) {
+    goalWhere.OR = [{ deadline: null }, { deadline: { gte: startDate, lte: endDate } }];
+  }
+  const goalCount = await prisma.goal.count({ where: goalWhere });
+
+  const debtWhere: Prisma.DebtWhereInput = { workspaceId, isActive: true };
+  if (startDate && endDate) {
+    debtWhere.startDate = { lte: endDate };
+    debtWhere.OR = [{ endDate: null }, { endDate: { gte: startDate } }];
+  }
+  const debtCount = await prisma.debt.count({ where: debtWhere });
+
+  return { goalsCount: goalCount, budgetsCount: budgetCount, debtsCount: debtCount };
 }
 
 export async function getDebtsData() {

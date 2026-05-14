@@ -1,14 +1,6 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { FormDialog } from '@/components/ui/form-dialog';
 import {
   Form,
   FormControl,
@@ -26,11 +18,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { upsertBudget } from '@/lib/actions/budgets';
-import { showError, showSuccess, showValidationErrors } from '@/lib/utils/toast';
-import { useEffect } from 'react';
+import { budgetSchema, useBudgetForm } from '@/hooks/forms/use-budget-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
 
 interface Category {
   id: string;
@@ -38,37 +29,13 @@ interface Category {
   color: string;
 }
 
-interface Budget {
-  id?: string;
-  categoryId: string;
-  amount: number;
-  month: number;
-  year: number;
-  alertAt80: boolean;
-  alertAt100: boolean;
-}
-
 interface BudgetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   categories: Category[];
-  editingBudget?: Budget | null;
+  editingBudget?: any | null;
   onSuccess?: () => void;
 }
-
-const budgetSchema = z.object({
-  categoryId: z.string().min(1, 'Selecione uma categoria'),
-  amount: z
-    .string()
-    .min(1, 'Valor é obrigatório')
-    .refine((val) => parseFloat(val) > 0, 'Valor deve ser maior que zero'),
-  month: z.string().min(1, 'Mês é obrigatório'),
-  year: z.string().min(1, 'Ano é obrigatório'),
-  alertAt80: z.boolean(),
-  alertAt100: z.boolean(),
-});
-
-type BudgetFormValues = z.infer<typeof budgetSchema>;
 
 export function BudgetDialog({
   open,
@@ -77,41 +44,48 @@ export function BudgetDialog({
   editingBudget,
   onSuccess,
 }: BudgetDialogProps) {
-  const form = useForm<BudgetFormValues>({
-    defaultValues: {
-      categoryId: editingBudget?.categoryId || '',
-      amount: editingBudget?.amount?.toString() || '',
-      month: String(new Date().getMonth() + 1),
-      year: String(new Date().getFullYear()),
-      alertAt80: editingBudget?.alertAt80 ?? true,
-      alertAt100: editingBudget?.alertAt100 ?? true,
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { handleSubmit, isEditing } = useBudgetForm({
+    budget: editingBudget || null,
+    onSuccess: () => {
+      onOpenChange(false);
+      onSuccess?.();
     },
+  });
+
+  const defaultValues = useMemo(() => {
+    const now = new Date();
+    if (editingBudget) {
+      return {
+        categoryId: editingBudget.categoryId || '',
+        amount: editingBudget.amount || 0,
+        month: editingBudget.month || now.getMonth() + 1,
+        year: editingBudget.year || now.getFullYear(),
+        alertAt80: editingBudget.alertAt80 ?? true,
+        alertAt100: editingBudget.alertAt100 ?? true,
+      };
+    }
+    return {
+      categoryId: '',
+      amount: 0,
+      month: now.getMonth() + 1,
+      year: now.getFullYear(),
+      alertAt80: true,
+      alertAt100: true,
+    };
+  }, [editingBudget]);
+
+  const form = useForm({
+    resolver: zodResolver(budgetSchema) as any,
+    defaultValues,
   });
 
   useEffect(() => {
     if (open) {
-      const now = new Date();
-      if (editingBudget) {
-        form.reset({
-          categoryId: editingBudget.categoryId || '',
-          amount: String(editingBudget.amount || ''),
-          month: String(editingBudget.month || now.getMonth() + 1),
-          year: String(editingBudget.year || now.getFullYear()),
-          alertAt80: editingBudget.alertAt80 ?? true,
-          alertAt100: editingBudget.alertAt100 ?? true,
-        });
-      } else {
-        form.reset({
-          categoryId: '',
-          amount: '',
-          month: String(now.getMonth() + 1),
-          year: String(now.getFullYear()),
-          alertAt80: true,
-          alertAt100: true,
-        });
-      }
+      form.reset(defaultValues);
     }
-  }, [open, editingBudget, form]);
+  }, [open, defaultValues, form]);
 
   const now = new Date();
 
@@ -124,126 +98,100 @@ export function BudgetDialog({
   };
 
   const months = Array.from({ length: 12 }, (_, i) => i + 1).map((m) => ({
-    value: m.toString(),
+    value: m,
     label:
       new Date(2000, m - 1).toLocaleDateString('pt-BR', { month: 'long' }).charAt(0).toUpperCase() +
       new Date(2000, m - 1).toLocaleDateString('pt-BR', { month: 'long' }).slice(1),
   }));
 
-  const onSubmit = async (data: BudgetFormValues) => {
-    const result = budgetSchema.safeParse(data);
-
-    if (!result.success) {
-      showValidationErrors(result.error);
-      return;
-    }
-
-    try {
-      const payload = {
-        categoryId: data.categoryId,
-        amount: parseFloat(data.amount),
-        month: parseInt(data.month),
-        year: parseInt(data.year),
-        alertAt80: data.alertAt80,
-        alertAt100: data.alertAt100,
-      };
-
-      const actionResult = await upsertBudget({ ...payload, id: editingBudget?.id });
-      if (actionResult.success) {
-        showSuccess(
-          editingBudget ? 'Orçamento atualizado' : 'Orçamento criado',
-          editingBudget ? 'Orçamento atualizado com sucesso.' : 'Orçamento criado com sucesso.',
-        );
-        onOpenChange(false);
-        onSuccess?.();
-      } else {
-        showError('Erro ao salvar orçamento', actionResult.error);
-      }
-    } catch (error) {
-      showError('Erro ao salvar orçamento');
-    }
+  const onSubmit = async (values: any) => {
+    setIsSubmitting(true);
+    await handleSubmit(values);
+    setIsSubmitting(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{editingBudget ? 'Editar Orçamento' : 'Configurar Orçamento'}</DialogTitle>
-          <DialogDescription>
-            Defina um limite de gastos para uma categoria neste mês.
-          </DialogDescription>
-        </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="categoryId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Categoria</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecione a categoria" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories.map((type) => (
-                        <SelectItem key={type.id} value={type.id}>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: type.color }}
-                            />
-                            {type.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="amount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Valor do Orçamento</FormLabel>
+    <FormDialog
+      title={isEditing ? 'Editar Orçamento' : 'Configurar Orçamento'}
+      description="Defina um limite de gastos para uma categoria neste mês."
+      isOpen={open}
+      onClose={() => onOpenChange(false)}
+      onSubmit={form.handleSubmit(onSubmit)}
+      confirmText={isEditing ? 'Atualizar' : 'Salvar'}
+      isSubmitting={isSubmitting}
+    >
+      <Form {...form}>
+        <div className="space-y-4">
+          <FormField
+            control={form.control}
+            name="categoryId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Categoria</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
-                    <Input
-                      id="amount"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0,00"
-                      {...field}
-                    />
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: cat.color }}
+                          />
+                          {cat.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="amount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Valor do Orçamento</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0,00"
+                    {...field}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
             <FormField
               control={form.control}
               name="month"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Mês</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={(v) => field.onChange(parseInt(v))}
+                    value={String(field.value)}
+                  >
                     <FormControl>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Selecione o mês" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {months.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          <div className="flex items-center gap-2">{type.label}</div>
+                      {months.map((m) => (
+                        <SelectItem key={m.value} value={String(m.value)}>
+                          {m.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -252,23 +200,25 @@ export function BudgetDialog({
                 </FormItem>
               )}
             />
-
             <FormField
               control={form.control}
               name="year"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Ano</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={(v) => field.onChange(parseInt(v))}
+                    value={String(field.value)}
+                  >
                     <FormControl>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Selecione o ano" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {generateYears().map((type) => (
-                        <SelectItem key={type} value={type.toString()}>
-                          <div className="flex items-center gap-2">{type}</div>
+                      {generateYears().map((y) => (
+                        <SelectItem key={y} value={String(y)}>
+                          {y}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -277,50 +227,37 @@ export function BudgetDialog({
                 </FormItem>
               )}
             />
-
-            <FormField
-              control={form.control}
-              name="alertAt80"
-              render={({ field }) => (
-                <FormItem>
+          </div>
+          <FormField
+            control={form.control}
+            name="alertAt80"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
                   <FormLabel>Alertar aos 80%</FormLabel>
-                  <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="alertAt100"
-              render={({ field }) => (
-                <FormItem>
+                </div>
+                <FormControl>
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="alertAt100"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
                   <FormLabel>Alertar ao estourar</FormLabel>
-                  <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting
-                  ? 'Salvando...'
-                  : editingBudget
-                    ? 'Atualizar'
-                    : 'Salvar'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+                </div>
+                <FormControl>
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+        </div>
+      </Form>
+    </FormDialog>
   );
 }

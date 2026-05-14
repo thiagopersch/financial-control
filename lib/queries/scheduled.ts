@@ -35,13 +35,11 @@ export function useScheduledTransactions() {
 }
 
 export function useCategories() {
-  const { data, error, isLoading } = useSWR<{ categories: { id: string; name: string }[] }>(
-    '/api/categories',
-    fetcher,
-    {
-      revalidateOnFocus: false,
-    },
-  );
+  const { data, error, isLoading } = useSWR<{
+    categories: { id: string; name: string; color?: string }[];
+  }>('/api/categories', fetcher, {
+    revalidateOnFocus: false,
+  });
 
   return {
     categories: data?.categories || [],

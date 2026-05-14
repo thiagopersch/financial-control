@@ -1,20 +1,14 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { FormDialog } from '@/components/ui/form-dialog';
+import { DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { depositToGoal } from '@/lib/actions/goals';
 import { formatCurrency } from '@/lib/utils';
 import { showError, showSuccess } from '@/lib/utils/toast';
-import { Plus, Wallet } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
 interface DepositDialogProps {
@@ -60,7 +54,7 @@ export function DepositDialog({
       if (result.success) {
         showSuccess(
           'Depósito realizado',
-          `Valor de ${formatCurrency(parsedAmount)} adicionado à meta "${goalName}"`
+          `Valor de ${formatCurrency(parsedAmount)} adicionado à meta "${goalName}"`,
         );
         setAmount('');
         onOpenChange(false);
@@ -75,55 +69,51 @@ export function DepositDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Wallet className="h-5 w-5" />
-            Depositar na Meta
-          </DialogTitle>
-          <DialogDescription>Adicione um valor para a meta "{goalName}"</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="amount">Valor do Depósito</Label>
-              <div className="relative">
-                <span className="text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2">
-                  R$
-                </span>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0,00"
-                  className="pl-8"
-                  autoFocus
-                />
-              </div>
-            </div>
+    <FormDialog
+      title="Depositar na Meta"
+      description={`Adicione um valor para a meta ${goalName}`}
+      isOpen={open}
+      onClose={() => onOpenChange(false)}
+      onSubmit={handleSubmit}
+      showFooter={false}
+    >
+      <div className="py-4">
+        <div className="grid gap-2">
+          <Label htmlFor="amount">Valor do Depósito</Label>
+          <div className="relative">
+            <span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2">
+              R$
+            </span>
+            <Input
+              id="amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0,00"
+              className="pl-8"
+              autoFocus
+            />
           </div>
+        </div>
+      </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isSubmitting || !amount}>
-              {isSubmitting ? (
-                'Depositando...'
-              ) : (
-                <>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Depositar
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isSubmitting || !amount}>
+          {isSubmitting ? (
+            'Depositando...'
+          ) : (
+            <>
+              <Plus className="mr-2 h-4 w-4" />
+              Depositar
+            </>
+          )}
+        </Button>
+      </DialogFooter>
+    </FormDialog>
   );
 }

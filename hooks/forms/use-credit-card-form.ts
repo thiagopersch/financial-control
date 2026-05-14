@@ -6,10 +6,18 @@ import { showError, showSuccess } from '@/lib/utils/toast';
 import * as z from 'zod';
 
 export const creditCardSchema = z.object({
-  limit: z.coerce.number().positive('Limite deve ser maior que zero'),
+  limit: z.coerce
+    .number({ error: 'Limite é obrigatório' })
+    .positive('Limite deve ser maior que zero'),
   initialBalance: z.coerce.number().default(0),
-  closingDay: z.number().min(1).max(31),
-  dueDay: z.number().min(1).max(31),
+  closingDay: z.coerce
+    .number({ error: 'Dia de fechamento é obrigatório' })
+    .min(1, 'Dia de fechamento deve ser maior ou igual a 1')
+    .max(31, 'Dia de fechamento deve ser menor ou igual a 31'),
+  dueDay: z.coerce
+    .number({ error: 'Dia do vencimento é obrigatório' })
+    .min(1, 'Dia do vencimento deve ser maior ou igual a 1')
+    .max(31, 'Dia do vencimento deve ser menor ou igual a 31'),
   accountId: z.string().min(1, 'Conta vinculada é obrigatória'),
   color: z.string().optional().default('#6366f1'),
 });

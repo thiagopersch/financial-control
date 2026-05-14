@@ -3,7 +3,6 @@
 import { ActionButtons } from '@/app/(dashboard)/transactions/components/action-buttons';
 import { Filters } from '@/app/(dashboard)/transactions/components/filters';
 import { SearchInput } from '@/components/search';
-import { showSuccess } from '@/lib/utils/toast';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { TransactionModal } from './transaction-modal';
@@ -62,18 +61,6 @@ export function TransactionsHeader({
     router.push(window.location.pathname);
   };
 
-  const exportCSV = () => {
-    const params = new URLSearchParams(searchParams);
-    const url = `/api/transactions/export?${params.toString()}`;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    showSuccess('Exportação iniciada!', 'O download do arquivo foi iniciado.');
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -88,7 +75,6 @@ export function TransactionsHeader({
         <div className="flex flex-col gap-2 max-md:flex-col-reverse max-md:gap-3 sm:items-center md:flex-row">
           {isEditing && (
             <ActionButtons
-              exportCSV={exportCSV}
               setIsTransferModalOpen={setIsTransferModalOpen}
               setIsModalOpen={setIsModalOpen}
             />

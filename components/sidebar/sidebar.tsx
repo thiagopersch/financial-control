@@ -4,7 +4,7 @@ import { Route, routeGroups } from '@/components/sidebar/routes';
 import { Button } from '@/components/ui/button';
 import { useSidebar } from '@/hooks/use-sidebar';
 import { cn } from '@/lib/utils';
-import { ChevronDown, ChevronLeft, ChevronRight, LogOut, Menu, Wallet } from 'lucide-react';
+import { ChevronDown, ChevronRight, LogOut, Wallet } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 
 export function Sidebar({ isMobile }: { isMobile?: boolean }) {
   const pathname = usePathname();
-  const { isCollapsed, toggle, onClose } = useSidebar();
+  const { isCollapsed, onClose } = useSidebar();
   const [isHovered, setIsHovered] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
 
@@ -23,11 +23,15 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
       group.routes.some((route) => route.href === pathname),
     );
 
-    if (activeGroup) {
-      setExpandedGroups([activeGroup.title]);
-    } else {
-      setExpandedGroups([]);
-    }
+    const timer = setTimeout(() => {
+      if (activeGroup) {
+        setExpandedGroups([activeGroup.title]);
+      } else {
+        setExpandedGroups([]);
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [pathname]);
 
   const handleLinkClick = () => {
@@ -70,39 +74,30 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
       onMouseLeave={() => !isMobile && setIsHovered(false)}
       className={cn(
         'bg-background text-foreground flex h-full flex-col border-r shadow-sm transition-all duration-200',
-        !isMobile && 'fixed top-0 left-0 z-100 hidden md:flex',
-        showFullSidebar ? 'w-auto' : 'w-[72px]',
+        !isMobile && 'fixed top-0 left-0 z-30 hidden md:flex',
+        showFullSidebar ? 'w-72' : 'w-[72px]',
         isMobile && 'w-full border-none shadow-none',
       )}
     >
       <div className="flex-1 overflow-y-auto px-3 py-2">
-        <div className="mb-6 flex min-h-12 items-center justify-between px-2 pt-4">
-          <Link
-            href="/dashboard"
-            onClick={handleLinkClick}
-            className={cn(
-              'flex items-center overflow-hidden transition-all',
-              !showFullSidebar ? 'w-0 opacity-0' : 'w-auto opacity-100',
-            )}
-          >
-            <div className="relative mr-4 h-8 w-8 shrink-0">
+        <div className="mb-6 flex min-h-12 items-center px-2 pt-4">
+          <div className="flex items-center overflow-hidden">
+            <Link
+              href="/dashboard"
+              onClick={handleLinkClick}
+              className="relative mr-4 h-8 w-8 shrink-0"
+            >
               <Wallet className="h-8 w-8 text-indigo-500" />
-            </div>
-            <span className="text-foreground text-xl font-bold whitespace-nowrap">
+            </Link>
+            <span
+              className={cn(
+                'text-foreground text-xl font-bold whitespace-nowrap transition-all',
+                !showFullSidebar ? 'w-0 opacity-0' : 'w-auto opacity-100',
+              )}
+            >
               {process.env.NEXT_PUBLIC_APP_NAME}
             </span>
-          </Link>
-
-          {!isMobile && (
-            <Button
-              onClick={toggle}
-              variant="ghost"
-              size="icon"
-              className={cn('hover:bg-accent shrink-0', !showFullSidebar && 'mx-auto')}
-            >
-              {showFullSidebar ? <ChevronLeft className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
-          )}
+          </div>
         </div>
 
         <div className="space-y-2">
