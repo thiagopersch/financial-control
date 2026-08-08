@@ -1,7 +1,7 @@
 import prisma from '@/lib/prisma';
 import { showError } from '@/lib/utils/toast';
 import { Role } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 

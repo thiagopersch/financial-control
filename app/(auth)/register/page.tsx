@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { register } from '@/lib/actions/auth';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -29,10 +30,21 @@ import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
 const registerSchema = z.object({
-  name: z.string().min(2, { error: 'Nome deve ter pelo menos 2 caracteres' }),
-  email: z.email({ error: 'E-mail inválido' }),
-  password: z.string().min(6, { error: 'A senha deve ter pelo menos 6 caracteres' }),
-  companyName: z.string().min(2, { error: 'O nome da empresa deve ter pelo menos 2 caracteres' }),
+  name: z
+    .string()
+    .min(2, { error: 'Nome deve ter pelo menos 2 caracteres' })
+    .max(100, { error: 'Nome deve ter no máximo 100 caracteres' }),
+  email: z
+    .email({ error: 'E-mail inválido' })
+    .max(160, { error: 'E-mail deve ter no máximo 160 caracteres' }),
+  password: z
+    .string()
+    .min(6, { error: 'A senha deve ter pelo menos 6 caracteres' })
+    .max(32, { error: 'A senha deve ter no máximo 32 caracteres' }),
+  companyName: z
+    .string()
+    .min(2, { error: 'O nome da empresa deve ter pelo menos 2 caracteres' })
+    .max(100, { error: 'O nome da empresa deve ter no máximo 100 caracteres' }),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -99,6 +111,7 @@ export default function RegisterPage() {
                       id="companyName"
                       placeholder="Minha Empresa Ltda"
                       disabled={isLoading}
+                      maxLength={100}
                       className="bg-white/50 dark:bg-slate-800/50"
                       {...field}
                     />
@@ -112,12 +125,13 @@ export default function RegisterPage() {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel htmlFor="name">Nome</FormLabel>
+                  <FormLabel htmlFor="name">Nome do usuário</FormLabel>
                   <FormControl>
                     <Input
                       id="name"
                       type="text"
                       disabled={isLoading}
+                      maxLength={100}
                       className="bg-white/50 dark:bg-slate-800/50"
                       {...field}
                     />
@@ -139,6 +153,7 @@ export default function RegisterPage() {
                       placeholder="seu@email.com"
                       type="email"
                       disabled={isLoading}
+                      maxLength={160}
                       className="bg-white/50 dark:bg-slate-800/50"
                       {...field}
                     />
@@ -155,11 +170,11 @@ export default function RegisterPage() {
                 <FormItem>
                   <FormLabel htmlFor="password">Senha</FormLabel>
                   <FormControl>
-                    <Input
+                    <PasswordInput
                       id="password"
                       placeholder="••••••••"
-                      type="password"
                       disabled={isLoading}
+                      maxLength={32}
                       className="bg-white/50 dark:bg-slate-800/50"
                       {...field}
                     />

@@ -2,7 +2,7 @@
 
 import prisma from '@/lib/prisma';
 import { Role } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import * as z from 'zod';
 
 const registerSchema = z.object({

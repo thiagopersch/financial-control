@@ -1,6 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, Role, TransactionStatus, TransactionType } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import { Pool } from 'pg';
@@ -15,6 +15,15 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   if (!process.env.ADMIN_PASSWORD || !process.env.ADMIN_NAME || !process.env.ADMIN_EMAIL) {
     throw new Error('Missing required environment variables');
+  }
+
+  const existingAdmin = await prisma.user.findFirst({
+    where: { email: process.env.ADMIN_EMAIL },
+  });
+
+  if (existingAdmin) {
+    console.log('Seed skipped: admin user already exists.');
+    return;
   }
 
   const passwordAdmin = process.env.ADMIN_PASSWORD;

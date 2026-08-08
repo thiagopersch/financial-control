@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
@@ -114,11 +115,11 @@ function LoginForm() {
                 <FormItem>
                   <FormLabel>Senha</FormLabel>
                   <FormControl>
-                    <Input
+                    <PasswordInput
                       id="password"
                       placeholder="••••••••"
-                      type="password"
                       disabled={isLoading}
+                      maxLength={30}
                       {...field}
                     />
                   </FormControl>

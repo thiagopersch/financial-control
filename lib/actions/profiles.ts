@@ -40,7 +40,7 @@ export async function updatePassword(data: { currentPassword: string; newPasswor
   const session = await getServerSession(authOptions);
   if (!session) return { success: false, error: 'Não autorizado' };
 
-  const bcrypt = await import('bcrypt');
+  const bcrypt = await import('bcryptjs');
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) return { success: false, error: 'Usuário não encontrado' };
