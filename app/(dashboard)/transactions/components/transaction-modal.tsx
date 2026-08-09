@@ -20,28 +20,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { SelectSearch } from '@/components/ui/select-search';
 import { Textarea } from '@/components/ui/textarea';
 import { createTransaction, updateTransaction } from '@/lib/actions/transactions';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TransactionStatus, TransactionType } from '@prisma/client';
-import { parse } from 'date-fns';
 import { Repeat } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
 const transactionSchema = z.object({
+  description: z.string().min(1, 'Nome é obrigatório').max(100, 'Máximo de 100 caracteres'),
   type: z.enum([TransactionType.INCOME, TransactionType.EXPENSE]),
   amount: z.coerce.number().positive('Valor deve ser maior que zero'),
-  date: z.coerce.date(),
-  dueDate: z.coerce.date().nullable().optional(),
+  date: z.coerce.date({ error: 'Data de vencimento inválida' }),
   status: z.enum([TransactionStatus.PAID, TransactionStatus.PENDING, TransactionStatus.OVERDUE]),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
   accountId: z.string().min(1, 'Conta é obrigatória'),
   costCenterId: z.string().nullable().optional(),
   supplierId: z.string().nullable().optional(),
-  notes: z.string().optional(),
+  notes: z.string().max(255, 'Máximo de 255 caracteres').optional(),
   isRecurring: z.boolean().default(false),
   recurrenceType: z.enum(['CONTINUOUS', 'INSTALLMENTS']).nullable().optional(),
   installments: z.coerce.number().min(1, 'Deve ser no mínimo 1 parcela').nullable().optional(),
@@ -59,6 +59,12 @@ interface TransactionModalProps {
   initialData?: any;
 }
 
+function parseDate(d: any): Date | null {
+  if (!d) return null;
+  const parsed = d instanceof Date ? d : new Date(d);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export function TransactionModal({
   isOpen,
   onClose,
@@ -73,6 +79,7 @@ export function TransactionModal({
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema) as any,
     defaultValues: {
+      description: '',
       type: TransactionType.EXPENSE,
       amount: 0,
       date: new Date(),
@@ -90,6 +97,7 @@ export function TransactionModal({
 
   const isRecurring = form.watch('isRecurring');
   const recurrenceType = form.watch('recurrenceType');
+  const selectedType = form.watch('type');
 
   useEffect(() => {
     if (!isOpen) {
@@ -97,20 +105,12 @@ export function TransactionModal({
       return;
     }
 
-    const parseDate = (d: any) => {
-      if (!d) return null;
-      if (typeof d === 'string') {
-        return parse(d.split('T')[0], 'yyyy-MM-dd', new Date());
-      }
-      return new Date(d);
-    };
-
     if (initialData) {
       form.reset({
+        description: initialData.description || '',
         type: initialData.type,
         amount: Number(initialData.amount),
         date: parseDate(initialData.date) || new Date(),
-        dueDate: parseDate(initialData.dueDate),
         status: initialData.status,
         categoryId: initialData.categoryId,
         accountId: initialData.accountId || '',
@@ -123,6 +123,7 @@ export function TransactionModal({
       });
     } else {
       form.reset({
+        description: '',
         type: TransactionType.EXPENSE,
         amount: 0,
         date: new Date(),
@@ -139,7 +140,12 @@ export function TransactionModal({
     }
   }, [isOpen, initialData, form]);
 
-  const selectedType = form.watch('type');
+  useEffect(() => {
+    if (selectedType === TransactionType.INCOME) {
+      form.setValue('status', TransactionStatus.PAID);
+    }
+  }, [selectedType, form]);
+
   const filteredCategories = categories.filter((c) => c.type === selectedType);
 
   async function onSubmit(data: TransactionFormValues) {
@@ -184,13 +190,32 @@ export function TransactionModal({
     >
       <Form {...form}>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel required>Nome</FormLabel>
+                <FormControl>
+                  <Input maxLength={100} placeholder="Ex: Supermercado" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div
+            className={
+              selectedType === TransactionType.INCOME
+                ? 'grid grid-cols-1 gap-4'
+                : 'grid grid-cols-2 gap-4 max-md:grid-cols-1'
+            }
+          >
             <FormField
               control={form.control}
               name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tipo</FormLabel>
+                  <FormLabel required>Tipo</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="w-full">
@@ -216,50 +241,52 @@ export function TransactionModal({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={TransactionStatus.PAID}>
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                          Pago
-                        </div>
-                      </SelectItem>
-                      <SelectItem value={TransactionStatus.PENDING}>
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-amber-500" />
-                          Pendente
-                        </div>
-                      </SelectItem>
-                      <SelectItem value={TransactionStatus.OVERDUE}>
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-rose-500" />
-                          Atrasado
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {selectedType !== TransactionType.INCOME && (
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel required>Status</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={TransactionStatus.PAID}>
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                            Pago
+                          </div>
+                        </SelectItem>
+                        <SelectItem value={TransactionStatus.PENDING}>
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-amber-500" />
+                            Pendente
+                          </div>
+                        </SelectItem>
+                        <SelectItem value={TransactionStatus.OVERDUE}>
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-rose-500" />
+                            Atrasado
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
           </div>
           <FormField
             control={form.control}
             name="accountId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Conta</FormLabel>
+                <FormLabel required>Conta</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger className="w-full">
@@ -290,27 +317,25 @@ export function TransactionModal({
               name="categoryId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Categoria</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecione a categoria" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {filteredCategories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: cat.color }}
-                            />
-                            {cat.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel required>Categoria</FormLabel>
+                  <FormControl>
+                    <SelectSearch
+                      options={filteredCategories.map((cat) => ({
+                        value: cat.id,
+                        label: cat.name,
+                        icon: (
+                          <div
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: cat.color }}
+                          />
+                        ),
+                      }))}
+                      value={field.value}
+                      onValueChange={(v) => field.onChange(v || '')}
+                      placeholder="Selecione a categoria"
+                      emptyText="Nenhuma categoria encontrada."
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -318,21 +343,32 @@ export function TransactionModal({
             <FormField
               control={form.control}
               name="amount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Valor (R$)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0,00"
-                      {...field}
-                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const displayValue = field.value
+                  ? Number(field.value).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  : '';
+                return (
+                  <FormItem>
+                    <FormLabel required>Valor (R$)</FormLabel>
+                    <FormControl>
+                      <Input
+                        inputMode="decimal"
+                        placeholder="0,00"
+                        value={displayValue}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, '');
+                          const numeric = digits ? parseInt(digits, 10) / 100 : 0;
+                          field.onChange(numeric);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
           </div>
           <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
@@ -341,7 +377,7 @@ export function TransactionModal({
               name="date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Data</FormLabel>
+                  <FormLabel required>Data de vencimento</FormLabel>
                   <FormControl>
                     <DatePicker date={field.value} setDate={field.onChange} />
                   </FormControl>
@@ -355,21 +391,15 @@ export function TransactionModal({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Centro de Custo (opcional)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || 'none'}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecione..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhum</SelectItem>
-                      {costCenters.map((cc) => (
-                        <SelectItem key={cc.id} value={cc.id}>
-                          {cc.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <SelectSearch
+                      options={costCenters.map((cc) => ({ value: cc.id, label: cc.name }))}
+                      value={field.value || null}
+                      onValueChange={(v) => field.onChange(v)}
+                      placeholder="Selecione..."
+                      emptyText="Nenhum centro de custo encontrado."
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -381,21 +411,15 @@ export function TransactionModal({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Fornecedor (opcional)</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value || 'none'}>
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {suppliers.map((sup) => (
-                      <SelectItem key={sup.id} value={sup.id}>
-                        {sup.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <SelectSearch
+                    options={suppliers.map((sup) => ({ value: sup.id, label: sup.name }))}
+                    value={field.value || null}
+                    onValueChange={(v) => field.onChange(v)}
+                    placeholder="Selecione..."
+                    emptyText="Nenhum fornecedor encontrado."
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -478,7 +502,7 @@ export function TransactionModal({
                 <FormControl>
                   <Textarea
                     rows={4}
-                    maxLength={100}
+                    maxLength={255}
                     placeholder="Detalhes da transação..."
                     {...field}
                   />

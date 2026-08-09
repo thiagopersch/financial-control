@@ -69,7 +69,9 @@ export async function GET(request: NextRequest) {
 
     const netResult = totalIncome - totalExpense;
 
-    const categoryData = transactions.reduce(
+    const expenseTransactions = transactions.filter((t) => t.type === 'EXPENSE');
+
+    const categoryData = expenseTransactions.reduce(
       (acc, t) => {
         const catName = t.category?.name || 'Sem categoria';
         if (!acc[catName]) acc[catName] = 0;
@@ -79,7 +81,7 @@ export async function GET(request: NextRequest) {
       {} as Record<string, number>,
     );
 
-    const accountData = transactions.reduce(
+    const accountData = expenseTransactions.reduce(
       (acc, t) => {
         const accName = t.account?.name || 'Sem conta';
         if (!acc[accName]) acc[accName] = 0;
@@ -89,7 +91,7 @@ export async function GET(request: NextRequest) {
       {} as Record<string, number>,
     );
 
-    const costCenterData = transactions.reduce(
+    const costCenterData = expenseTransactions.reduce(
       (acc, t) => {
         const ccName = t.costCenter?.name || 'Sem centro';
         if (!acc[ccName]) acc[ccName] = 0;
@@ -171,10 +173,7 @@ export async function GET(request: NextRequest) {
           .map(([category, value]) => ({
             category,
             value,
-            percentage:
-              totalIncome + totalExpense > 0
-                ? ((value / (totalIncome + totalExpense)) * 100).toFixed(1)
-                : '0.0',
+            percentage: totalExpense > 0 ? ((value / totalExpense) * 100).toFixed(1) : '0.0',
           }))
           .sort((a, b) => b.value - a.value);
         break;
@@ -184,10 +183,7 @@ export async function GET(request: NextRequest) {
           .map(([category, value]) => ({
             category,
             value,
-            percentage:
-              totalIncome + totalExpense > 0
-                ? ((value / (totalIncome + totalExpense)) * 100).toFixed(1)
-                : '0.0',
+            percentage: totalExpense > 0 ? ((value / totalExpense) * 100).toFixed(1) : '0.0',
           }))
           .sort((a, b) => b.value - a.value);
         break;
@@ -197,10 +193,7 @@ export async function GET(request: NextRequest) {
           .map(([category, value]) => ({
             category,
             value,
-            percentage:
-              totalIncome + totalExpense > 0
-                ? ((value / (totalIncome + totalExpense)) * 100).toFixed(1)
-                : '0.0',
+            percentage: totalExpense > 0 ? ((value / totalExpense) * 100).toFixed(1) : '0.0',
           }))
           .sort((a, b) => b.value - a.value);
         break;

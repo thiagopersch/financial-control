@@ -2,6 +2,7 @@
 
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
+import { deliverNotification } from '@/lib/services/notification-delivery';
 import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
@@ -65,6 +66,13 @@ export async function createNotification(data: z.infer<typeof createNotification
       },
     });
 
+    await deliverNotification({
+      userId: notification.userId,
+      workspaceId: notification.workspaceId,
+      title: notification.title,
+      message: notification.message,
+    });
+
     return { success: true, data: notification };
   } catch (error) {
     console.error('Error creating notification:', error);
@@ -86,6 +94,17 @@ export async function createBulkNotifications(
         userId: n.userId || session.user.id,
       })),
     });
+
+    await Promise.all(
+      notifications.map((n) =>
+        deliverNotification({
+          userId: n.userId || session.user.id,
+          workspaceId: session.user.workspaceId,
+          title: n.title,
+          message: n.message,
+        }),
+      ),
+    );
 
     return { success: true, count: results.count };
   } catch (error) {
@@ -441,4 +460,178 @@ export async function checkInvoiceAlerts() {
     console.error('Error checking invoice alerts:', error);
     return { success: false, error: 'Erro ao verificar alertas de fatura' };
   }
+}
+
+export async function checkGoalAlerts() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return { success: false, error: 'Não autorizado' };
+
+    const goals = await prisma.goal.findMany({
+      where: {
+        workspaceId: session.user.workspaceId,
+        isActive: true,
+      },
+    });
+
+    const notifications: Array<{
+      type: NotificationType;
+      title: string;
+      message: string;
+      level: AlertLevel;
+      metadata: any;
+    }> = [];
+
+    for (const goal of goals) {
+      const target = Number(goal.targetAmount);
+      const current = Number(goal.currentAmount);
+      if (target <= 0) continue;
+      const percentage = (current / target) * 100;
+      if (percentage < 80) continue;
+
+      const isReached = percentage >= 100;
+      const type = NotificationType.GOAL_PROGRESS;
+
+      const existing = await prisma.notification.findFirst({
+        where: {
+          workspaceId: session.user.workspaceId,
+          userId: session.user.id,
+          type,
+          metadata: {
+            path: ['goalId'],
+            equals: goal.id,
+          },
+          createdAt: {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          },
+        },
+      });
+
+      if (existing) continue;
+
+      notifications.push({
+        type,
+        title: isReached ? 'Meta Atingida! 🎉' : 'Quase lá!',
+        message: isReached
+          ? `Você atingiu a meta "${goal.name}"! Total: R$ ${current.toFixed(2)}`
+          : `Você já alcançou ${percentage.toFixed(0)}% da meta "${goal.name}". Faltam R$ ${(target - current).toFixed(2)}`,
+        level: isReached ? AlertLevel.INFO : AlertLevel.WARNING,
+        metadata: { goalId: goal.id, current, target, percentage },
+      });
+    }
+
+    if (notifications.length > 0) {
+      await createBulkNotifications(notifications);
+    }
+
+    return { success: true, created: notifications.length };
+  } catch (error) {
+    console.error('Error checking goal alerts:', error);
+    return { success: false, error: 'Erro ao verificar alertas de metas' };
+  }
+}
+
+export async function checkTransactionDueAlerts() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return { success: false, error: 'Não autorizado' };
+
+    const now = new Date();
+    const dueInThreeDays = new Date(now);
+    dueInThreeDays.setDate(dueInThreeDays.getDate() + 3);
+
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        workspaceId: session.user.workspaceId,
+        type: 'EXPENSE',
+        status: { in: ['PENDING', 'OVERDUE'] },
+        dueDate: { lte: dueInThreeDays },
+      },
+      include: { category: true },
+      take: 50,
+    });
+
+    const notifications: Array<{
+      type: NotificationType;
+      title: string;
+      message: string;
+      level: AlertLevel;
+      metadata: any;
+    }> = [];
+
+    for (const transaction of transactions) {
+      const dueDate = transaction.dueDate || transaction.date;
+      const isOverdue = dueDate < now;
+      const type = isOverdue ? NotificationType.INVOICE_OVERDUE : NotificationType.INVOICE_DUE;
+
+      const existing = await prisma.notification.findFirst({
+        where: {
+          workspaceId: session.user.workspaceId,
+          userId: session.user.id,
+          type,
+          metadata: {
+            path: ['transactionId'],
+            equals: transaction.id,
+          },
+          createdAt: {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          },
+        },
+      });
+
+      if (existing) continue;
+
+      notifications.push({
+        type,
+        title: isOverdue ? 'Transação Vencida!' : 'Transação Próxima do Vencimento',
+        message: `${transaction.description || transaction.category.name}: R$ ${Number(transaction.amount).toFixed(2)} ${isOverdue ? 'venceu' : 'vence'} em ${dueDate.toLocaleDateString('pt-BR')}`,
+        level: isOverdue ? AlertLevel.CRITICAL : AlertLevel.WARNING,
+        metadata: { transactionId: transaction.id, amount: Number(transaction.amount) },
+      });
+    }
+
+    if (notifications.length > 0) {
+      await createBulkNotifications(notifications);
+    }
+
+    return { success: true, created: notifications.length };
+  } catch (error) {
+    console.error('Error checking transaction due alerts:', error);
+    return { success: false, error: 'Erro ao verificar alertas de transações' };
+  }
+}
+
+export async function notifyNewTransaction(transaction: {
+  id: string;
+  description?: string | null;
+  amount: number;
+  type: string;
+  categoryName: string;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return;
+
+    await createNotification({
+      type: 'SYSTEM',
+      title: 'Nova Transação',
+      message: `${transaction.type === 'INCOME' ? 'Receita' : 'Despesa'} adicionada: ${transaction.description || transaction.categoryName} - R$ ${transaction.amount.toFixed(2)}`,
+      level: 'INFO',
+      link: '/transactions',
+      metadata: { transactionId: transaction.id },
+    });
+  } catch (error) {
+    console.error('Error notifying new transaction:', error);
+  }
+}
+
+export async function runAllAlertChecks() {
+  const [budget, invoice, goal, dueDate] = await Promise.all([
+    checkBudgetAlerts(),
+    checkInvoiceAlerts(),
+    checkGoalAlerts(),
+    checkTransactionDueAlerts(),
+  ]);
+
+  return { budget, invoice, goal, dueDate };
 }

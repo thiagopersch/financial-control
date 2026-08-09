@@ -3,7 +3,7 @@
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
 import { TransactionStatus, TransactionType } from '@prisma/client';
-import { addMonths, startOfMonth } from 'date-fns';
+import { addMonths, setDate, startOfMonth } from 'date-fns';
 import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
@@ -13,8 +13,6 @@ const debtSchema = z.object({
   description: z.string().optional(),
   initialValue: z.coerce.number().positive('Valor inicial deve ser maior que zero'),
   currentValue: z.coerce.number().positive('Valor atual deve ser maior que zero'),
-  interestRate: z.coerce.number().min(0).optional().nullable(),
-  minimumPayment: z.coerce.number().positive('Pagamento mínimo é obrigatório'),
   dueDay: z.coerce.number().min(1).max(31).optional().nullable(),
   startDate: z.string(),
   installments: z.coerce.number().min(1).optional().nullable(),
@@ -22,7 +20,10 @@ const debtSchema = z.object({
   installmentValue: z.coerce.number().positive().optional().nullable(),
   firstInstallmentMonth: z.string().optional(),
   accountId: z.string().min(1, 'Conta é obrigatória'),
+  categoryId: z.string().optional().nullable(),
 });
+
+const DEFAULT_DUE_DAY = 10;
 
 function serializeDebt(debt: any) {
   return {
@@ -71,17 +72,16 @@ function calculateInstallmentAmount(
   return Number((initialValue / installments).toFixed(2));
 }
 
-function getStartDateForFirstInstallment(
-  startDate: Date,
+function getInstallmentDueDate(
+  monthOffset: number,
   firstInstallmentMonth: string | null,
+  dueDay: number | null,
 ): Date {
   const now = new Date();
-  const currentMonth = startOfMonth(now);
-
-  if (firstInstallmentMonth === 'CURRENT') {
-    return currentMonth;
-  }
-  return addMonths(currentMonth, 1);
+  const baseMonth =
+    firstInstallmentMonth === 'CURRENT' ? startOfMonth(now) : addMonths(startOfMonth(now), 1);
+  const monthDate = addMonths(baseMonth, monthOffset);
+  return setDate(monthDate, dueDay || DEFAULT_DUE_DAY);
 }
 
 export async function createDebt(data: z.infer<typeof debtSchema>) {
@@ -99,21 +99,23 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
           description: validated.description,
           initialValue: validated.initialValue,
           currentValue: validated.currentValue,
-          interestRate: validated.interestRate,
-          minimumPayment: validated.minimumPayment,
-          dueDay: validated.dueDay,
+          dueDay: validated.dueDay || DEFAULT_DUE_DAY,
           startDate: new Date(validated.startDate),
           installments: validated.installments,
           calculationType: (validated.calculationType ?? 'TOTAL_DIVIDED') as any,
           installmentValue: validated.installmentValue,
           firstInstallmentMonth: (validated.firstInstallmentMonth ?? 'NEXT') as any,
+          accountId: validated.accountId,
+          categoryId: validated.categoryId || null,
           isActive: true,
           workspaceId,
         },
       });
 
       if (validated.installments && validated.installments > 0) {
-        const category = await getOrCreateDebtCategory(workspaceId);
+        const category = validated.categoryId
+          ? await tx.category.findUnique({ where: { id: validated.categoryId } })
+          : await getOrCreateDebtCategory(workspaceId);
 
         const account = await tx.account.findUnique({
           where: { id: validated.accountId },
@@ -121,6 +123,9 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
 
         if (!account) {
           throw new Error('Conta não encontrada.');
+        }
+        if (!category) {
+          throw new Error('Categoria não encontrada.');
         }
 
         const calculationType = validated.calculationType ?? 'TOTAL_DIVIDED';
@@ -131,13 +136,12 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
           validated.installmentValue ?? null,
         );
 
-        const firstInstallmentDate = getStartDateForFirstInstallment(
-          new Date(validated.startDate),
-          validated.firstInstallmentMonth ?? 'NEXT',
-        );
-
         for (let i = 0; i < validated.installments; i++) {
-          const dueDate = addMonths(firstInstallmentDate, i);
+          const dueDate = getInstallmentDueDate(
+            i,
+            validated.firstInstallmentMonth ?? 'NEXT',
+            validated.dueDay ?? null,
+          );
 
           await tx.transaction.create({
             data: {
@@ -180,18 +184,13 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
   if (!session) return { success: false, error: 'Não autorizado' };
 
   try {
-    console.log('updateDebt called with:', { id, data });
-
     const existingDebt = await prisma.debt.findUnique({
       where: { id, workspaceId: session.user.workspaceId },
     });
 
     if (!existingDebt) {
-      console.log('Debt not found:', id);
       return { success: false, error: 'Dívida não encontrada' };
     }
-
-    console.log('Existing debt:', existingDebt);
 
     const hasInstallmentChanges =
       (data.installments !== undefined && data.installments !== existingDebt.installments) ||
@@ -200,7 +199,8 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
       (data.calculationType !== undefined &&
         data.calculationType !== existingDebt.calculationType) ||
       (data.firstInstallmentMonth !== undefined &&
-        data.firstInstallmentMonth !== existingDebt.firstInstallmentMonth);
+        data.firstInstallmentMonth !== existingDebt.firstInstallmentMonth) ||
+      (data.dueDay !== undefined && data.dueDay !== existingDebt.dueDay);
 
     const updatedData: any = { ...data };
     if (data.startDate) {
@@ -217,6 +217,9 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
     }
     if (data.installments !== undefined) {
       updatedData.installments = data.installments;
+    }
+    if (data.dueDay !== undefined) {
+      updatedData.dueDay = data.dueDay || DEFAULT_DUE_DAY;
     }
 
     const debt = await prisma.$transaction(async (tx) => {
@@ -252,28 +255,21 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
               : null;
         const firstInstallmentMonth =
           data.firstInstallmentMonth ?? existingDebt.firstInstallmentMonth ?? 'NEXT';
+        const dueDay = updatedDebt.dueDay ?? DEFAULT_DUE_DAY;
 
         if (installments && installments > 0) {
-          const category = await getOrCreateDebtCategory(session.user.workspaceId);
+          const category = existingDebt.categoryId
+            ? await tx.category.findUnique({ where: { id: existingDebt.categoryId } })
+            : await getOrCreateDebtCategory(session.user.workspaceId);
 
-          const accountId = pendingTransactions[0]?.accountId ?? data.accountId;
+          const accountId = existingDebt.accountId ?? pendingTransactions[0]?.accountId;
 
           if (!accountId) {
-            const firstTx = await tx.transaction.findFirst({
-              where: { debtId: id },
-              select: { accountId: true },
-            });
-            if (firstTx?.accountId) {
-              const acc = await tx.account.findUnique({ where: { id: firstTx.accountId } });
-              if (!acc) throw new Error('Conta não encontrada para atualizar parcelas');
-            } else {
-              throw new Error('Conta não encontrada para atualizar parcelas');
-            }
+            throw new Error('Conta não encontrada para atualizar parcelas');
           }
-
-          const account = await tx.account.findUnique({
-            where: { id: accountId },
-          });
+          if (!category) {
+            throw new Error('Categoria não encontrada para atualizar parcelas');
+          }
 
           const installmentAmount = calculateInstallmentAmount(
             Number(existingDebt.initialValue),
@@ -282,14 +278,8 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
             installmentValue,
           );
 
-          const startDate = existingDebt.startDate;
-          const firstInstallmentDate = getStartDateForFirstInstallment(
-            startDate,
-            firstInstallmentMonth,
-          );
-
           for (let i = 0; i < installments; i++) {
-            const dueDate = addMonths(firstInstallmentDate, i);
+            const dueDate = getInstallmentDueDate(i, firstInstallmentMonth, dueDay);
 
             await tx.transaction.create({
               data: {
@@ -299,7 +289,7 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
                 dueDate,
                 status: TransactionStatus.PENDING,
                 categoryId: category.id,
-                accountId: account?.id ?? accountId ?? '',
+                accountId,
                 notes: `${existingDebt.name} - Parcela ${i + 1}/${installments}`,
                 workspaceId: session.user.workspaceId,
                 debtId: id,
@@ -321,7 +311,6 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
     return { success: true, data: serializeDebt(debt) };
   } catch (error) {
     console.error('Error updating debt:', error);
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro ao atualizar dívida',

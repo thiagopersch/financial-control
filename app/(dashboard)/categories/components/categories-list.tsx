@@ -25,6 +25,7 @@ export function CategoriesList({ categories, onRefresh, userRole }: CategoriesLi
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+  const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
   const handleDelete = (id: string) => {
     setCategoryToDelete(id);
@@ -138,8 +139,13 @@ export function CategoriesList({ categories, onRefresh, userRole }: CategoriesLi
 
   return (
     <div className="flex flex-col gap-4">
-      <CategoriesHeader onCreate={openCreate} />
-      <DataTable columns={columns} data={categories} emptyMessage="Nenhuma categoria criada." />
+      <CategoriesHeader onCreate={openCreate} paginationSlotRef={setPaginationSlot} />
+      <DataTable
+        columns={columns}
+        data={categories}
+        emptyMessage="Nenhuma categoria criada."
+        paginationSlot={paginationSlot}
+      />
 
       <CategoriesForm
         isOpen={isFormOpen}

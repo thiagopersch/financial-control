@@ -1,5 +1,6 @@
 'use client';
 
+import { Checkbox } from '@/components/ui/checkbox';
 import { FormDialog } from '@/components/ui/form-dialog';
 import {
   Form,
@@ -10,6 +11,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -51,7 +53,13 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
 
   const defaultValues = useMemo(() => {
     if (initialData) {
-      return { name: initialData.name, role: initialData.role };
+      return {
+        name: initialData.name,
+        role: initialData.role,
+        phone: initialData.profile?.phone || '',
+        notifyEmail: initialData.profile?.notifyEmail || false,
+        notifyWhatsapp: initialData.profile?.notifyWhatsapp || false,
+      };
     }
     return { name: '', email: '', password: '', role: Role.VIEWER };
   }, [initialData]);
@@ -156,6 +164,58 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
               </FormItem>
             )}
           />
+          {isEditing && (
+            <>
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Telefone</FormLabel>
+                    <FormControl>
+                      <Input placeholder="(00) 00000-0000" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="space-y-3 rounded-lg border p-4">
+                <p className="text-sm font-medium">Notificações</p>
+                <FormField
+                  control={form.control}
+                  name="notifyEmail"
+                  render={({ field }) => (
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="user-notifyEmail"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                      <Label htmlFor="user-notifyEmail" className="cursor-pointer">
+                        Receber notificações por e-mail
+                      </Label>
+                    </div>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="notifyWhatsapp"
+                  render={({ field }) => (
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="user-notifyWhatsapp"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                      <Label htmlFor="user-notifyWhatsapp" className="cursor-pointer">
+                        Receber notificações por WhatsApp
+                      </Label>
+                    </div>
+                  )}
+                />
+              </div>
+            </>
+          )}
         </div>
       </Form>
     </FormDialog>

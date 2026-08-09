@@ -61,6 +61,9 @@ export default async function ProfilePage() {
       <ProfileForm
         initialName={user.name || ''}
         initialBio={user.profile?.bio || ''}
+        initialPhone={user.profile?.phone || ''}
+        initialNotifyEmail={user.profile?.notifyEmail || false}
+        initialNotifyWhatsapp={user.profile?.notifyWhatsapp || false}
         email={user.email}
         role={user.role}
       />

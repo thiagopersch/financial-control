@@ -95,7 +95,7 @@ export function CategoriesForm({ isOpen, onClose, category, onSuccess }: Categor
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Nome</FormLabel>
+                <FormLabel required>Nome</FormLabel>
                 <FormControl>
                   <Input placeholder="Ex: Alimentação, Aluguel..." {...field} />
                 </FormControl>
@@ -108,7 +108,7 @@ export function CategoriesForm({ isOpen, onClose, category, onSuccess }: Categor
             name="type"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Tipo</FormLabel>
+                <FormLabel required>Tipo</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger className="w-full">

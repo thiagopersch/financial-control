@@ -19,7 +19,8 @@ export function useNotifications() {
     notifications: Notification[];
     unreadCount: number;
   }>('/api/notifications', fetcher, {
-    revalidateOnFocus: false,
+    revalidateOnFocus: true,
+    refreshInterval: 60000,
   });
 
   return {

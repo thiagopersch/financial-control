@@ -19,6 +19,18 @@ export async function createCategory(data: z.infer<typeof categorySchema>) {
 
   try {
     const validated = categorySchema.parse(data);
+
+    const existing = await prisma.category.findFirst({
+      where: {
+        workspaceId: session.user.workspaceId,
+        type: validated.type,
+        name: { equals: validated.name, mode: 'insensitive' },
+      },
+    });
+    if (existing) {
+      return { success: false, error: 'Já existe uma categoria com este nome' };
+    }
+
     const category = await prisma.category.create({
       data: {
         ...validated,
@@ -39,6 +51,19 @@ export async function updateCategory(id: string, data: z.infer<typeof categorySc
 
   try {
     const validated = categorySchema.parse(data);
+
+    const existing = await prisma.category.findFirst({
+      where: {
+        workspaceId: session.user.workspaceId,
+        type: validated.type,
+        name: { equals: validated.name, mode: 'insensitive' },
+        id: { not: id },
+      },
+    });
+    if (existing) {
+      return { success: false, error: 'Já existe uma categoria com este nome' };
+    }
+
     const category = await prisma.category.update({
       where: {
         id,

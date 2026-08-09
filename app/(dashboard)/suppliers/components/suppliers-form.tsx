@@ -1,5 +1,6 @@
 'use client';
 
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -10,14 +11,24 @@ import {
 } from '@/components/ui/form';
 import { FormDialog } from '@/components/ui/form-dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
   supplierSchema,
   useSupplierForm,
   type SupplierFormValues,
 } from '@/hooks/forms/use-supplier-form';
+import { maskDocument } from '@/lib/utils/document';
 import type { SupplierDTO } from '@/lib/queries/suppliers';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { SupplierPersonType } from '@prisma/client';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -43,16 +54,20 @@ export function SuppliersForm({ isOpen, onClose, supplier, onSuccess }: Supplier
     if (supplier) {
       return {
         name: supplier.name,
+        personType: supplier.personType,
         document: supplier.document ?? '',
         contact: supplier.contact ?? '',
         address: supplier.address ?? '',
+        isActive: supplier.isActive,
       };
     }
     return {
       name: '',
+      personType: SupplierPersonType.COMPANY,
       document: '',
       contact: '',
       address: '',
+      isActive: true,
     };
   }, [supplier]);
 
@@ -66,6 +81,8 @@ export function SuppliersForm({ isOpen, onClose, supplier, onSuccess }: Supplier
       form.reset(defaultValues);
     }
   }, [isOpen, defaultValues, form]);
+
+  const personType = form.watch('personType');
 
   const onSubmit = async (values: SupplierFormValues) => {
     setIsSubmitting(true);
@@ -84,31 +101,63 @@ export function SuppliersForm({ isOpen, onClose, supplier, onSuccess }: Supplier
     >
       <Form {...form}>
         <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+            <FormField
+              control={form.control}
+              name="personType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel required>Tipo de Fornecedor</FormLabel>
+                  <Select
+                    onValueChange={(v) => {
+                      field.onChange(v);
+                      form.setValue('document', '');
+                    }}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={SupplierPersonType.INDIVIDUAL}>Pessoa Física</SelectItem>
+                      <SelectItem value={SupplierPersonType.COMPANY}>Pessoa Jurídica</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="document"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{personType === 'INDIVIDUAL' ? 'CPF' : 'CNPJ'}</FormLabel>
+                  <FormControl>
+                    <Input
+                      inputMode="numeric"
+                      placeholder={
+                        personType === 'INDIVIDUAL' ? '000.000.000-00' : '00.000.000/0001-00'
+                      }
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(maskDocument(e.target.value, personType))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
           <FormField
             control={form.control}
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Nome</FormLabel>
+                <FormLabel required>Nome</FormLabel>
                 <FormControl>
                   <Input placeholder="Ex: Empresa XYZ Ltda" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="document"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>CNPJ/CPF</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Ex: 00.000.000/0001-00"
-                    {...field}
-                    value={field.value ?? ''}
-                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -142,6 +191,20 @@ export function SuppliersForm({ isOpen, onClose, supplier, onSuccess }: Supplier
                 </FormControl>
                 <FormMessage />
               </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="isActive"
+            render={({ field }) => (
+              <div className="flex items-center space-x-2">
+                <FormControl>
+                  <Checkbox id="isActive" checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+                <Label htmlFor="isActive" className="cursor-pointer">
+                  Ativo
+                </Label>
+              </div>
             )}
           />
         </div>

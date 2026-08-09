@@ -2,16 +2,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
-import {
-  addDays,
-  startOfDay,
-  eachDayOfInterval,
-  addMonths,
-  format,
-  startOfMonth,
-  endOfMonth,
-  isWeekend,
-} from 'date-fns';
+import { getAccountsWithBalance } from '@/lib/queries/accounts';
+import { addDays, startOfDay, eachDayOfInterval, format, isWeekend } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,19 +17,8 @@ export async function GET(request: NextRequest) {
     const startDate = startOfDay(new Date());
     const endDate = addDays(startDate, days);
 
-    const accounts = await prisma.account.findMany({
-      where: { workspaceId: session.user.workspaceId },
-      include: { creditCardDetails: true },
-    });
-
-    const currentBalance = accounts.reduce(
-      (sum, account) =>
-        sum +
-        (account.creditCardDetails
-          ? Number(account.creditCardDetails.limit) - Number(account.creditCardDetails.usedAmount)
-          : 0),
-      0,
-    );
+    const accountsWithBalance = await getAccountsWithBalance();
+    const currentBalance = accountsWithBalance.reduce((sum, account) => sum + account.balance, 0);
 
     const paidTransactions = await prisma.transaction.findMany({
       where: {
@@ -53,7 +34,7 @@ export async function GET(request: NextRequest) {
     const pendingTransactions = await prisma.transaction.findMany({
       where: {
         workspaceId: session.user.workspaceId,
-        status: 'PENDING',
+        status: { in: ['PENDING', 'OVERDUE'] },
         OR: [
           { dueDate: { gte: startDate, lte: endDate } },
           { date: { gte: startDate, lte: endDate } },
@@ -212,6 +193,8 @@ function checkRecurringDate(recurring: any, date: Date): boolean {
       );
     case 'BUSINESS_DAYS':
       return !isWeekend(date);
+    case 'YEARLY':
+      return date.getMonth() === startDate.getMonth() && date.getDate() === startDate.getDate();
     case 'CUSTOM':
       return (
         recurring.customDays?.includes(dayOfWeek) || recurring.customDays?.includes(dayOfMonth)

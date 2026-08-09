@@ -14,9 +14,7 @@ export async function GET() {
       where: {
         workspaceId: session.user.workspaceId,
       },
-      orderBy: {
-        name: 'asc',
-      },
+      orderBy: [{ type: 'asc' }, { name: 'asc' }],
     });
 
     return NextResponse.json({ categories });

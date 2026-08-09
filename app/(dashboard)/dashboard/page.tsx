@@ -1,16 +1,22 @@
 import { CategoryPieChart } from '@/components/dashboard/category-pie-chart';
+import { DebtProgressChart } from '@/components/dashboard/debt-progress-chart';
 import { OverviewChart } from '@/components/dashboard/overview-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { StatsCards } from '@/components/dashboard/stats-cards';
+import { StatusChart } from '@/components/dashboard/status-chart';
 import { SummaryCard } from '@/components/dashboard/summary-card';
+import { SupplierChart } from '@/components/dashboard/supplier-chart';
 import { MonthSelector } from '@/components/month-selector';
 import {
   getAvailableRange,
   getCategoryData,
   getChartData,
   getDashboardStats,
+  getDebtsData,
   getRecentTransactions,
+  getStatusData,
   getSummaryCount,
+  getSupplierData,
   getTransactionCountsByYear,
 } from '@/lib/queries/dashboard';
 import { endOfMonth, parse, startOfMonth } from 'date-fns';
@@ -55,6 +61,9 @@ export default async function DashboardPage(props: {
   const stats = await getDashboardStats(startDate, endDate);
   const chartData = await getChartData(selectedMonth, isFullYear, isAllPeriod);
   const categoryData = await getCategoryData(startDate, endDate);
+  const statusData = await getStatusData(startDate, endDate);
+  const supplierData = await getSupplierData(startDate, endDate);
+  const { debts } = await getDebtsData();
   const recentTransactions = await getRecentTransactions(startDate, endDate);
   const availableRange = await getAvailableRange();
   const transactionCounts = await getTransactionCountsByYear();
@@ -85,12 +94,18 @@ export default async function DashboardPage(props: {
       <SummaryCard goalsCount={goalsCount} budgetsCount={budgetsCount} debtsCount={debtsCount} />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="col-span-4">
+        <div className="md:col-span-2 lg:col-span-4">
           <OverviewChart data={chartData} isFullYear={isFullYear} isAllPeriod={isAllPeriod} />
         </div>
-        <div className="col-span-3">
+        <div className="lg:col-span-3">
           <CategoryPieChart data={categoryData} />
         </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <StatusChart data={statusData} />
+        <SupplierChart data={supplierData} />
+        <DebtProgressChart debts={debts} />
       </div>
 
       <RecentTransactions

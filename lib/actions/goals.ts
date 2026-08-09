@@ -2,6 +2,7 @@
 
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
+import { checkGoalAlerts } from '@/lib/actions/notifications';
 import { createAuditLog } from '@/lib/services/audit';
 import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
@@ -29,6 +30,16 @@ export async function createGoal(data: z.infer<typeof goalSchema>) {
 
   try {
     const validated = goalSchema.parse(data);
+
+    const existing = await prisma.goal.findFirst({
+      where: {
+        workspaceId: session.user.workspaceId,
+        name: { equals: validated.name, mode: 'insensitive' },
+      },
+    });
+    if (existing) {
+      return { success: false, error: 'Já existe uma meta com este nome' };
+    }
 
     const goal = await prisma.goal.create({
       data: {
@@ -59,6 +70,17 @@ export async function updateGoal(id: string, data: z.infer<typeof goalSchema>) {
 
   try {
     const validated = goalSchema.parse(data);
+
+    const existing = await prisma.goal.findFirst({
+      where: {
+        workspaceId: session.user.workspaceId,
+        name: { equals: validated.name, mode: 'insensitive' },
+        id: { not: id },
+      },
+    });
+    if (existing) {
+      return { success: false, error: 'Já existe uma meta com este nome' };
+    }
 
     const goal = await prisma.goal.update({
       where: {
@@ -153,6 +175,8 @@ export async function depositToGoal(id: string, amount: number) {
         newAmount: updatedGoal.currentAmount,
       },
     });
+
+    await checkGoalAlerts();
 
     revalidatePath('/goals');
     revalidatePath('/dashboard');

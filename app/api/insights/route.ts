@@ -17,10 +17,11 @@ export async function GET() {
     const previousMonthStart = startOfMonth(subMonths(now, 1));
     const previousMonthEnd = endOfMonth(subMonths(now, 1));
 
-    const [currentMonthTransactions, previousMonthTransactions, categories] = await Promise.all([
+    const [currentMonthTransactions, previousMonthTransactions] = await Promise.all([
       prisma.transaction.findMany({
         where: {
           workspaceId: session.user.workspaceId,
+          status: 'PAID',
           date: { gte: currentMonthStart, lte: currentMonthEnd },
         },
         include: { category: true },
@@ -28,14 +29,10 @@ export async function GET() {
       prisma.transaction.findMany({
         where: {
           workspaceId: session.user.workspaceId,
+          status: 'PAID',
           date: { gte: previousMonthStart, lte: previousMonthEnd },
         },
         include: { category: true },
-      }),
-      prisma.category.findMany({
-        where: {
-          workspaceId: session.user.workspaceId,
-        },
       }),
     ]);
 
@@ -140,7 +137,7 @@ export async function GET() {
       });
     }
 
-    if (summary.totalExpense > previousTotals.expense) {
+    if (summary.totalExpense > previousTotals.expense && previousTotals.expense > 0) {
       const increase = (
         ((summary.totalExpense - previousTotals.expense) / previousTotals.expense) *
         100
@@ -161,7 +158,7 @@ export async function GET() {
       });
     }
 
-    if (summary.totalIncome > previousTotals.income) {
+    if (summary.totalIncome > previousTotals.income && previousTotals.income > 0) {
       const increase = (
         ((summary.totalIncome - previousTotals.income) / previousTotals.income) *
         100

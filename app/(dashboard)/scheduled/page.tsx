@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { FormDialog } from '@/components/ui/form-dialog';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import {
   Form,
   FormControl,
@@ -99,7 +100,7 @@ export default function ScheduledPage() {
       if (result.success) {
         showSuccess(
           'Agendamento criado com sucesso!',
-          'A transação agendada foi criada e será executada automaticamente.',
+          'A transação será gerada automaticamente quando a data de execução for atingida.',
         );
         setIsDialogOpen(false);
         form.reset();
@@ -307,12 +308,16 @@ export default function ScheduledPage() {
       >
         <Form {...form}>
           <div className="space-y-4">
+            <p className="bg-muted/50 text-muted-foreground rounded-lg border p-3 text-xs">
+              Uma transação pendente é gerada automaticamente sempre que a data de execução for
+              atingida, seguindo a frequência escolhida.
+            </p>
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome</FormLabel>
+                  <FormLabel required>Nome</FormLabel>
                   <FormControl>
                     <Input placeholder="Ex: Aluguel, Salário" {...field} />
                   </FormControl>
@@ -362,7 +367,10 @@ export default function ScheduledPage() {
                 name="frequency"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Frequência</FormLabel>
+                    <FormLabel required className="flex items-center gap-1">
+                      Frequência
+                      <InfoTooltip text="Com que intervalo a transação deve ser gerada: diariamente, semanalmente, mensalmente (usa o 'Dia do mês' abaixo) ou apenas em dias úteis." />
+                    </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger className="w-full">
@@ -385,7 +393,10 @@ export default function ScheduledPage() {
                 name="dayOfMonth"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Dia do mês</FormLabel>
+                    <FormLabel className="flex items-center gap-1">
+                      Dia do mês
+                      <InfoTooltip text="Usado apenas quando a frequência é 'Mensal': dia (1 a 31) em que a transação será gerada todo mês." />
+                    </FormLabel>
                     <FormControl>
                       <Input type="number" min="1" max="31" {...field} />
                     </FormControl>

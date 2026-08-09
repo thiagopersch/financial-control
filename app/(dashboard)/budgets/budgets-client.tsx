@@ -1,7 +1,7 @@
 'use client';
 
+import { BudgetsTable } from '@/app/(dashboard)/budgets/components/budgets-table';
 import { BudgetDialog } from '@/components/budgets/budget-dialog';
-import { BudgetWidget } from '@/components/dashboard/budget-widget';
 import { MonthSelector } from '@/components/month-selector';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -92,6 +92,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
   const [editingBudget, setEditingBudget] = useState<BudgetData | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [budgetToDelete, setBudgetToDelete] = useState<BudgetData | null>(null);
+  const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
   const { month, year, isAllPeriod, isYear } = parseMonthParams(yearParam, monthParam);
 
@@ -190,16 +191,19 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <MonthSelector useNextYears={true} />
-        <Button
-          className="gap-2"
-          onClick={() => {
-            setEditingBudget(null);
-            setIsDialogOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4" />
-          Configurar Orçamento
-        </Button>
+        <div className="flex items-center gap-3">
+          <div ref={setPaginationSlot} />
+          <Button
+            className="gap-2"
+            onClick={() => {
+              setEditingBudget(null);
+              setIsDialogOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4" />
+            Configurar Orçamento
+          </Button>
+        </div>
       </div>
 
       <div className="text-muted-foreground text-sm">
@@ -226,12 +230,11 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
           ))}
         </div>
       ) : budgets.length > 0 ? (
-        <BudgetWidget
+        <BudgetsTable
           budgets={budgets}
           onEdit={handleEdit}
           onDelete={handleDelete}
-          onSuccess={handleSuccess}
-          showPeriod={isAllPeriod || isYear}
+          paginationSlot={paginationSlot}
         />
       ) : (
         <Card className="col-span-full py-20">

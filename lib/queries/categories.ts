@@ -23,9 +23,7 @@ export async function getCategories(): Promise<CategoryDTO[]> {
       where: {
         workspaceId: session.user.workspaceId,
       },
-      orderBy: {
-        name: 'asc',
-      },
+      orderBy: [{ type: 'asc' }, { name: 'asc' }],
     });
 
     return categories.map((category) => ({

@@ -58,7 +58,7 @@ export function useCreditCardForm({
   async function handleSubmit(values: CreditCardFormValues) {
     try {
       if (isEditing) {
-        const result = await updateCreditCard(creditCard.accountId, values);
+        const result = await updateCreditCard(creditCard.id, values);
         if (result.success) {
           showSuccess('Cartão atualizado', 'O cartão foi atualizado com sucesso');
           onSuccess?.();

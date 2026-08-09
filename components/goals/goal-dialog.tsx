@@ -101,7 +101,7 @@ export function GoalDialog({ open, onOpenChange, editingGoal, onSuccess }: GoalD
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Nome da Meta</FormLabel>
+                <FormLabel required>Nome da Meta</FormLabel>
                 <FormControl>
                   <Input placeholder="Ex: Viagem para Disney" {...field} />
                 </FormControl>
@@ -135,7 +135,7 @@ export function GoalDialog({ open, onOpenChange, editingGoal, onSuccess }: GoalD
               name="targetAmount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Valor Alvo</FormLabel>
+                  <FormLabel required>Valor Alvo</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -175,12 +175,12 @@ export function GoalDialog({ open, onOpenChange, editingGoal, onSuccess }: GoalD
               <FormItem>
                 <FormLabel>Cor</FormLabel>
                 <FormControl>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-3 p-1">
                     {colorOptions.map((color) => (
                       <button
                         key={color}
                         type="button"
-                        className={`h-8 w-8 rounded-full transition-transform ${
+                        className={`h-8 w-8 shrink-0 rounded-full transition-transform ${
                           selectedColor === color
                             ? 'ring-primary scale-110 ring-2 ring-offset-2'
                             : ''

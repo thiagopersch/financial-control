@@ -3,6 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -12,6 +13,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { updateProfile } from '@/lib/actions/profiles';
 import { showError, showSuccess } from '@/lib/utils/toast';
@@ -22,10 +24,18 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
-const profileSchema = z.object({
-  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  bio: z.string().max(300, 'Máximo 300 caracteres').optional(),
-});
+const profileSchema = z
+  .object({
+    name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+    bio: z.string().max(300, 'Máximo 300 caracteres').optional(),
+    phone: z.string().optional().nullable(),
+    notifyEmail: z.boolean().default(false),
+    notifyWhatsapp: z.boolean().default(false),
+  })
+  .refine((data) => !data.notifyWhatsapp || !!data.phone, {
+    message: 'Informe um telefone para receber notificações via WhatsApp',
+    path: ['phone'],
+  });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
@@ -44,16 +54,33 @@ const roleColors: Record<Role, string> = {
 interface ProfileFormProps {
   initialName: string;
   initialBio: string;
+  initialPhone: string;
+  initialNotifyEmail: boolean;
+  initialNotifyWhatsapp: boolean;
   email: string;
   role: Role;
 }
 
-export function ProfileForm({ initialName, initialBio, email, role }: ProfileFormProps) {
+export function ProfileForm({
+  initialName,
+  initialBio,
+  initialPhone,
+  initialNotifyEmail,
+  initialNotifyWhatsapp,
+  email,
+  role,
+}: ProfileFormProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: { name: initialName, bio: initialBio },
+    resolver: zodResolver(profileSchema) as never,
+    defaultValues: {
+      name: initialName,
+      bio: initialBio,
+      phone: initialPhone,
+      notifyEmail: initialNotifyEmail,
+      notifyWhatsapp: initialNotifyWhatsapp,
+    },
   });
 
   async function onSubmit(data: ProfileFormValues) {
@@ -80,7 +107,9 @@ export function ProfileForm({ initialName, initialBio, email, role }: ProfileFor
             <User className="h-5 w-5 text-emerald-500" />
             <div>
               <CardTitle className="text-lg">Informações Pessoais</CardTitle>
-              <CardDescription>Atualize seu nome e biografia.</CardDescription>
+              <CardDescription>
+                Atualize seu nome, contato e preferências de notificação.
+              </CardDescription>
             </div>
           </div>
           <Badge className={roleColors[role]}>{roleLabels[role]}</Badge>
@@ -105,9 +134,22 @@ export function ProfileForm({ initialName, initialBio, email, role }: ProfileFor
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome completo</FormLabel>
+                  <FormLabel required>Nome completo</FormLabel>
                   <FormControl>
                     <Input placeholder="Seu nome" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Telefone (WhatsApp)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="(00) 00000-0000" {...field} value={field.value ?? ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -132,6 +174,47 @@ export function ProfileForm({ initialName, initialBio, email, role }: ProfileFor
                 </FormItem>
               )}
             />
+
+            <div className="space-y-3 rounded-lg border p-4">
+              <p className="text-sm font-medium">Notificações</p>
+              <p className="text-muted-foreground text-xs">
+                Escolha por onde deseja receber alertas de transações, orçamentos e metas, além das
+                notificações no próprio sistema.
+              </p>
+              <FormField
+                control={form.control}
+                name="notifyEmail"
+                render={({ field }) => (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="notifyEmail"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                    <Label htmlFor="notifyEmail" className="cursor-pointer">
+                      Receber notificações por e-mail
+                    </Label>
+                  </div>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="notifyWhatsapp"
+                render={({ field }) => (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="notifyWhatsapp"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                    <Label htmlFor="notifyWhatsapp" className="cursor-pointer">
+                      Receber notificações por WhatsApp
+                    </Label>
+                  </div>
+                )}
+              />
+            </div>
+
             <div className="flex justify-end">
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? (

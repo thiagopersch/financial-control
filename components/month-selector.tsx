@@ -85,7 +85,8 @@ export function MonthSelector({
 
   const isMonthDisabled = !selectedYear || selectedYear === 'all' || selectedYear === 'year';
 
-  const onYearChange = (value: string) => {
+  const onYearChange = (value: string | null) => {
+    if (!value) return;
     const params = new URLSearchParams(searchParams);
     params.delete('month');
     params.delete('from');
@@ -108,7 +109,8 @@ export function MonthSelector({
     }
   };
 
-  const onMonthChange = (value: string) => {
+  const onMonthChange = (value: string | null) => {
+    if (!value) return;
     const params = new URLSearchParams(searchParams);
     params.delete('from');
     params.delete('to');

@@ -1,6 +1,7 @@
 'use client';
 
 import { ModeToggle } from '@/components/mode-toggle';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { flatRoutes } from '@/components/sidebar/routes';
 import { Sidebar } from '@/components/sidebar/sidebar';
 import { Button } from '@/components/ui/button';
@@ -59,6 +60,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex-1" />
           <div className="flex items-center gap-x-4">
+            <NotificationBell />
             <ModeToggle />
             <UserButton />
           </div>

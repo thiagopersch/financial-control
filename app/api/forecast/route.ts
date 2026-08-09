@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
 import { startOfMonth, subMonths, addMonths, format, eachMonthOfInterval } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const months = parseInt(searchParams.get('months') || '3');
-    const forecastMonths = 3;
+    const forecastMonths = months;
 
     const now = new Date();
     const historicalStart = startOfMonth(subMonths(now, months));
@@ -92,11 +93,13 @@ export async function GET(request: NextRequest) {
         const catAverage = values.reduce((sum, v) => sum + v, 0) / values.length;
         const lastMonth = values[values.length - 1] || catAverage;
         const trend = lastMonth > catAverage ? 'up' : lastMonth < catAverage ? 'down' : 'stable';
+        const forecast =
+          trend === 'up' ? catAverage * 1.05 : trend === 'down' ? catAverage * 0.95 : catAverage;
 
         return {
           category,
           average: catAverage,
-          forecast: catAverage,
+          forecast,
           trend,
         };
       })
@@ -112,5 +115,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Erro ao buscar previsão' }, { status: 500 });
   }
 }
-
-import { ptBR } from 'date-fns/locale';

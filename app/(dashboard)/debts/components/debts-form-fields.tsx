@@ -9,7 +9,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -17,63 +16,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { SelectSearch } from '@/components/ui/select-search';
+import { Textarea } from '@/components/ui/textarea';
 import type { AccountDTO } from '@/lib/queries/accounts';
 import { UseFormReturn } from 'react-hook-form';
+
+interface Category {
+  id: string;
+  name: string;
+  color: string;
+}
 
 interface DebtsFormFieldsProps {
   form: UseFormReturn<any>;
   type: 'create' | 'edit';
   accounts: AccountDTO[];
+  categories?: Category[];
 }
 
-export function DebtsFormFields({ form, type, accounts }: DebtsFormFieldsProps) {
+export function DebtsFormFields({ form, type, accounts, categories = [] }: DebtsFormFieldsProps) {
   const isFixedInstallment = form.watch('calculationType') === 'FIXED_INSTALLMENT';
 
   return (
     <Form {...form}>
       <div className="space-y-4">
-        {type === 'create' && (
-          <FormField
-            control={form.control}
-            name="accountId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Conta para Pagamento</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  value={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecione uma conta" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {accounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: account.color || '#000000' }}
-                          />
-                          {account.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
         <FormField
           control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nome</FormLabel>
+              <FormLabel required>Nome</FormLabel>
               <FormControl>
                 <Input placeholder="Ex: Empréstimo do banco" {...field} />
               </FormControl>
@@ -82,12 +54,78 @@ export function DebtsFormFields({ form, type, accounts }: DebtsFormFieldsProps) 
           )}
         />
         {type === 'create' && (
+          <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+            <FormField
+              control={form.control}
+              name="accountId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel required>Conta para Pagamento</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione uma conta" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {accounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: account.color || '#000000' }}
+                            />
+                            {account.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="categoryId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Categoria (opcional)</FormLabel>
+                  <FormControl>
+                    <SelectSearch
+                      options={categories.map((cat) => ({
+                        value: cat.id,
+                        label: cat.name,
+                        icon: (
+                          <div
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: cat.color }}
+                          />
+                        ),
+                      }))}
+                      value={field.value || null}
+                      onValueChange={(v) => field.onChange(v)}
+                      placeholder="Pagamento de Dívida (padrão)"
+                      emptyText="Nenhuma categoria de despesa encontrada."
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
+        {type === 'create' && (
           <FormField
             control={form.control}
             name="initialValue"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Valor Total</FormLabel>
+                <FormLabel required>Valor Total</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.01" placeholder="0.00" {...field} />
                 </FormControl>
@@ -102,7 +140,7 @@ export function DebtsFormFields({ form, type, accounts }: DebtsFormFieldsProps) 
             name="calculationType"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Tipo de Cálculo</FormLabel>
+                <FormLabel required>Tipo de Cálculo</FormLabel>
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}
@@ -114,7 +152,7 @@ export function DebtsFormFields({ form, type, accounts }: DebtsFormFieldsProps) 
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="TOTAL_DIVIDED">Dividir Total</SelectItem>
+                    <SelectItem value="TOTAL_DIVIDED">Dividir total automaticamente</SelectItem>
                     <SelectItem value="FIXED_INSTALLMENT">Valor Fixo</SelectItem>
                   </SelectContent>
                 </Select>
@@ -128,7 +166,7 @@ export function DebtsFormFields({ form, type, accounts }: DebtsFormFieldsProps) 
               name="installmentValue"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Valor da Parcela</FormLabel>
+                  <FormLabel required>Valor da Parcela</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" placeholder="0.00" {...field} />
                   </FormControl>
@@ -144,9 +182,16 @@ export function DebtsFormFields({ form, type, accounts }: DebtsFormFieldsProps) 
             name="installments"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Número de Parcelas</FormLabel>
+                <FormLabel required>Número de Parcelas</FormLabel>
                 <FormControl>
-                  <Input type="number" min="1" placeholder="Ex: 12" {...field} />
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="Ex: 12"
+                    {...field}
+                    onChange={(e) => field.onChange(e.target.value.replace(/[^0-9]/g, ''))}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -157,7 +202,7 @@ export function DebtsFormFields({ form, type, accounts }: DebtsFormFieldsProps) 
             name="firstInstallmentMonth"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Primeira Parcela</FormLabel>
+                <FormLabel required>Primeira Parcela</FormLabel>
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}
@@ -178,49 +223,27 @@ export function DebtsFormFields({ form, type, accounts }: DebtsFormFieldsProps) 
             )}
           />
         </div>
-        {type === 'create' && (
-          <FormField
-            control={form.control}
-            name="minimumPayment"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Pagamento Mínimo</FormLabel>
-                <FormControl>
-                  <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-        <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-          <FormField
-            control={form.control}
-            name="interestRate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Taxa de Juros (%)</FormLabel>
-                <FormControl>
-                  <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="dueDay"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Dia de Vencimento</FormLabel>
-                <FormControl>
-                  <Input type="number" min="1" max="31" placeholder="1-31" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <FormField
+          control={form.control}
+          name="dueDay"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Dia de Vencimento no Mês</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  min="1"
+                  max="31"
+                  step="1"
+                  placeholder="10 (padrão)"
+                  {...field}
+                  onChange={(e) => field.onChange(e.target.value.replace(/[^0-9]/g, ''))}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <FormField
           control={form.control}
           name="description"

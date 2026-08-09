@@ -9,8 +9,9 @@ import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
 import { Progress } from '@/components/ui/progress';
 import { useDebtForm } from '@/hooks/forms/use-debt-form';
 import { useAccounts } from '@/lib/queries/accounts-client';
+import { useCategories } from '@/lib/queries/categories-client';
 import type { DebtDTO } from '@/lib/queries/debts';
-import { AlertTriangle, Calculator, TrendingDown } from 'lucide-react';
+import { AlertTriangle, Calculator, History, TrendingDown } from 'lucide-react';
 import { useState } from 'react';
 
 interface DebtsListProps {
@@ -31,6 +32,8 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [debtToDelete, setDebtToDelete] = useState<string | null>(null);
   const { accounts } = useAccounts();
+  const { categories } = useCategories();
+  const expenseCategories = categories.filter((c) => c.type === 'EXPENSE');
   const { refresh: refreshDebts } = {} as any;
 
   const { handleDelete } = useDebtForm({
@@ -47,6 +50,7 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
   });
 
   const activeDebts = debts.filter((d) => d.isActive);
+  const paidDebts = debts.filter((d) => !d.isActive);
   const totalDebt = activeDebts.reduce((sum, d) => sum + d.currentValue, 0);
   const totalInitial = activeDebts.reduce((sum, d) => sum + d.initialValue, 0);
   const paidPercentage = totalInitial > 0 ? ((totalInitial - totalDebt) / totalInitial) * 100 : 0;
@@ -119,11 +123,27 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
 
       {debts.length === 0 && <NotFoundDebts openCreate={openCreate} />}
 
-      {debts.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-3">
-          {debts.map((debt) => (
+      {activeDebts.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {activeDebts.map((debt) => (
             <DebtsCard key={debt.id} debt={debt} onEdit={openEdit} onDelete={openDelete} />
           ))}
+        </div>
+      )}
+
+      {paidDebts.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 border-t pt-6">
+            <History className="text-muted-foreground h-4 w-4" />
+            <h2 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
+              Histórico de dívidas pagas
+            </h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {paidDebts.map((debt) => (
+              <DebtsCard key={debt.id} debt={debt} onEdit={openEdit} onDelete={openDelete} />
+            ))}
+          </div>
         </div>
       )}
 
@@ -132,6 +152,7 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
         onClose={() => setIsFormOpen(false)}
         debt={selectedDebt}
         accounts={accounts}
+        categories={expenseCategories}
         onSuccess={() => {
           onRefresh();
           setIsFormOpen(false);

@@ -2,15 +2,24 @@
 
 import { createSupplier, updateSupplier } from '@/lib/actions/suppliers';
 import type { SupplierDTO } from '@/lib/queries/suppliers';
+import { isValidDocument } from '@/lib/utils/document';
 import { showError, showSuccess } from '@/lib/utils/toast';
+import { SupplierPersonType } from '@prisma/client';
 import * as z from 'zod';
 
-export const supplierSchema = z.object({
-  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  document: z.string().optional().nullable(),
-  contact: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
-});
+export const supplierSchema = z
+  .object({
+    name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+    personType: z.enum(SupplierPersonType, { error: 'Tipo é obrigatório' }),
+    document: z.string().optional().nullable(),
+    contact: z.string().optional().nullable(),
+    address: z.string().optional().nullable(),
+    isActive: z.boolean().default(true),
+  })
+  .refine((data) => isValidDocument(data.document || '', data.personType), {
+    message: 'CPF/CNPJ inválido',
+    path: ['document'],
+  });
 
 export type SupplierFormValues = z.infer<typeof supplierSchema>;
 
@@ -26,15 +35,19 @@ export function useSupplierForm({ supplier, onSuccess, onError }: UseSupplierFor
   const defaultValues: SupplierFormValues = supplier
     ? {
         name: supplier.name,
+        personType: supplier.personType,
         document: supplier.document || null,
         contact: supplier.contact || null,
         address: supplier.address || null,
+        isActive: supplier.isActive,
       }
     : {
         name: '',
+        personType: SupplierPersonType.COMPANY,
         document: null,
         contact: null,
         address: null,
+        isActive: true,
       };
 
   async function handleSubmit(values: SupplierFormValues) {

@@ -12,9 +12,17 @@ import {
 
 import { Button } from '@/components/ui/button';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -22,6 +30,17 @@ import {
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
+interface ManualPaginationProps {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -30,6 +49,10 @@ interface DataTableProps<TData, TValue> {
   initialSorting?: SortingState;
   getRowClassName?: (row: TData) => string;
   pageSize?: number;
+  manualPagination?: ManualPaginationProps;
+  footer?: React.ReactNode;
+  /** When provided, the pagination bar is portaled into this element instead of rendered below the table. */
+  paginationSlot?: HTMLElement | null;
 }
 
 export function DataTable<TData, TValue>({
@@ -39,6 +62,9 @@ export function DataTable<TData, TValue>({
   initialSorting = [],
   getRowClassName,
   pageSize = 15,
+  manualPagination,
+  footer,
+  paginationSlot,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>(initialSorting);
 
@@ -49,6 +75,10 @@ export function DataTable<TData, TValue>({
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
+    manualPagination: !!manualPagination,
+    pageCount: manualPagination
+      ? Math.max(1, Math.ceil(manualPagination.totalCount / manualPagination.pageSize))
+      : undefined,
     state: {
       sorting,
     },
@@ -58,6 +88,72 @@ export function DataTable<TData, TValue>({
       },
     },
   });
+
+  const currentPage = manualPagination
+    ? manualPagination.page
+    : table.getState().pagination.pageIndex + 1;
+  const pageCount = manualPagination
+    ? Math.max(1, Math.ceil(manualPagination.totalCount / manualPagination.pageSize))
+    : table.getPageCount();
+  const canPreviousPage = manualPagination ? currentPage > 1 : table.getCanPreviousPage();
+  const canNextPage = manualPagination ? currentPage < pageCount : table.getCanNextPage();
+
+  const paginationBar = (
+    <div
+      className={cn(
+        'flex items-center gap-3',
+        paginationSlot ? 'flex-row' : 'flex-col-reverse justify-between px-2 sm:flex-row',
+      )}
+    >
+      <div className="text-muted-foreground flex items-center gap-2 text-sm">
+        <span className={cn(paginationSlot && 'max-lg:hidden')}>Itens por página</span>
+        <Select
+          value={String(manualPagination?.pageSize ?? pageSize)}
+          onValueChange={(v) => manualPagination?.onPageSizeChange(Number(v))}
+          disabled={!manualPagination}
+        >
+          <SelectTrigger className="h-8 w-[72px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <SelectItem key={size} value={String(size)}>
+                {size}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="text-muted-foreground text-sm">
+        Página {currentPage} de {pageCount}
+        {manualPagination && ` — ${manualPagination.totalCount} registros`}
+      </div>
+      <div className="flex items-center space-x-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            manualPagination ? manualPagination.onPageChange(currentPage - 1) : table.previousPage()
+          }
+          disabled={!canPreviousPage}
+          className="h-8 w-8 p-0"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            manualPagination ? manualPagination.onPageChange(currentPage + 1) : table.nextPage()
+          }
+          disabled={!canNextPage}
+          className="h-8 w-8 p-0"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -108,35 +204,12 @@ export function DataTable<TData, TValue>({
                 </TableRow>
               )}
             </TableBody>
+            {footer && <TableFooter>{footer}</TableFooter>}
           </Table>
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-2">
-        <div className="text-muted-foreground text-sm">
-          Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      {paginationSlot ? createPortal(paginationBar, paginationSlot) : paginationBar}
     </div>
   );
 }

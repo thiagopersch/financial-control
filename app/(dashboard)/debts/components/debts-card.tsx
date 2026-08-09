@@ -80,10 +80,6 @@ export function DebtsCard({ debt, onEdit, onDelete }: DebtsCardProps) {
               <span className="font-medium">{debt.interestRate}%</span>
             </div>
           )}
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Pagamento Mínimo:</span>
-            <span className="font-medium">{formatCurrency(debt.minimumPayment)}</span>
-          </div>
           {debt.installments && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Parcelas:</span>

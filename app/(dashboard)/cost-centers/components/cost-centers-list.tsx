@@ -22,6 +22,7 @@ export function CostCentersList({ costCenters, onRefresh }: CostCentersListProps
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [costCenterToDelete, setCostCenterToDelete] = useState<string | null>(null);
+  const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
   const handleDelete = (id: string) => {
     setCostCenterToDelete(id);
@@ -107,11 +108,12 @@ export function CostCentersList({ costCenters, onRefresh }: CostCentersListProps
 
   return (
     <div className="flex flex-col gap-4">
-      <CostCentersHeader onCreate={openCreate} />
+      <CostCentersHeader onCreate={openCreate} paginationSlotRef={setPaginationSlot} />
       <DataTable
         columns={columns}
         data={costCenters}
         emptyMessage="Nenhum centro de custo criado."
+        paginationSlot={paginationSlot}
       />
 
       <CostCentersForm

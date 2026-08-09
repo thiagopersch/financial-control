@@ -12,10 +12,18 @@ export const createUserSchema = z.object({
   role: z.enum(Role),
 });
 
-export const updateUserSchema = z.object({
-  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  role: z.enum(Role),
-});
+export const updateUserSchema = z
+  .object({
+    name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+    role: z.enum(Role),
+    phone: z.string().optional().nullable(),
+    notifyEmail: z.boolean().default(false),
+    notifyWhatsapp: z.boolean().default(false),
+  })
+  .refine((data) => !data.notifyWhatsapp || !!data.phone, {
+    message: 'Informe um telefone para ativar notificações via WhatsApp',
+    path: ['phone'],
+  });
 
 export type CreateUserFormValues = z.infer<typeof createUserSchema>;
 export type UpdateUserFormValues = z.infer<typeof updateUserSchema>;
@@ -33,6 +41,9 @@ export function useUserForm({ user, onSuccess, onError }: UseUserFormOptions = {
     ? {
         name: user.name,
         role: user.role as Role,
+        phone: user.profile?.phone || '',
+        notifyEmail: user.profile?.notifyEmail || false,
+        notifyWhatsapp: user.profile?.notifyWhatsapp || false,
       }
     : {
         name: '',
@@ -44,7 +55,13 @@ export function useUserForm({ user, onSuccess, onError }: UseUserFormOptions = {
   async function handleSubmit(values: any) {
     try {
       if (isEditing) {
-        const result = await updateUser(user.id, { name: values.name, role: values.role });
+        const result = await updateUser(user.id, {
+          name: values.name,
+          role: values.role,
+          phone: values.phone,
+          notifyEmail: values.notifyEmail,
+          notifyWhatsapp: values.notifyWhatsapp,
+        });
         if (result.success) {
           showSuccess('Usuário atualizado!', 'O usuário foi atualizado.');
           onSuccess?.();

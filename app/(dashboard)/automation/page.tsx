@@ -20,6 +20,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { FormDialog } from '@/components/ui/form-dialog';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -175,7 +176,7 @@ export default function AutomationPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Automação</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Fluxo de Automação</h1>
           <p className="text-muted-foreground">Crie regras condicionais para automatizar tarefas</p>
         </div>
         <Button onClick={openCreate}>
@@ -309,12 +310,16 @@ export default function AutomationPage() {
       >
         <Form {...form}>
           <div className="space-y-4">
+            <p className="bg-muted/50 text-muted-foreground rounded-lg border p-3 text-xs">
+              Toda vez que uma transação é criada ou editada, o sistema verifica se ela atende à
+              condição definida abaixo; se atender, a ação configurada é executada automaticamente.
+            </p>
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome da Regra</FormLabel>
+                  <FormLabel required>Nome da Regra</FormLabel>
                   <FormControl>
                     <Input placeholder="Ex: Categorizar alimentação" {...field} />
                   </FormControl>
@@ -328,7 +333,10 @@ export default function AutomationPage() {
                 name="conditionType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Condição</FormLabel>
+                    <FormLabel required className="flex items-center gap-1">
+                      Condição
+                      <InfoTooltip text="O que a transação precisa ter para a regra disparar. Ex: 'Descrição contém' verifica se o nome/observação da transação contém o texto informado ao lado." />
+                    </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger className="w-full">
@@ -352,7 +360,10 @@ export default function AutomationPage() {
                 name="conditionValue"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Valor</FormLabel>
+                    <FormLabel required className="flex items-center gap-1">
+                      Valor
+                      <InfoTooltip text="O valor a comparar. Para condições de valor, use números (ex: 100.00). Para categoria/tag, digite o nome exatamente como cadastrado. Para 'contém', digite o texto a procurar." />
+                    </FormLabel>
                     <FormControl>
                       <Input placeholder="Ex: 100.00" {...field} />
                     </FormControl>
@@ -367,7 +378,10 @@ export default function AutomationPage() {
                 name="actionType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Ação</FormLabel>
+                    <FormLabel required className="flex items-center gap-1">
+                      Ação
+                      <InfoTooltip text="O que fazer com a transação quando a condição for atendida." />
+                    </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger className="w-full">
@@ -391,7 +405,10 @@ export default function AutomationPage() {
                 name="actionValue"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Parâmetro</FormLabel>
+                    <FormLabel required className="flex items-center gap-1">
+                      Parâmetro
+                      <InfoTooltip text="O valor usado pela ação: nome da categoria (Mudar categoria), nome da tag (Adicionar tag), status PAID/PENDING/OVERDUE (Alterar status) ou o texto da notificação (Enviar notificação)." />
+                    </FormLabel>
                     <FormControl>
                       <Input placeholder="Ex: Alimentação" {...field} />
                     </FormControl>

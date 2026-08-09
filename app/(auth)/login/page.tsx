@@ -44,9 +44,11 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
   const [isLoading, setIsLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
+    mode: 'onChange',
     defaultValues: {
       email: '',
       password: '',
@@ -65,19 +67,28 @@ function LoginForm() {
 
       if (result?.error) {
         showError('Erro ao fazer login', 'Usuário ou senha incorretos');
+        setIsLoading(false);
       } else {
         showSuccess('Login realizado com sucesso!');
+        setIsRedirecting(true);
         router.push(callbackUrl);
       }
     } catch {
       showError('Erro inesperado', 'Ocorreu um erro ao processar sua solicitação.');
-    } finally {
       setIsLoading(false);
     }
   }
 
+  const isBusy = isLoading || isRedirecting;
+
   return (
-    <Card className="border-none bg-white/80 shadow-2xl backdrop-blur-xl dark:bg-slate-900/80">
+    <Card className="relative border-none bg-white/80 shadow-2xl backdrop-blur-xl dark:bg-slate-900/80">
+      {isRedirecting && (
+        <div className="bg-background/80 absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl backdrop-blur-sm">
+          <Loader2 className="text-primary h-8 w-8 animate-spin" />
+          <p className="text-muted-foreground text-sm">Redirecionando para o dashboard...</p>
+        </div>
+      )}
       <CardHeader className="space-y-1 text-center">
         <CardTitle className="text-primary dark:text-primary text-3xl font-bold tracking-tight">
           {process.env.NEXT_PUBLIC_APP_NAME}
@@ -100,7 +111,7 @@ function LoginForm() {
                       id="email"
                       placeholder="jhondoe@email.com"
                       type="email"
-                      disabled={isLoading}
+                      disabled={isBusy}
                       {...field}
                     />
                   </FormControl>
@@ -131,9 +142,14 @@ function LoginForm() {
               type="submit"
               className="bg-primary hover:bg-primary/90 w-full text-lg font-semibold text-white transition-all"
               size="lg"
-              disabled={isLoading}
+              disabled={isBusy}
             >
-              {isLoading ? (
+              {isRedirecting ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Redirecionando...
+                </>
+              ) : isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Entrando...

@@ -2,7 +2,10 @@
 
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
+import { checkBudgetAlerts, notifyNewTransaction } from '@/lib/actions/notifications';
 import { createAuditLog } from '@/lib/services/audit';
+import { matchCategorizationRule } from '@/lib/services/categorization';
+import { applyConditionalRules } from '@/lib/services/conditional-rules';
 import { TransactionStatus, TransactionType } from '@prisma/client';
 import { addMonths } from 'date-fns';
 import { getServerSession } from 'next-auth';
@@ -10,6 +13,7 @@ import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
 const transactionSchema = z.object({
+  description: z.string().min(1, 'Nome é obrigatório').max(100, 'Máximo de 100 caracteres'),
   type: z.enum(TransactionType),
   amount: z.coerce.number().positive('Valor deve ser maior que zero'),
   date: z.coerce.date(),
@@ -19,7 +23,7 @@ const transactionSchema = z.object({
   accountId: z.string().min(1, 'Conta é obrigatória'),
   costCenterId: z.string().nullable().optional(),
   supplierId: z.string().nullable().optional(),
-  notes: z.string().optional(),
+  notes: z.string().max(255, 'Máximo de 255 caracteres').optional(),
   isRecurring: z.boolean().default(false),
   recurrenceType: z.enum(['CONTINUOUS', 'INSTALLMENTS']).nullable().optional(),
   installments: z.coerce.number().min(1).nullable().optional(),
@@ -31,6 +35,14 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
 
   try {
     const validated = transactionSchema.parse(data);
+
+    const matchedCategoryId = await matchCategorizationRule(
+      session.user.workspaceId,
+      `${validated.description} ${validated.notes || ''}`,
+    );
+    if (matchedCategoryId) {
+      validated.categoryId = matchedCategoryId;
+    }
 
     if (validated.isRecurring && validated.recurrenceType) {
       const count = validated.recurrenceType === 'INSTALLMENTS' ? validated.installments || 1 : 12;
@@ -46,6 +58,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
         // Criar a primeira transação (pai)
         const parentTransaction = await tx.transaction.create({
           data: {
+            description: validated.description,
             type: validated.type,
             amount: installmentAmount,
             date: validated.date,
@@ -74,6 +87,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
           }
 
           futureTransactions.push({
+            description: validated.description,
             type: validated.type,
             amount: currentInstallmentAmount,
             date: addMonths(validated.date, i),
@@ -107,6 +121,19 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
         newValue: validated,
       });
 
+      const category = await prisma.category.findUnique({ where: { id: validated.categoryId } });
+      await notifyNewTransaction({
+        id: result.id,
+        description: validated.description,
+        amount: validated.amount,
+        type: validated.type,
+        categoryName: category?.name || '',
+      });
+      await applyConditionalRules(session.user.workspaceId, result.id);
+      if (validated.type === TransactionType.EXPENSE) {
+        await checkBudgetAlerts();
+      }
+
       revalidatePath('/transactions');
       revalidatePath('/dashboard');
       revalidatePath('/accounts');
@@ -117,6 +144,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
     const transaction = await prisma.$transaction(async (tx) => {
       const t = await tx.transaction.create({
         data: {
+          description: validated.description,
           type: validated.type,
           amount: validated.amount,
           date: validated.date,
@@ -129,6 +157,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
           notes: validated.notes,
           workspaceId: session.user.workspaceId,
         },
+        include: { category: true },
       });
 
       return t;
@@ -140,6 +169,18 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
       entityId: transaction.id,
       newValue: validated,
     });
+
+    await notifyNewTransaction({
+      id: transaction.id,
+      description: transaction.description,
+      amount: Number(transaction.amount),
+      type: transaction.type,
+      categoryName: transaction.category.name,
+    });
+    await applyConditionalRules(session.user.workspaceId, transaction.id);
+    if (transaction.type === TransactionType.EXPENSE) {
+      await checkBudgetAlerts();
+    }
 
     revalidatePath('/transactions');
     revalidatePath('/dashboard');
@@ -197,6 +238,7 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
       const updated = await tx.transaction.update({
         where: { id },
         data: {
+          description: validated.description,
           type: validated.type,
           amount: validated.amount,
           date: validated.date,
@@ -243,6 +285,11 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
       entityId: transaction.id,
       newValue: validated,
     });
+
+    await applyConditionalRules(session.user.workspaceId, transaction.id);
+    if (transaction.type === TransactionType.EXPENSE) {
+      await checkBudgetAlerts();
+    }
 
     revalidatePath('/transactions');
     revalidatePath('/dashboard');

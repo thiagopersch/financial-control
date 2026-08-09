@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { SelectSearch } from '@/components/ui/select-search';
 import { Switch } from '@/components/ui/switch';
 import { budgetSchema, useBudgetForm } from '@/hooks/forms/use-budget-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -127,27 +128,25 @@ export function BudgetDialog({
             name="categoryId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Categoria</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecione a categoria" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: cat.color }}
-                          />
-                          {cat.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormLabel required>Categoria</FormLabel>
+                <FormControl>
+                  <SelectSearch
+                    options={categories.map((cat) => ({
+                      value: cat.id,
+                      label: cat.name,
+                      icon: (
+                        <div
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: cat.color }}
+                        />
+                      ),
+                    }))}
+                    value={field.value}
+                    onValueChange={(v) => field.onChange(v || '')}
+                    placeholder="Selecione a categoria"
+                    emptyText="Nenhuma categoria encontrada."
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -157,7 +156,7 @@ export function BudgetDialog({
             name="amount"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Valor do Orçamento</FormLabel>
+                <FormLabel required>Valor do Orçamento</FormLabel>
                 <FormControl>
                   <Input
                     type="number"
@@ -178,9 +177,9 @@ export function BudgetDialog({
               name="month"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Mês</FormLabel>
+                  <FormLabel required>Mês</FormLabel>
                   <Select
-                    onValueChange={(v) => field.onChange(parseInt(v))}
+                    onValueChange={(v) => field.onChange(parseInt(v || '0'))}
                     value={String(field.value)}
                   >
                     <FormControl>
@@ -205,9 +204,9 @@ export function BudgetDialog({
               name="year"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Ano</FormLabel>
+                  <FormLabel required>Ano</FormLabel>
                   <Select
-                    onValueChange={(v) => field.onChange(parseInt(v))}
+                    onValueChange={(v) => field.onChange(parseInt(v || '0'))}
                     value={String(field.value)}
                   >
                     <FormControl>

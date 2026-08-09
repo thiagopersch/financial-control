@@ -1,12 +1,15 @@
 'use client';
 
 import { ActionsDataTable } from '@/components/ui/actions-data-table';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
 import { deleteSupplier } from '@/lib/actions/suppliers';
 import type { SupplierDTO } from '@/lib/queries/suppliers';
+import { formatDocument } from '@/lib/utils/document';
 import { showError, showSuccess } from '@/lib/utils/toast';
+import { SupplierPersonType } from '@prisma/client';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, MapPin, Phone } from 'lucide-react';
 import { useState } from 'react';
@@ -23,6 +26,7 @@ export function SuppliersList({ suppliers, onRefresh }: SuppliersListProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [supplierToDelete, setSupplierToDelete] = useState<string | null>(null);
+  const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
   const handleDelete = (id: string) => {
     setSupplierToDelete(id);
@@ -69,10 +73,37 @@ export function SuppliersList({ suppliers, onRefresh }: SuppliersListProps) {
       cell: ({ row }) => <span className="font-semibold">{row.original.name}</span>,
     },
     {
+      accessorKey: 'personType',
+      header: 'Tipo',
+      cell: ({ row }) => (
+        <span className="text-muted-foreground text-sm">
+          {row.original.personType === SupplierPersonType.INDIVIDUAL
+            ? 'Pessoa Física'
+            : 'Pessoa Jurídica'}
+        </span>
+      ),
+    },
+    {
       accessorKey: 'document',
       header: 'CNPJ/CPF',
       cell: ({ row }) => (
-        <span className="text-muted-foreground">{row.original.document || '-'}</span>
+        <span className="text-muted-foreground">{formatDocument(row.original.document)}</span>
+      ),
+    },
+    {
+      accessorKey: 'isActive',
+      header: 'Status',
+      cell: ({ row }) => (
+        <Badge
+          variant="secondary"
+          className={
+            row.original.isActive
+              ? 'border-none bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+              : 'border-none bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+          }
+        >
+          {row.original.isActive ? 'Ativo' : 'Inativo'}
+        </Badge>
       ),
     },
     {
@@ -104,8 +135,13 @@ export function SuppliersList({ suppliers, onRefresh }: SuppliersListProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <SuppliersHeader onCreate={openCreate} />
-      <DataTable columns={columns} data={suppliers} emptyMessage="Nenhum fornecedor criado." />
+      <SuppliersHeader onCreate={openCreate} paginationSlotRef={setPaginationSlot} />
+      <DataTable
+        columns={columns}
+        data={suppliers}
+        emptyMessage="Nenhum fornecedor criado."
+        paginationSlot={paginationSlot}
+      />
 
       <SuppliersForm
         isOpen={isFormOpen}

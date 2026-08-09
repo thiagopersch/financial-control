@@ -51,9 +51,11 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
+    mode: 'onChange',
     defaultValues: {
       name: '',
       email: '',
@@ -69,6 +71,7 @@ export default function RegisterPage() {
 
       if (result.success) {
         showSuccess('Conta criada com sucesso!');
+        setIsRedirecting(true);
 
         // Auto sign in
         await signIn('credentials', {
@@ -79,16 +82,24 @@ export default function RegisterPage() {
         });
       } else {
         showError('Erro ao criar conta', result.error);
+        setIsLoading(false);
       }
     } catch {
       showError('Erro inesperado', 'Ocorreu um erro ao processar sua solicitação.');
-    } finally {
       setIsLoading(false);
     }
   }
 
+  const isBusy = isLoading || isRedirecting;
+
   return (
-    <Card className="border-none bg-white/80 shadow-2xl backdrop-blur-xl dark:bg-slate-900/80">
+    <Card className="relative border-none bg-white/80 shadow-2xl backdrop-blur-xl dark:bg-slate-900/80">
+      {isRedirecting && (
+        <div className="bg-background/80 absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl backdrop-blur-sm">
+          <Loader2 className="text-primary h-8 w-8 animate-spin" />
+          <p className="text-muted-foreground text-sm">Redirecionando para o dashboard...</p>
+        </div>
+      )}
       <CardHeader className="space-y-1 text-center">
         <CardTitle className="text-primary dark:text-primary text-3xl font-bold tracking-tight">
           {process.env.NEXT_PUBLIC_APP_NAME}
@@ -110,7 +121,7 @@ export default function RegisterPage() {
                     <Input
                       id="companyName"
                       placeholder="Minha Empresa Ltda"
-                      disabled={isLoading}
+                      disabled={isBusy}
                       maxLength={100}
                       className="bg-white/50 dark:bg-slate-800/50"
                       {...field}
@@ -130,7 +141,7 @@ export default function RegisterPage() {
                     <Input
                       id="name"
                       type="text"
-                      disabled={isLoading}
+                      disabled={isBusy}
                       maxLength={100}
                       className="bg-white/50 dark:bg-slate-800/50"
                       {...field}
@@ -152,7 +163,7 @@ export default function RegisterPage() {
                       id="email"
                       placeholder="seu@email.com"
                       type="email"
-                      disabled={isLoading}
+                      disabled={isBusy}
                       maxLength={160}
                       className="bg-white/50 dark:bg-slate-800/50"
                       {...field}
@@ -173,7 +184,7 @@ export default function RegisterPage() {
                     <PasswordInput
                       id="password"
                       placeholder="••••••••"
-                      disabled={isLoading}
+                      disabled={isBusy}
                       maxLength={32}
                       className="bg-white/50 dark:bg-slate-800/50"
                       {...field}
@@ -188,9 +199,14 @@ export default function RegisterPage() {
               type="submit"
               className="bg-primary hover:bg-primary/90 w-full text-lg font-semibold text-white transition-all"
               size="lg"
-              disabled={isLoading}
+              disabled={isBusy}
             >
-              {isLoading ? (
+              {isRedirecting ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Redirecionando...
+                </>
+              ) : isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Criando conta...

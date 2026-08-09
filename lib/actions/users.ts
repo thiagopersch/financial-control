@@ -15,10 +15,18 @@ const createUserSchema = z.object({
   role: z.enum(Role),
 });
 
-const updateUserSchema = z.object({
-  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  role: z.enum(Role),
-});
+const updateUserSchema = z
+  .object({
+    name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+    role: z.enum(Role),
+    phone: z.string().optional().nullable(),
+    notifyEmail: z.boolean().default(false),
+    notifyWhatsapp: z.boolean().default(false),
+  })
+  .refine((data) => !data.notifyWhatsapp || !!data.phone, {
+    message: 'Informe um telefone para ativar notificações via WhatsApp',
+    path: ['phone'],
+  });
 
 export async function createUser(data: z.infer<typeof createUserSchema>) {
   const session = await getServerSession(authOptions);
@@ -76,9 +84,27 @@ export async function updateUser(id: string, data: z.infer<typeof updateUserSche
       data: { name: validated.name, role: validated.role },
     });
 
+    await prisma.profile.upsert({
+      where: { userId: id },
+      create: {
+        userId: id,
+        phone: validated.phone,
+        notifyEmail: validated.notifyEmail,
+        notifyWhatsapp: validated.notifyWhatsapp,
+      },
+      update: {
+        phone: validated.phone,
+        notifyEmail: validated.notifyEmail,
+        notifyWhatsapp: validated.notifyWhatsapp,
+      },
+    });
+
     revalidatePath('/users');
     return { success: true, data: user };
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0]?.message || 'Dados inválidos' };
+    }
     return { success: false, error: 'Erro ao atualizar usuário' };
   }
 }

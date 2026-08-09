@@ -3,21 +3,13 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { deleteCreditCard } from '@/lib/actions/credit-cards';
 import type { AccountDTO } from '@/lib/queries/accounts';
 import type { CreditCardDTO } from '@/lib/queries/credit-cards';
 import { showError, showSuccess } from '@/lib/utils/toast';
-import { CreditCard, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { CreditCard, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { CreditCardsForm } from './credit-cards-form';
 import { CreditCardsHeader } from './credit-cards-header';
 
@@ -33,6 +25,11 @@ export function CreditCardsList({
   onRefresh,
 }: CreditCardsListProps) {
   const [creditCards, setCreditCards] = useState<CreditCardDTO[]>(initialCreditCards);
+
+  useEffect(() => {
+    setCreditCards(initialCreditCards);
+  }, [initialCreditCards]);
+
   const [selectedCard, setSelectedCard] = useState<CreditCardDTO | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -73,34 +70,28 @@ export function CreditCardsList({
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {creditCards.map((card) => (
-          <Card key={card.id} className="overflow-hidden">
+          <Card
+            key={card.id}
+            className="cursor-pointer overflow-hidden rounded-tl-2xl rounded-bl-2xl border-l-4 transition-all ease-in-out hover:border-l-8 hover:shadow-md"
+            style={{ borderLeftColor: card.color || '#6366f1' }}
+            onClick={() => openEdit(card)}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5" style={{ color: card.color || '#6366f1' }} />
                 <CardTitle className="text-base font-semibold">{card.account.name}</CardTitle>
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-8 w-8 p-0">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => openEdit(card)}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => handleDelete(card.id)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Excluir
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-destructive hover:bg-destructive/20 h-8 w-8"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(card.id);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -135,8 +126,8 @@ export function CreditCardsList({
               <Plus className="text-muted-foreground h-8 w-8" />
             </div>
             <h3 className="text-lg font-medium">Nenhum cartão encontrado</h3>
-            <p className="text-muted-foreground mb-4">
-              Comece adicionando seu primeiro cartão de crédito.
+            <p className="text-muted-foreground mb-4 text-center">
+              Comece adicionando seu primeiro cartão.
             </p>
             <Button onClick={openCreate}>Adicionar Cartão</Button>
           </div>

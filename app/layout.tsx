@@ -4,6 +4,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono, Outfit } from 'next/font/google';
+import Script from 'next/script';
 import { Toaster } from 'sonner';
 import './globals.css';
 
@@ -35,13 +36,17 @@ export default function RootLayout({
         mono.variable,
       )}
     >
+      <head>
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("theme");var d=document.documentElement;if(t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches))d.classList.add("dark");}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className="flex min-h-full flex-col">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <ThemeProvider>
           <Providers>
             <TooltipProvider>{children}</TooltipProvider>
             <Toaster richColors position="top-right" />

@@ -54,6 +54,12 @@ export function OverviewChart({ data, isFullYear, isAllPeriod }: OverviewChartPr
                 tickFormatter={(value) => `R$${value}`}
               />
               <Tooltip
+                formatter={(value: any) =>
+                  new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL',
+                  }).format(Number(value))
+                }
                 contentStyle={{
                   borderRadius: '8px',
                   border: 'none',

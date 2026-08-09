@@ -236,7 +236,7 @@ export default function AuditPage() {
             className="pl-10"
           />
         </div>
-        <Select value={filterEntity} onValueChange={setFilterEntity}>
+        <Select value={filterEntity} onValueChange={(v) => setFilterEntity(v || 'all')}>
           <SelectTrigger className="w-full sm:w-40">
             <SelectValue placeholder="Entidade" />
           </SelectTrigger>
@@ -249,7 +249,7 @@ export default function AuditPage() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={filterAction} onValueChange={setFilterAction}>
+        <Select value={filterAction} onValueChange={(v) => setFilterAction(v || 'all')}>
           <SelectTrigger className="w-full sm:w-40">
             <SelectValue placeholder="Ação" />
           </SelectTrigger>

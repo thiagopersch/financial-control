@@ -64,10 +64,10 @@ export default function ForecastPage() {
     });
   };
 
+  const historicalMonths = chartData.filter((d) => d.actual !== null);
   const averageExpense =
-    chartData.length > 0
-      ? chartData.reduce((sum, d) => sum + (d.actual || 0), 0) /
-        chartData.filter((d) => d.actual).length
+    historicalMonths.length > 0
+      ? historicalMonths.reduce((sum, d) => sum + (d.actual || 0), 0) / historicalMonths.length
       : 0;
 
   const forecastTotal = chartData.reduce((sum, d) => sum + d.forecast, 0);

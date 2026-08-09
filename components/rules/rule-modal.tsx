@@ -9,6 +9,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -91,7 +92,10 @@ export function RuleModal({ isOpen, onClose, categories, initialData }: RuleModa
             name="keyword"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Palavra-chave</FormLabel>
+                <FormLabel required className="flex items-center gap-1">
+                  Palavra-chave
+                  <InfoTooltip text="Texto buscado (sem diferenciar maiúsculas/minúsculas) dentro do nome e das observações de cada nova transação. Regras com maior prioridade de cadastro são aplicadas primeiro." />
+                </FormLabel>
                 <FormControl>
                   <Input placeholder="Ex: mercado, uber, aluguel..." {...field} />
                 </FormControl>
@@ -104,7 +108,7 @@ export function RuleModal({ isOpen, onClose, categories, initialData }: RuleModa
             name="categoryId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Categoria associada</FormLabel>
+                <FormLabel required>Categoria associada</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger className="w-full">

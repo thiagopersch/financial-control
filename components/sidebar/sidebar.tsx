@@ -1,11 +1,12 @@
 'use client';
 
-import { Route, routeGroups } from '@/components/sidebar/routes';
+import { Route, routeGroups, topLevelRoutes } from '@/components/sidebar/routes';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useSidebar } from '@/hooks/use-sidebar';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronRight, LogOut, Wallet } from 'lucide-react';
-import { signOut } from 'next-auth/react';
+import { signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -13,10 +14,16 @@ import { useEffect, useState } from 'react';
 export function Sidebar({ isMobile }: { isMobile?: boolean }) {
   const pathname = usePathname();
   const { isCollapsed, onClose } = useSidebar();
-  const [isHovered, setIsHovered] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'ADMIN';
 
-  const showFullSidebar = isMobile || !isCollapsed || isHovered;
+  const visibleRouteGroups = routeGroups.map((group) => ({
+    ...group,
+    routes: group.routes.filter((route) => !route.adminOnly || isAdmin),
+  }));
+
+  const showFullSidebar = isMobile || !isCollapsed;
 
   useEffect(() => {
     const activeGroup = routeGroups.find((group) =>
@@ -41,7 +48,6 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
   };
 
   const toggleGroup = (title: string) => {
-    if (isCollapsed && !isHovered) return;
     setExpandedGroups((prev) => (prev.includes(title) ? prev.filter((t) => t !== title) : [title]));
   };
 
@@ -70,8 +76,6 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
 
   return (
     <div
-      onMouseEnter={() => !isMobile && setIsHovered(true)}
-      onMouseLeave={() => !isMobile && setIsHovered(false)}
       className={cn(
         'bg-background text-foreground flex h-full flex-col border-r shadow-sm transition-all duration-200',
         !isMobile && 'fixed top-0 left-0 z-30 hidden md:flex',
@@ -100,8 +104,12 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
           </div>
         </div>
 
+        <div className="mb-2 space-y-1 border-b pb-2">
+          {topLevelRoutes.map((route) => renderRoute(route, showFullSidebar))}
+        </div>
+
         <div className="space-y-2">
-          {routeGroups.map((group) => {
+          {visibleRouteGroups.map((group) => {
             const isExpanded = expandedGroups.includes(group.title);
             const isActive = isGroupActive(group.routes);
 
@@ -112,7 +120,7 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
                     <button
                       onClick={() => toggleGroup(group.title)}
                       className={cn(
-                        'flex w-full items-center justify-between px-3 py-2 text-xs font-semibold uppercase transition-colors',
+                        'flex w-full cursor-pointer items-center justify-between px-3 py-2 text-xs font-semibold uppercase transition-colors',
                         isActive
                           ? 'text-foreground'
                           : 'text-muted-foreground hover:text-foreground',
@@ -138,23 +146,32 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
                     </div>
                   </>
                 ) : (
-                  <div className="flex flex-col items-center">
-                    <button
-                      onClick={() => toggleGroup(group.title)}
-                      className={cn(
-                        'rounded-lg p-3 transition-colors',
-                        isActive ? 'bg-accent' : 'hover:bg-accent hover:text-accent-foreground',
-                      )}
-                      title={group.title}
-                    >
-                      <group.icon
-                        className={cn(
-                          'h-5 w-5',
-                          isActive ? 'text-accent-foreground' : 'text-muted-foreground',
-                        )}
-                      />
-                    </button>
-                  </div>
+                  <Popover>
+                    <div className="flex flex-col items-center">
+                      <PopoverTrigger asChild>
+                        <button
+                          className={cn(
+                            'cursor-pointer rounded-lg p-3 transition-colors',
+                            isActive ? 'bg-accent' : 'hover:bg-accent hover:text-accent-foreground',
+                          )}
+                          title={group.title}
+                        >
+                          <group.icon
+                            className={cn(
+                              'h-5 w-5',
+                              isActive ? 'text-accent-foreground' : 'text-muted-foreground',
+                            )}
+                          />
+                        </button>
+                      </PopoverTrigger>
+                    </div>
+                    <PopoverContent side="right" align="start" className="w-56 p-1.5">
+                      <div className="text-muted-foreground px-2 py-1.5 text-xs font-semibold uppercase">
+                        {group.title}
+                      </div>
+                      {group.routes.map((route) => renderRoute(route, true))}
+                    </PopoverContent>
+                  </Popover>
                 )}
               </div>
             );
@@ -166,7 +183,7 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
         <Button
           variant="ghost"
           className={cn(
-            'text-muted-foreground hover:text-foreground w-full justify-start',
+            'w-full justify-start bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-500 dark:bg-red-500/10 dark:hover:bg-red-500/20',
             !showFullSidebar && 'justify-center px-0',
           )}
           onClick={() => signOut({ callbackUrl: '/login' })}

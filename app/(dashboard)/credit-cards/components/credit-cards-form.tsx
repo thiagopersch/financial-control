@@ -20,6 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { InfoIcon } from 'lucide-react';
 import {
   useCreditCardForm,
   type CreditCardFormValues,
@@ -86,6 +88,18 @@ export function CreditCardsForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, defaultValues]);
 
+  const watchedAccountId = form.watch('accountId');
+
+  useEffect(() => {
+    if (isEditing || !watchedAccountId) return;
+    if (form.formState.dirtyFields.color) return;
+    const account = accounts.find((acc) => acc.id === watchedAccountId);
+    if (account?.color) {
+      form.setValue('color', account.color);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedAccountId, isEditing, accounts]);
+
   const onSubmit = async (values: CreditCardFormValues) => {
     setIsSubmitting(true);
     await handleSubmit(values);
@@ -109,7 +123,17 @@ export function CreditCardsForm({
               name="accountId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Conta Vinculada</FormLabel>
+                  <FormLabel required className="flex items-center gap-1">
+                    Conta
+                    <Tooltip>
+                      <TooltipTrigger type="button" className="cursor-help">
+                        <InfoIcon className="text-muted-foreground h-3.5 w-3.5" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Conta à qual este cartão de crédito pertence.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="w-full">
@@ -141,7 +165,7 @@ export function CreditCardsForm({
               name="limit"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Limite</FormLabel>
+                  <FormLabel required>Limite</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -163,7 +187,7 @@ export function CreditCardsForm({
               name="closingDay"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Dia do Fechamento</FormLabel>
+                  <FormLabel required>Dia do Fechamento</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -184,7 +208,7 @@ export function CreditCardsForm({
               name="dueDay"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Dia do Vencimento</FormLabel>
+                  <FormLabel required>Dia do Vencimento</FormLabel>
                   <FormControl>
                     <Input
                       type="number"

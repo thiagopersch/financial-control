@@ -1,11 +1,21 @@
-import { TransactionsHeader } from '@/app/(dashboard)/transactions/components/transactions-header';
-import { TransactionsTable } from '@/app/(dashboard)/transactions/components/transactions-table';
+import { TransactionsContent } from '@/app/(dashboard)/transactions/components/transactions-content';
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
 import { getAvailableRange, getTransactionCountsByYear } from '@/lib/queries/dashboard';
+import { getCostCenters } from '@/lib/queries/cost-centers';
+import { getAccountsWithBalance } from '@/lib/queries/accounts';
 import { type TransactionStatus, type TransactionType } from '@prisma/client';
 import { endOfMonth, startOfMonth } from 'date-fns';
 import { getServerSession } from 'next-auth';
+
+const STATUS_SEARCH_TERMS: Record<string, string> = {
+  pago: 'PAID',
+  pendente: 'PENDING',
+  atrasado: 'OVERDUE',
+  atrasada: 'OVERDUE',
+};
+
+const ALLOWED_PAGE_SIZES = [10, 20, 50, 100];
 
 export default async function TransactionsPage({
   searchParams: searchParamsPromise,
@@ -20,6 +30,8 @@ export default async function TransactionsPage({
     category?: string;
     account?: string;
     q?: string;
+    page?: string;
+    pageSize?: string;
   }>;
 }) {
   const searchParams = await searchParamsPromise;
@@ -84,14 +96,33 @@ export default async function TransactionsPage({
   if (searchParams.account) where.accountId = searchParams.account;
 
   if (searchParams.q) {
+    const q = searchParams.q.trim();
+    const statusMatch = STATUS_SEARCH_TERMS[q.toLowerCase()];
     where.OR = [
-      { notes: { contains: searchParams.q, mode: 'insensitive' } },
-      { category: { name: { contains: searchParams.q, mode: 'insensitive' } } },
-      { supplier: { name: { contains: searchParams.q, mode: 'insensitive' } } },
+      { description: { contains: q, mode: 'insensitive' } },
+      { notes: { contains: q, mode: 'insensitive' } },
+      { category: { name: { contains: q, mode: 'insensitive' } } },
+      { supplier: { name: { contains: q, mode: 'insensitive' } } },
+      { account: { name: { contains: q, mode: 'insensitive' } } },
+      ...(statusMatch ? [{ status: statusMatch as TransactionStatus }] : []),
     ];
   }
 
-  const [rawTransactions, categories, suppliers, accounts] = await Promise.all([
+  const pageSize = ALLOWED_PAGE_SIZES.includes(Number(searchParams.pageSize))
+    ? Number(searchParams.pageSize)
+    : 10;
+  const page = Math.max(1, parseInt(searchParams.page || '1', 10) || 1);
+
+  const [
+    rawTransactions,
+    totalCount,
+    totals,
+    categories,
+    suppliers,
+    accounts,
+    costCenters,
+    accountsWithBalance,
+  ] = await Promise.all([
     prisma.transaction.findMany({
       where,
       include: {
@@ -102,7 +133,11 @@ export default async function TransactionsPage({
       orderBy: {
         date: 'desc',
       },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     }),
+    prisma.transaction.count({ where }),
+    prisma.transaction.aggregate({ where, _sum: { amount: true } }),
     prisma.category.findMany({
       where: { workspaceId: session.user.workspaceId },
       orderBy: { name: 'asc' },
@@ -115,8 +150,8 @@ export default async function TransactionsPage({
       where: { workspaceId: session.user.workspaceId },
       orderBy: { name: 'asc' },
     }),
-    getAvailableRange(),
-    getTransactionCountsByYear(),
+    getCostCenters(),
+    getAccountsWithBalance(),
   ]);
 
   const transactions = rawTransactions.map((transaction) => ({
@@ -135,20 +170,20 @@ export default async function TransactionsPage({
 
   return (
     <div className="animate-in fade-in space-y-6 duration-300">
-      <TransactionsHeader
+      <TransactionsContent
         categories={categories}
         suppliers={suppliers}
         accounts={formattedAccounts}
+        accountsWithBalance={accountsWithBalance}
+        costCenters={costCenters}
         availableRange={availableRange}
         transactionCounts={transactionCounts}
         userRole={session.user.role}
-      />
-      <TransactionsTable
         transactions={transactions}
-        categories={categories}
-        suppliers={suppliers}
-        accounts={formattedAccounts}
-        userRole={session.user.role}
+        totalCount={totalCount}
+        totalAmount={Number(totals._sum.amount || 0)}
+        page={page}
+        pageSize={pageSize}
       />
     </div>
   );

@@ -15,21 +15,15 @@ export async function getDashboardStats(start?: Date, end?: Date) {
     where: { workspaceId },
   });
 
-  const accounts = await prisma.account.findMany({
-    where: { workspaceId },
-    include: { creditCardDetails: true },
-  });
-
-  const creditCardAvailableLimit = accounts.reduce(
-    (acc, a) =>
-      acc +
-      (a.creditCardDetails
-        ? Number(a.creditCardDetails.limit) - Number(a.creditCardDetails.usedAmount)
-        : 0),
-    0,
-  );
-
-  const totalBalance = creditCardAvailableLimit;
+  const paidByAccount = allTransactions.filter((t) => t.status === 'PAID');
+  const totalBalance = paidByAccount.reduce((acc, t) => {
+    if (t.type === TransactionType.INCOME) return acc + Number(t.amount);
+    if (t.type === TransactionType.EXPENSE) return acc - Number(t.amount);
+    if (t.type === TransactionType.TRANSFER) {
+      return acc + (t.notes?.startsWith('[SAÍDA]') ? -Number(t.amount) : Number(t.amount));
+    }
+    return acc;
+  }, 0);
 
   const filteredTransactions =
     start && end
@@ -268,13 +262,14 @@ export async function getRecentTransactions(start?: Date, end?: Date) {
           }
         : {}),
     },
-    take: 10,
+    take: 8,
     orderBy: {
-      date: 'desc',
+      createdAt: 'desc',
     },
     include: {
       category: true,
       supplier: true,
+      account: true,
     },
   });
 }
@@ -392,6 +387,75 @@ export async function getCategoryData(start?: Date, end?: Date) {
   }));
 }
 
+export async function getStatusData(start?: Date, end?: Date) {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error('Unauthorized');
+
+  const transactions = await prisma.transaction.groupBy({
+    by: ['status'],
+    where: {
+      workspaceId: session.user.workspaceId,
+      type: TransactionType.EXPENSE,
+      ...(start && end
+        ? {
+            date: {
+              gte: start,
+              lte: end,
+            },
+          }
+        : {}),
+    },
+    _sum: { amount: true },
+    _count: true,
+  });
+
+  const statusLabels: Record<string, { label: string; color: string }> = {
+    PAID: { label: 'Pago', color: '#10b981' },
+    PENDING: { label: 'Pendente', color: '#f59e0b' },
+    OVERDUE: { label: 'Atrasado', color: '#ef4444' },
+  };
+
+  return transactions.map((t) => ({
+    name: statusLabels[t.status]?.label || t.status,
+    value: Number(t._sum.amount || 0),
+    count: t._count,
+    color: statusLabels[t.status]?.color || '#94a3b8',
+  }));
+}
+
+export async function getSupplierData(start?: Date, end?: Date) {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error('Unauthorized');
+
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      workspaceId: session.user.workspaceId,
+      type: TransactionType.EXPENSE,
+      supplierId: { not: null },
+      ...(start && end
+        ? {
+            date: {
+              gte: start,
+              lte: end,
+            },
+          }
+        : {}),
+    },
+    include: { supplier: true },
+  });
+
+  const supplierMap: Record<string, number> = {};
+  transactions.forEach((t) => {
+    if (!t.supplier) return;
+    supplierMap[t.supplier.name] = (supplierMap[t.supplier.name] || 0) + Number(t.amount);
+  });
+
+  return Object.entries(supplierMap)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+}
+
 export async function getAvailableRange() {
   const session = await getServerSession(authOptions);
   if (!session) return { minDate: null, maxDate: null };
@@ -485,6 +549,7 @@ export async function getDebtsData() {
       id: d.id,
       name: d.name,
       currentValue: Number(d.currentValue),
+      initialValue: Number(d.initialValue),
       minimumPayment: Number(d.minimumPayment),
       installments: d.installments,
     })),

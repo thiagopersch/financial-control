@@ -14,21 +14,25 @@ export const createDebtSchema = z
       (v) => (v === '' || v === undefined || v === null ? 0 : v),
       z.coerce.number().min(0, 'Valor atual deve ser maior ou igual a zero'),
     ),
-    interestRate: z.coerce.number().min(0).optional().nullable(),
-    minimumPayment: z.coerce.number().positive('Pagamento mínimo é obrigatório'),
     dueDay: z.coerce
       .number()
       .min(1, 'Dia do vencimento deve ser maior que zero')
-      .max(31, 'Dia do vencimento deve ser no máximo 31'),
+      .max(31, 'Dia do vencimento deve ser no máximo 31')
+      .optional()
+      .nullable(),
     startDate: z.preprocess(
       (v) => (v === '' || v === undefined || v === null ? new Date().toISOString() : v),
       z.string(),
     ),
     installments: z.preprocess(
       (v) => (v === '' || v === undefined ? 1 : v),
-      z.coerce.number().min(1, 'Número de parcelas é obrigatório'),
+      z.coerce
+        .number()
+        .int('Número de parcelas deve ser um número inteiro')
+        .min(1, 'Número de parcelas é obrigatório'),
     ),
     accountId: z.string().min(1, 'Conta é obrigatória'),
+    categoryId: z.string().optional().nullable(),
     calculationType: z.string().min(1, 'Tipo de cálculo é obrigatório'),
     installmentValue: z.preprocess(
       (v) => (v === '' || v === undefined ? null : v),
@@ -52,7 +56,6 @@ export const createDebtSchema = z
 export const editDebtSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   description: z.string().optional(),
-  interestRate: z.string().optional(),
   dueDay: z
     .string()
     .min(1, { message: 'Dia do vencimento deve ser maior que zero' })
@@ -82,12 +85,11 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
     description: '',
     initialValue: 0,
     currentValue: 0,
-    interestRate: null,
-    minimumPayment: 0,
-    dueDay: 1,
+    dueDay: 10,
     startDate: new Date().toISOString(),
     installments: 1,
     accountId: '',
+    categoryId: null,
     calculationType: 'TOTAL_DIVIDED',
     installmentValue: null,
     firstInstallmentMonth: 'NEXT',
@@ -97,8 +99,7 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
     ? {
         name: debt.name,
         description: debt.description || '',
-        interestRate: debt.interestRate?.toString() || '',
-        dueDay: debt.dueDay?.toString() || '',
+        dueDay: debt.dueDay?.toString() || '10',
         installments: debt.installments?.toString() || '',
         calculationType: debt.calculationType || 'TOTAL_DIVIDED',
         installmentValue: debt.installmentValue?.toString() || '',
@@ -107,8 +108,7 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
     : {
         name: '',
         description: '',
-        interestRate: '',
-        dueDay: '',
+        dueDay: '10',
         installments: '',
         calculationType: 'TOTAL_DIVIDED',
         installmentValue: '',
@@ -149,7 +149,6 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
       const parsedValues = {
         name: values.name,
         description: values.description || undefined,
-        interestRate: values.interestRate ? parseFloat(values.interestRate) : undefined,
         dueDay: values.dueDay ? parseInt(values.dueDay) : undefined,
         installments: values.installments ? parseInt(values.installments) : undefined,
         calculationType: values.calculationType,

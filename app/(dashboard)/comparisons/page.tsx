@@ -44,7 +44,7 @@ export default function ComparisonsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Comparativos</h1>
           <p className="text-muted-foreground">Compare períodos, categorias e muito mais</p>
         </div>
-        <Select value={comparisonType} onValueChange={setComparisonType}>
+        <Select value={comparisonType} onValueChange={(v) => v && setComparisonType(v)}>
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue />
           </SelectTrigger>

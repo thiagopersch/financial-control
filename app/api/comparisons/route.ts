@@ -110,36 +110,55 @@ export async function GET(request: NextRequest) {
         },
       ];
     } else if (type === 'category') {
-      const categories = [...new Set(currentTransactions.map((t) => t.category.name))];
+      const currentExpense = currentTransactions.filter((t) => t.type === 'EXPENSE');
+      const previousExpense = previousTransactions.filter((t) => t.type === 'EXPENSE');
+      const categories = [
+        ...new Set([
+          ...currentExpense.map((t) => t.category.name),
+          ...previousExpense.map((t) => t.category.name),
+        ]),
+      ];
       chartData = categories.map((cat) => {
-        const currentCatTotal = currentTransactions
-          .filter((t) => t.category.name === cat && t.type === 'EXPENSE')
+        const currentCatTotal = currentExpense
+          .filter((t) => t.category.name === cat)
           .reduce((sum, t) => sum + Number(t.amount), 0);
-        const previousCatTotal = previousTransactions
-          .filter((t) => t.category.name === cat && t.type === 'EXPENSE')
+        const previousCatTotal = previousExpense
+          .filter((t) => t.category.name === cat)
           .reduce((sum, t) => sum + Number(t.amount), 0);
         return { label: cat, current: currentCatTotal, previous: previousCatTotal };
       });
     } else if (type === 'account') {
-      const accounts = [...new Set(currentTransactions.map((t) => t.account?.name || 'Sem conta'))];
+      const currentExpense = currentTransactions.filter((t) => t.type === 'EXPENSE');
+      const previousExpense = previousTransactions.filter((t) => t.type === 'EXPENSE');
+      const accounts = [
+        ...new Set([
+          ...currentExpense.map((t) => t.account?.name || 'Sem conta'),
+          ...previousExpense.map((t) => t.account?.name || 'Sem conta'),
+        ]),
+      ];
       chartData = accounts.map((acc) => {
-        const currentAccTotal = currentTransactions
+        const currentAccTotal = currentExpense
           .filter((t) => (t.account?.name || 'Sem conta') === acc)
           .reduce((sum, t) => sum + Number(t.amount), 0);
-        const previousAccTotal = previousTransactions
+        const previousAccTotal = previousExpense
           .filter((t) => (t.account?.name || 'Sem conta') === acc)
           .reduce((sum, t) => sum + Number(t.amount), 0);
         return { label: acc, current: currentAccTotal, previous: previousAccTotal };
       });
     } else if (type === 'cost_center') {
+      const currentExpense = currentTransactions.filter((t) => t.type === 'EXPENSE');
+      const previousExpense = previousTransactions.filter((t) => t.type === 'EXPENSE');
       const centers = [
-        ...new Set(currentTransactions.map((t) => t.costCenter?.name || 'Sem centro')),
+        ...new Set([
+          ...currentExpense.map((t) => t.costCenter?.name || 'Sem centro'),
+          ...previousExpense.map((t) => t.costCenter?.name || 'Sem centro'),
+        ]),
       ];
       chartData = centers.map((cc) => {
-        const currentCcTotal = currentTransactions
+        const currentCcTotal = currentExpense
           .filter((t) => (t.costCenter?.name || 'Sem centro') === cc)
           .reduce((sum, t) => sum + Number(t.amount), 0);
-        const previousCcTotal = previousTransactions
+        const previousCcTotal = previousExpense
           .filter((t) => (t.costCenter?.name || 'Sem centro') === cc)
           .reduce((sum, t) => sum + Number(t.amount), 0);
         return { label: cc, current: currentCcTotal, previous: previousCcTotal };

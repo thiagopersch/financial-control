@@ -22,46 +22,9 @@ import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useInsights } from '@/lib/queries/insights';
 
-interface Insight {
-  type: 'increase' | 'decrease' | 'warning' | 'info';
-  title: string;
-  description: string;
-  value?: number;
-  percentage?: number;
-  severity?: 'info' | 'warning' | 'alert';
-  createdAt?: string;
-}
-
-interface CategoryComparison {
-  category: string;
-  currentMonth: number;
-  previousMonth: number;
-  change: number;
-  color: string;
-}
-
-interface SpendingHighlight {
-  category: string;
-  amount: number;
-  percentage: number;
-  trend: 'up' | 'down' | 'stable';
-  color: string;
-}
-
 export default function InsightsPage() {
   const [activeTab, setActiveTab] = useState('overview');
-  const { insights, isLoading } = useInsights();
-
-  const [comparisons, setComparisons] = useState<CategoryComparison[]>([]);
-  const [highlights, setHighlights] = useState<SpendingHighlight[]>([]);
-  const [summary, setSummary] = useState<{
-    totalIncome: number;
-    totalExpense: number;
-    netResult: number;
-    previousIncome: number;
-    previousExpense: number;
-    previousNetResult: number;
-  } | null>(null);
+  const { insights, summary, comparisons, highlights, isLoading } = useInsights();
 
   const getInsightIcon = (type: string) => {
     switch (type) {

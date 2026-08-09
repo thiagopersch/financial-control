@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { useReconciliation } from '@/lib/queries/reconciliation';
 import { formatCurrency } from '@/lib/utils';
 import { showError, showSuccess } from '@/lib/utils/toast';
-import { AlertTriangle, Check, RefreshCw, Upload } from 'lucide-react';
+import { AlertTriangle, Check, Download, RefreshCw, Upload } from 'lucide-react';
 import { useState } from 'react';
 
 export default function ReconciliationPage() {
@@ -53,7 +53,13 @@ export default function ReconciliationPage() {
             Concilie suas transações bancárias com seus registros
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <a href="/api/reconciliation/template">
+              <Download className="mr-2 h-4 w-4" />
+              Baixar modelo
+            </a>
+          </Button>
           <Button variant="outline" onClick={() => refresh()}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Atualizar

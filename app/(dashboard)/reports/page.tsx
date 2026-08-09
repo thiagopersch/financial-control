@@ -215,7 +215,7 @@ export default function ReportsPage() {
       <div className="flex flex-col gap-4 sm:flex-row">
         <div className="flex-1 space-y-2">
           <label className="text-sm font-medium">Métrica</label>
-          <Select value={selectedMetric} onValueChange={setSelectedMetric}>
+          <Select value={selectedMetric} onValueChange={(v) => v && setSelectedMetric(v)}>
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -231,7 +231,7 @@ export default function ReportsPage() {
 
         <div className="flex-1 space-y-2">
           <label className="text-sm font-medium">Período</label>
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+          <Select value={selectedPeriod} onValueChange={(v) => v && setSelectedPeriod(v)}>
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>

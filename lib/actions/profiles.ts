@@ -6,10 +6,18 @@ import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
-const profileSchema = z.object({
-  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  bio: z.string().max(300, 'Bio deve ter no máximo 300 caracteres').optional().nullable(),
-});
+const profileSchema = z
+  .object({
+    name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+    bio: z.string().max(300, 'Bio deve ter no máximo 300 caracteres').optional().nullable(),
+    phone: z.string().optional().nullable(),
+    notifyEmail: z.boolean().default(false),
+    notifyWhatsapp: z.boolean().default(false),
+  })
+  .refine((data) => !data.notifyWhatsapp || !!data.phone, {
+    message: 'Informe um telefone para receber notificações via WhatsApp',
+    path: ['phone'],
+  });
 
 export async function updateProfile(data: z.infer<typeof profileSchema>) {
   const session = await getServerSession(authOptions);
@@ -25,13 +33,27 @@ export async function updateProfile(data: z.infer<typeof profileSchema>) {
 
     await prisma.profile.upsert({
       where: { userId: session.user.id },
-      create: { userId: session.user.id, bio: validated.bio },
-      update: { bio: validated.bio },
+      create: {
+        userId: session.user.id,
+        bio: validated.bio,
+        phone: validated.phone,
+        notifyEmail: validated.notifyEmail,
+        notifyWhatsapp: validated.notifyWhatsapp,
+      },
+      update: {
+        bio: validated.bio,
+        phone: validated.phone,
+        notifyEmail: validated.notifyEmail,
+        notifyWhatsapp: validated.notifyWhatsapp,
+      },
     });
 
     revalidatePath('/profiles');
     return { success: true };
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0]?.message || 'Dados inválidos' };
+    }
     return { success: false, error: 'Erro ao atualizar perfil' };
   }
 }

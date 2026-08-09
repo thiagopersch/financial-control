@@ -5,6 +5,7 @@ import {
   Building2,
   Calculator,
   CalendarClock,
+  Cog,
   CreditCard,
   DollarSign,
   FileBarChart,
@@ -32,6 +33,7 @@ export interface Route {
   icon?: any;
   href: string;
   color?: string;
+  adminOnly?: boolean;
 }
 
 export interface RouteGroup {
@@ -141,7 +143,7 @@ const financialRoutes: Route[] = [
 
 const automationRoutes: Route[] = [
   {
-    label: 'Automação',
+    label: 'Fluxo de Automação',
     icon: GitBranch,
     href: '/automation',
     color: 'text-orange-500',
@@ -208,21 +210,24 @@ const systemRoutes: Route[] = [
     icon: Settings,
     href: '/profiles',
   },
+  {
+    label: 'Definições do sistema',
+    icon: Cog,
+    href: '/system-settings',
+    adminOnly: true,
+  },
 ];
 
+export const topLevelRoutes: Route[] = dashboardRoutes;
+
 export const routeGroups: RouteGroup[] = [
-  {
-    title: 'Principal',
-    icon: LayoutDashboard,
-    routes: dashboardRoutes,
-  },
   {
     title: 'Contas',
     icon: Landmark,
     routes: accountsRoutes,
   },
   {
-    title: 'Orçamento',
+    title: 'Orçamentos / Metas',
     icon: PieChart,
     routes: budgetsRoutes,
   },

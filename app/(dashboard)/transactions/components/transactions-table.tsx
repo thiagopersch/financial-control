@@ -3,6 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
+import { TableCell, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
@@ -12,21 +13,13 @@ import {
   TransactionStatus,
   TransactionType,
 } from '@prisma/client';
-import {
-  ColumnDef,
-  SortingState,
-  getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
+import { ColumnDef } from '@tanstack/react-table';
 import { format, isToday, isTomorrow, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   AlertCircle,
   ArrowDownCircle,
   ArrowUpCircle,
-  ArrowUpDown,
   Calendar,
   CheckCircle,
   Clock,
@@ -34,6 +27,7 @@ import {
   RepeatIcon,
   Trash,
 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { DeleteConfirmModal } from './delete-confirm-modal';
 import { TransactionModal } from './transaction-modal';
@@ -52,10 +46,23 @@ interface TransactionsTableProps {
   categories: Category[];
   suppliers: Supplier[];
   accounts: any[];
+  costCenters?: { id: string; name: string }[];
   userRole?: string;
+  totalCount: number;
+  totalAmount: number;
+  page: number;
+  pageSize: number;
+  paginationSlot?: HTMLDivElement | null;
 }
 
-function OverdueBadge({ transaction }: { transaction: SerializedTransaction }) {
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value);
+}
+
+function SituacaoBadge({ transaction }: { transaction: SerializedTransaction }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true));
@@ -121,23 +128,23 @@ export function TransactionsTable({
   categories,
   suppliers,
   accounts,
+  costCenters = [],
   userRole,
+  totalCount,
+  totalAmount,
+  page,
+  pageSize,
+  paginationSlot,
 }: TransactionsTableProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [editingTransaction, setEditingTransaction] = useState<SerializedTransaction | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'date', desc: true }]);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
 
   const statusMap = {
     [TransactionStatus.PAID]: {
@@ -154,21 +161,16 @@ export function TransactionsTable({
     },
   };
 
+  const updateParam = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set(key, value);
+    router.push(`${window.location.pathname}?${params.toString()}`);
+  };
+
   const initialColumns: ColumnDef<SerializedTransaction>[] = [
     {
-      accessorKey: 'category.name',
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="h-8 data-[state=open]:bg-slate-100 dark:data-[state=open]:bg-slate-800"
-          >
-            Descrição / Categoria
-            <ArrowUpDown className="ml-2 h-3 w-3" />
-          </Button>
-        );
-      },
+      id: 'name',
+      header: 'Nome',
       cell: ({ row }) => {
         const t = row.original;
         return (
@@ -189,11 +191,7 @@ export function TransactionsTable({
             </div>
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold">
-                <div
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: t.category.color }}
-                />
-                {t.category.name}
+                {t.description || t.category.name}
                 {t.isRecurring && (
                   <Tooltip>
                     <TooltipTrigger>
@@ -212,73 +210,23 @@ export function TransactionsTable({
           </div>
         );
       },
-      sortingFn: (rowA, rowB) => {
-        return rowA.original.category.name.localeCompare(rowB.original.category.name);
-      },
     },
     {
-      accessorKey: 'supplier.name',
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="h-8"
-          >
-            Fornecedor
-            <ArrowUpDown className="ml-2 h-3 w-3" />
-          </Button>
-        );
-      },
-      cell: ({ row }) => row.original.supplier?.name || '-',
-    },
-    {
-      accessorKey: 'date',
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="h-8"
-          >
-            Data de vencimento
-            <ArrowUpDown className="ml-2 h-3 w-3" />
-          </Button>
-        );
-      },
-      cell: ({ row }) => {
-        const t = row.original;
-
-        if (t.type === TransactionType.INCOME && t.status === TransactionStatus.PENDING) {
-          return <div className="text-muted-foreground ml-4">--</div>;
-        }
-
-        return (
-          <div className="border-none text-sm whitespace-nowrap" suppressHydrationWarning>
-            <div>{mounted ? format(new Date(t.date), 'dd/MM/yyyy', { locale: ptBR }) : '-'}</div>
-            {t.dueDate && mounted && (
-              <div className="text-muted-foreground text-xs">
-                Vence em: {format(new Date(t.dueDate), 'dd/MM/yyyy')}
-              </div>
-            )}
-          </div>
-        );
-      },
+      accessorKey: 'category.name',
+      header: 'Categoria',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2 text-sm">
+          <div
+            className="h-2 w-2 rounded-full"
+            style={{ backgroundColor: row.original.category.color }}
+          />
+          {row.original.category.name}
+        </div>
+      ),
     },
     {
       accessorKey: 'account.name',
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="h-8"
-          >
-            Conta
-            <ArrowUpDown className="ml-2 h-3 w-3" />
-          </Button>
-        );
-      },
+      header: 'Conta',
       cell: ({ row }) => {
         const acc = row.original.account;
         if (!acc) return '-';
@@ -294,25 +242,36 @@ export function TransactionsTable({
       },
     },
     {
-      accessorKey: 'amount',
-      header: ({ column }) => {
+      accessorKey: 'supplier.name',
+      header: 'Fornecedor',
+      cell: ({ row }) => row.original.supplier?.name || '-',
+    },
+    {
+      accessorKey: 'date',
+      header: 'Data de vencimento',
+      cell: ({ row }) => {
+        const t = row.original;
+
+        if (t.type === TransactionType.INCOME && t.status === TransactionStatus.PENDING) {
+          return <div className="text-muted-foreground ml-4">--</div>;
+        }
+
         return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="h-8"
-          >
-            Valor
-            <ArrowUpDown className="ml-2 h-3 w-3" />
-          </Button>
+          <div className="border-none text-sm whitespace-nowrap" suppressHydrationWarning>
+            <div>{mounted ? format(new Date(t.date), 'dd/MM/yyyy', { locale: ptBR }) : '-'}</div>
+          </div>
         );
       },
-      cell: ({ row, column }) => {
+    },
+    {
+      accessorKey: 'amount',
+      header: 'Valor',
+      cell: ({ row }) => {
         const t = row.original;
         return (
           <div
             className={cn(
-              'text-sm font-bold',
+              'text-sm font-bold whitespace-nowrap',
               t.type === TransactionType.INCOME
                 ? 'text-emerald-600 dark:text-emerald-400'
                 : 'text-rose-600 dark:text-rose-400',
@@ -325,18 +284,7 @@ export function TransactionsTable({
     },
     {
       accessorKey: 'status',
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="h-8"
-          >
-            Status
-            <ArrowUpDown className="ml-2 h-3 w-3" />
-          </Button>
-        );
-      },
+      header: 'Status',
       cell: ({ row }) => {
         const t = row.original;
         const status = t.status;
@@ -353,9 +301,9 @@ export function TransactionsTable({
       },
     },
     {
-      id: 'overdue',
-      header: 'Atraso',
-      cell: ({ row }) => <OverdueBadge transaction={row.original} />,
+      id: 'situacao',
+      header: 'Situação',
+      cell: ({ row }) => <SituacaoBadge transaction={row.original} />,
     },
     {
       id: 'actions',
@@ -388,23 +336,6 @@ export function TransactionsTable({
 
   const columns = initialColumns.filter((col) => col.id !== 'actions' || userRole !== 'VIEWER');
 
-  const table = useReactTable({
-    data: transactions,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    state: {
-      sorting,
-    },
-    initialState: {
-      pagination: {
-        pageSize: 10,
-      },
-    },
-  });
-
   return (
     <div className="flex flex-col gap-4">
       <DataTable
@@ -413,6 +344,29 @@ export function TransactionsTable({
         emptyMessage="Nenhuma transação encontrada."
         getRowClassName={(transaction) =>
           transaction.id === deletingId ? 'bg-red-50/30 dark:bg-red-950/10' : ''
+        }
+        manualPagination={{
+          page,
+          pageSize,
+          totalCount,
+          onPageChange: (p) => updateParam('page', String(p)),
+          onPageSizeChange: (size) => {
+            const params = new URLSearchParams(searchParams);
+            params.set('pageSize', String(size));
+            params.set('page', '1');
+            router.push(`${window.location.pathname}?${params.toString()}`);
+          },
+        }}
+        paginationSlot={paginationSlot}
+        footer={
+          <TableRow className="dark:bg-accent bg-slate-50/50 font-semibold hover:bg-transparent">
+            <TableCell colSpan={columns.length - (userRole !== 'VIEWER' ? 2 : 1)}>
+              Total: {totalCount} transaç{totalCount === 1 ? 'ão' : 'ões'}
+            </TableCell>
+            <TableCell colSpan={userRole !== 'VIEWER' ? 2 : 1} className="text-right">
+              {formatCurrency(totalAmount)}
+            </TableCell>
+          </TableRow>
         }
       />
 
@@ -423,6 +377,7 @@ export function TransactionsTable({
         categories={categories}
         suppliers={suppliers}
         accounts={accounts}
+        costCenters={costCenters}
       />
 
       <DeleteConfirmModal
