@@ -24,6 +24,7 @@ import {
   type CreateUserFormValues,
   type UpdateUserFormValues,
 } from '@/hooks/forms/use-user-form';
+import { maskPhone } from '@/lib/utils/phone';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Role } from '@prisma/client';
 import { useEffect, useMemo, useState } from 'react';
@@ -173,7 +174,12 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
                   <FormItem>
                     <FormLabel>Telefone</FormLabel>
                     <FormControl>
-                      <Input placeholder="(00) 00000-0000" {...field} value={field.value ?? ''} />
+                      <Input
+                        placeholder="(00) 00000-0000"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(maskPhone(e.target.value))}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

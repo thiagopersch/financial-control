@@ -22,12 +22,12 @@ export function CategoriesHeader({ onCreate, userRole, paginationSlotRef }: Cate
       </div>
 
       <div className="flex items-center gap-3 max-md:w-full max-md:flex-col">
-        <div ref={paginationSlotRef} />
         {canModify && (
           <Button onClick={onCreate} className="max-md:w-full">
             <Plus className="mr-2 h-4 w-4" /> Nova Categoria
           </Button>
         )}
+        <div ref={paginationSlotRef} />
       </div>
     </div>
   );

@@ -43,15 +43,15 @@ export function FormDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex max-h-[95dvh] flex-col sm:max-w-3xl">
-        <DialogHeader className="shrink-0">
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col overflow-x-hidden">
-          <div className="flex-1 overflow-x-hidden overflow-y-auto py-4">{children}</div>
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          {children}
           {showFooter && (
-            <DialogFooter className="shrink-0">
+            <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
                 {cancelText}
               </Button>

@@ -24,12 +24,16 @@ export function useAuditLogs(params?: { entity?: string; action?: string; search
 
   const key = queryParams.toString() ? `/api/audit?${queryParams}` : '/api/audit';
 
-  const { data, error, isLoading, mutate } = useSWR<{ logs: AuditLog[] }>(key, fetcher, {
+  const { data, error, isLoading, mutate } = useSWR<{
+    logs: AuditLog[];
+    names?: Record<string, string>;
+  }>(key, fetcher, {
     revalidateOnFocus: false,
   });
 
   return {
     logs: data?.logs || [],
+    names: data?.names || {},
     isLoading,
     isError: error,
     refresh: mutate,

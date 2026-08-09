@@ -21,7 +21,6 @@ export async function GET() {
       prisma.transaction.findMany({
         where: {
           workspaceId: session.user.workspaceId,
-          status: 'PAID',
           date: { gte: currentMonthStart, lte: currentMonthEnd },
         },
         include: { category: true },
@@ -29,7 +28,6 @@ export async function GET() {
       prisma.transaction.findMany({
         where: {
           workspaceId: session.user.workspaceId,
-          status: 'PAID',
           date: { gte: previousMonthStart, lte: previousMonthEnd },
         },
         include: { category: true },

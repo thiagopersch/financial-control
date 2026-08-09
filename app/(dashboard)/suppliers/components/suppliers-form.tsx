@@ -26,6 +26,7 @@ import {
   type SupplierFormValues,
 } from '@/hooks/forms/use-supplier-form';
 import { maskDocument } from '@/lib/utils/document';
+import { maskPhone } from '@/lib/utils/phone';
 import type { SupplierDTO } from '@/lib/queries/suppliers';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { SupplierPersonType } from '@prisma/client';
@@ -170,7 +171,12 @@ export function SuppliersForm({ isOpen, onClose, supplier, onSuccess }: Supplier
               <FormItem>
                 <FormLabel>Contato</FormLabel>
                 <FormControl>
-                  <Input placeholder="Ex: (99) 99999-9999" {...field} value={field.value ?? ''} />
+                  <Input
+                    placeholder="Ex: (99) 99999-9999"
+                    {...field}
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(maskPhone(e.target.value))}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

@@ -192,7 +192,6 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <MonthSelector useNextYears={true} />
         <div className="flex items-center gap-3">
-          <div ref={setPaginationSlot} />
           <Button
             className="gap-2"
             onClick={() => {
@@ -203,6 +202,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
             <Plus className="h-4 w-4" />
             Configurar Orçamento
           </Button>
+          <div ref={setPaginationSlot} />
         </div>
       </div>
 

@@ -41,7 +41,6 @@ export async function GET(request: NextRequest) {
       prisma.transaction.findMany({
         where: {
           workspaceId: session.user.workspaceId,
-          status: 'PAID',
           date: { gte: currentStart, lte: currentEnd },
         },
         include: { category: true, account: true, costCenter: true },
@@ -49,7 +48,6 @@ export async function GET(request: NextRequest) {
       prisma.transaction.findMany({
         where: {
           workspaceId: session.user.workspaceId,
-          status: 'PAID',
           date: { gte: previousStart, lte: previousEnd },
         },
         include: { category: true, account: true, costCenter: true },

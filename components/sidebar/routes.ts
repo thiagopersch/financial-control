@@ -195,6 +195,7 @@ const aiRoutes: Route[] = [
     icon: ScrollText,
     href: '/audit',
     color: 'text-gray-500',
+    adminOnly: true,
   },
 ];
 

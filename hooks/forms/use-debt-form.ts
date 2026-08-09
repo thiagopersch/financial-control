@@ -15,11 +15,9 @@ export const createDebtSchema = z
       z.coerce.number().min(0, 'Valor atual deve ser maior ou igual a zero'),
     ),
     dueDay: z.coerce
-      .number()
+      .number({ message: 'Dia do vencimento é obrigatório' })
       .min(1, 'Dia do vencimento deve ser maior que zero')
-      .max(31, 'Dia do vencimento deve ser no máximo 31')
-      .optional()
-      .nullable(),
+      .max(31, 'Dia do vencimento deve ser no máximo 31'),
     startDate: z.preprocess(
       (v) => (v === '' || v === undefined || v === null ? new Date().toISOString() : v),
       z.string(),
@@ -32,7 +30,8 @@ export const createDebtSchema = z
         .min(1, 'Número de parcelas é obrigatório'),
     ),
     accountId: z.string().min(1, 'Conta é obrigatória'),
-    categoryId: z.string().optional().nullable(),
+    categoryId: z.string().min(1, 'Categoria é obrigatória'),
+    supplierId: z.string().min(1, 'Fornecedor é obrigatório'),
     calculationType: z.string().min(1, 'Tipo de cálculo é obrigatório'),
     installmentValue: z.preprocess(
       (v) => (v === '' || v === undefined ? null : v),
@@ -56,11 +55,7 @@ export const createDebtSchema = z
 export const editDebtSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   description: z.string().optional(),
-  dueDay: z
-    .string()
-    .min(1, { message: 'Dia do vencimento deve ser maior que zero' })
-    .max(31, { message: 'Dia do vencimento deve ser no máximo que 31' })
-    .optional(),
+  dueDay: z.string().min(1, { message: 'Dia do vencimento é obrigatório' }),
   installments: z.string().optional(),
   calculationType: z.string().optional(),
   installmentValue: z.string().optional(),
@@ -89,7 +84,8 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
     startDate: new Date().toISOString(),
     installments: 1,
     accountId: '',
-    categoryId: null,
+    categoryId: '',
+    supplierId: '',
     calculationType: 'TOTAL_DIVIDED',
     installmentValue: null,
     firstInstallmentMonth: 'NEXT',

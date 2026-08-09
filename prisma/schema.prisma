@@ -287,6 +287,7 @@ model Supplier {
   updatedAt   DateTime           @updatedAt
 
   transactions Transaction[]
+  debts        Debt[]
 }
 
 model Transaction {
@@ -476,6 +477,8 @@ model Debt {
   category              Category?              @relation(fields: [categoryId], references: [id])
   accountId             String?
   account               Account?               @relation(fields: [accountId], references: [id])
+  supplierId            String?
+  supplier              Supplier?              @relation(fields: [supplierId], references: [id])
   workspaceId           String
   workspace             Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   transactions          Transaction[]

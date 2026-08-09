@@ -3,6 +3,7 @@
 import { Route, routeGroups, topLevelRoutes } from '@/components/sidebar/routes';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSidebar } from '@/hooks/use-sidebar';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronRight, LogOut, Wallet } from 'lucide-react';
@@ -55,24 +56,37 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
 
   const isGroupActive = (routes: Route[]) => routes.some((route) => route.href === pathname);
 
-  const renderRoute = (route: Route, showLabel: boolean) => (
-    <Link
-      key={route.href}
-      href={route.href}
-      onClick={handleLinkClick}
-      className={cn(
-        'group hover:bg-accent hover:text-accent-foreground flex w-full cursor-pointer justify-start rounded-lg p-3 text-sm font-medium transition-all duration-150',
-        isRouteActive(route.href) ? 'bg-accent text-accent-foreground' : 'text-muted-foreground',
-      )}
-    >
-      <div className="flex flex-1 items-center gap-3">
-        {route.icon && (
-          <route.icon className={cn('h-5 w-5 shrink-0', route.color || 'text-muted-foreground')} />
+  const renderRoute = (route: Route, showLabel: boolean) => {
+    const link = (
+      <Link
+        key={route.href}
+        href={route.href}
+        onClick={handleLinkClick}
+        className={cn(
+          'group hover:bg-accent hover:text-accent-foreground flex w-full cursor-pointer justify-start rounded-lg p-3 text-sm font-medium transition-all duration-150',
+          isRouteActive(route.href) ? 'bg-accent text-accent-foreground' : 'text-muted-foreground',
         )}
-        {showLabel && <span className="truncate whitespace-nowrap">{route.label}</span>}
-      </div>
-    </Link>
-  );
+      >
+        <div className="flex flex-1 items-center gap-3">
+          {route.icon && (
+            <route.icon
+              className={cn('h-5 w-5 shrink-0', route.color || 'text-muted-foreground')}
+            />
+          )}
+          {showLabel && <span className="truncate whitespace-nowrap">{route.label}</span>}
+        </div>
+      </Link>
+    );
+
+    if (showLabel) return link;
+
+    return (
+      <Tooltip key={route.href}>
+        <TooltipTrigger asChild>{link}</TooltipTrigger>
+        <TooltipContent side="right">{route.label}</TooltipContent>
+      </Tooltip>
+    );
+  };
 
   return (
     <div
@@ -148,22 +162,28 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
                 ) : (
                   <Popover>
                     <div className="flex flex-col items-center">
-                      <PopoverTrigger asChild>
-                        <button
-                          className={cn(
-                            'cursor-pointer rounded-lg p-3 transition-colors',
-                            isActive ? 'bg-accent' : 'hover:bg-accent hover:text-accent-foreground',
-                          )}
-                          title={group.title}
-                        >
-                          <group.icon
-                            className={cn(
-                              'h-5 w-5',
-                              isActive ? 'text-accent-foreground' : 'text-muted-foreground',
-                            )}
-                          />
-                        </button>
-                      </PopoverTrigger>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <PopoverTrigger asChild>
+                            <button
+                              className={cn(
+                                'cursor-pointer rounded-lg p-3 transition-colors',
+                                isActive
+                                  ? 'bg-accent'
+                                  : 'hover:bg-accent hover:text-accent-foreground',
+                              )}
+                            >
+                              <group.icon
+                                className={cn(
+                                  'h-5 w-5',
+                                  isActive ? 'text-accent-foreground' : 'text-muted-foreground',
+                                )}
+                              />
+                            </button>
+                          </PopoverTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">{group.title}</TooltipContent>
+                      </Tooltip>
                     </div>
                     <PopoverContent side="right" align="start" className="w-56 p-1.5">
                       <div className="text-muted-foreground px-2 py-1.5 text-xs font-semibold uppercase">

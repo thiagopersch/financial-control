@@ -53,6 +53,10 @@ export default async function TransactionsPage({
 
   if (!yearParam) {
     // Sem parâmetros - usa mês atual
+    where.date = {
+      gte: startOfMonth(new Date()),
+      lte: endOfMonth(new Date()),
+    };
   } else if (yearParam === 'all') {
     // Todos os Períodos - sem filtro de data
   } else if (monthParam === 'all') {

@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { updateProfile } from '@/lib/actions/profiles';
+import { maskPhone } from '@/lib/utils/phone';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Role } from '@prisma/client';
@@ -149,7 +150,12 @@ export function ProfileForm({
                 <FormItem>
                   <FormLabel>Telefone (WhatsApp)</FormLabel>
                   <FormControl>
-                    <Input placeholder="(00) 00000-0000" {...field} value={field.value ?? ''} />
+                    <Input
+                      placeholder="(00) 00000-0000"
+                      {...field}
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(maskPhone(e.target.value))}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

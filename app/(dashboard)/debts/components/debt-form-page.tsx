@@ -10,7 +10,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { FormDialog } from '@/components/ui/form-dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   CreateDebtFormValues,
   createDebtSchema,
@@ -19,8 +20,11 @@ import {
   useDebtForm,
 } from '@/hooks/forms/use-debt-form';
 import type { AccountDTO } from '@/lib/queries/accounts';
+import type { DebtDTO } from '@/lib/queries/debts';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { DebtsFormFields } from './debts-form-fields';
 
@@ -30,49 +34,41 @@ interface Category {
   color: string;
 }
 
-interface DebtsFormProps {
-  isOpen: boolean;
-  onClose: () => void;
-  debt?: any | null;
-  accounts?: AccountDTO[];
-  categories?: Category[];
-  onSuccess?: () => void;
+interface Supplier {
+  id: string;
+  name: string;
 }
 
-const defaultValues = {
-  create: {
-    name: '',
-    description: '',
-    initialValue: '',
-    currentValue: 0,
-    dueDay: 10,
-    installments: '',
-    calculationType: 'TOTAL_DIVIDED',
-    installmentValue: '',
-    firstInstallmentMonth: 'NEXT',
-    accountId: '',
-    categoryId: '',
-    startDate: new Date().toISOString(),
-  },
-  edit: {
-    name: '',
-    description: '',
-    dueDay: '10',
-    installments: '',
-    calculationType: 'TOTAL_DIVIDED',
-    installmentValue: '',
-    firstInstallmentMonth: 'NEXT',
-  },
+interface DebtFormPageProps {
+  debt?: DebtDTO | null;
+  accounts: AccountDTO[];
+  categories: Category[];
+  suppliers: Supplier[];
+}
+
+const defaultValuesCreate = {
+  name: '',
+  description: '',
+  initialValue: '',
+  currentValue: 0,
+  dueDay: 10,
+  installments: '',
+  calculationType: 'TOTAL_DIVIDED',
+  installmentValue: '',
+  firstInstallmentMonth: 'NEXT',
+  accountId: '',
+  categoryId: '',
+  supplierId: '',
+  startDate: new Date().toISOString(),
 };
 
-export function DebtsForm({
-  isOpen,
-  onClose,
+export function DebtFormPage({
   debt,
   accounts = [],
   categories = [],
-  onSuccess,
-}: DebtsFormProps) {
+  suppliers = [],
+}: DebtFormPageProps) {
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingValues, setPendingValues] = useState<any | null>(null);
   const type: 'create' | 'edit' = debt ? 'edit' : 'create';
@@ -80,14 +76,13 @@ export function DebtsForm({
   const { handleCreate, handleUpdate } = useDebtForm({
     debt,
     onSuccess: () => {
-      onSuccess?.();
-      onClose();
+      router.push('/debts');
     },
   });
 
   const schema = type === 'create' ? createDebtSchema : editDebtSchema;
 
-  const form = useForm({
+  const form = useForm<any>({
     resolver: zodResolver(schema) as any,
     defaultValues: debt
       ? {
@@ -99,28 +94,8 @@ export function DebtsForm({
           installmentValue: debt.installmentValue?.toString() || '',
           firstInstallmentMonth: debt.firstInstallmentMonth || 'NEXT',
         }
-      : defaultValues.create,
+      : defaultValuesCreate,
   });
-
-  useEffect(() => {
-    if (isOpen) {
-      if (debt) {
-        form.reset({
-          name: debt.name,
-          description: debt.description || '',
-          dueDay: debt.dueDay?.toString() || '10',
-          installments: debt.installments?.toString() || '',
-          calculationType: debt.calculationType || 'TOTAL_DIVIDED',
-          installmentValue: debt.installmentValue?.toString() || '',
-          firstInstallmentMonth: debt.firstInstallmentMonth || 'NEXT',
-        });
-      } else {
-        form.reset(defaultValues.create);
-        form.register('currentValue');
-        form.register('startDate');
-      }
-    }
-  }, [isOpen, debt, form]);
 
   const submitCreate = async (values: any) => {
     const createValues: CreateDebtFormValues = {
@@ -134,7 +109,8 @@ export function DebtsForm({
       installmentValue: values.installmentValue ? parseFloat(values.installmentValue) : null,
       firstInstallmentMonth: values.firstInstallmentMonth,
       accountId: values.accountId,
-      categoryId: values.categoryId || null,
+      categoryId: values.categoryId,
+      supplierId: values.supplierId,
       startDate: new Date().toISOString(),
     };
     await handleCreate(createValues);
@@ -194,22 +170,50 @@ export function DebtsForm({
   };
 
   return (
-    <>
-      <FormDialog
-        title={type === 'create' ? 'Nova Dívida' : 'Editar Dívida'}
-        description={
-          type === 'create'
-            ? 'Adicione uma nova dívida ou financiamento'
-            : 'Atualize os dados da dívida'
-        }
-        isOpen={isOpen}
-        onClose={onClose}
-        onSubmit={form.handleSubmit(onSubmit)}
-        confirmText={type === 'create' ? 'Salvar' : 'Atualizar'}
-        isSubmitting={isSubmitting}
+    <div className="mx-auto max-w-3xl space-y-6">
+      <Button
+        type="button"
+        variant="ghost"
+        className="gap-2"
+        onClick={() => router.push('/debts')}
       >
-        <DebtsFormFields form={form} type={type} accounts={accounts} categories={categories} />
-      </FormDialog>
+        <ArrowLeft className="h-4 w-4" />
+        Voltar
+      </Button>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{type === 'create' ? 'Nova Dívida' : 'Editar Dívida'}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
+            <DebtsFormFields
+              form={form}
+              type={type}
+              accounts={accounts}
+              categories={categories}
+              suppliers={suppliers}
+            />
+            <div className="flex justify-end gap-2 border-t pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push('/debts')}
+                disabled={isSubmitting}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting
+                  ? 'Salvando...'
+                  : type === 'create'
+                    ? 'Salvar'
+                    : 'Atualizar'}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       <AlertDialog open={!!pendingValues} onOpenChange={(open) => !open && setPendingValues(null)}>
         <AlertDialogContent>
@@ -227,6 +231,6 @@ export function DebtsForm({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }

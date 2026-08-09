@@ -13,14 +13,15 @@ const debtSchema = z.object({
   description: z.string().optional(),
   initialValue: z.coerce.number().positive('Valor inicial deve ser maior que zero'),
   currentValue: z.coerce.number().positive('Valor atual deve ser maior que zero'),
-  dueDay: z.coerce.number().min(1).max(31).optional().nullable(),
+  dueDay: z.coerce.number().min(1, 'Dia do vencimento é obrigatório').max(31),
   startDate: z.string(),
   installments: z.coerce.number().min(1).optional().nullable(),
   calculationType: z.string().optional(),
   installmentValue: z.coerce.number().positive().optional().nullable(),
   firstInstallmentMonth: z.string().optional(),
   accountId: z.string().min(1, 'Conta é obrigatória'),
-  categoryId: z.string().optional().nullable(),
+  categoryId: z.string().min(1, 'Categoria é obrigatória'),
+  supplierId: z.string().min(1, 'Fornecedor é obrigatório'),
 });
 
 const DEFAULT_DUE_DAY = 10;
@@ -106,7 +107,8 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
           installmentValue: validated.installmentValue,
           firstInstallmentMonth: (validated.firstInstallmentMonth ?? 'NEXT') as any,
           accountId: validated.accountId,
-          categoryId: validated.categoryId || null,
+          categoryId: validated.categoryId,
+          supplierId: validated.supplierId,
           isActive: true,
           workspaceId,
         },

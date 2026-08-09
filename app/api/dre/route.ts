@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
     const transactions = await prisma.transaction.findMany({
       where: {
         workspaceId: session.user.workspaceId,
-        status: 'PAID',
         date: { gte: startDate, lte: endDate },
       },
       include: { category: true },

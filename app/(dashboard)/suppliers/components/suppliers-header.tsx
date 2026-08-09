@@ -16,10 +16,10 @@ export function SuppliersHeader({ onCreate, paginationSlotRef }: SuppliersHeader
         <p className="text-muted-foreground">Gerencie seus fornecedores e parceiros comerciais.</p>
       </div>
       <div className="flex items-center gap-3">
-        <div ref={paginationSlotRef} />
         <Button onClick={onCreate}>
           <Plus className="mr-2 h-4 w-4" /> Novo fornecedor
         </Button>
+        <div ref={paginationSlotRef} />
       </div>
     </div>
   );

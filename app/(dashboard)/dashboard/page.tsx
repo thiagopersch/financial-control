@@ -1,5 +1,7 @@
+import { BudgetProgressChart } from '@/components/dashboard/budget-progress-chart';
 import { CategoryPieChart } from '@/components/dashboard/category-pie-chart';
 import { DebtProgressChart } from '@/components/dashboard/debt-progress-chart';
+import { GoalProgressChart } from '@/components/dashboard/goal-progress-chart';
 import { OverviewChart } from '@/components/dashboard/overview-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { StatsCards } from '@/components/dashboard/stats-cards';
@@ -9,10 +11,12 @@ import { SupplierChart } from '@/components/dashboard/supplier-chart';
 import { MonthSelector } from '@/components/month-selector';
 import {
   getAvailableRange,
+  getBudgetData,
   getCategoryData,
   getChartData,
   getDashboardStats,
   getDebtsData,
+  getGoalsData,
   getRecentTransactions,
   getStatusData,
   getSummaryCount,
@@ -64,6 +68,8 @@ export default async function DashboardPage(props: {
   const statusData = await getStatusData(startDate, endDate);
   const supplierData = await getSupplierData(startDate, endDate);
   const { debts } = await getDebtsData();
+  const budgets = await getBudgetData(selectedMonth.getMonth() + 1, selectedMonth.getFullYear());
+  const goals = await getGoalsData();
   const recentTransactions = await getRecentTransactions(startDate, endDate);
   const availableRange = await getAvailableRange();
   const transactionCounts = await getTransactionCountsByYear();
@@ -106,6 +112,11 @@ export default async function DashboardPage(props: {
         <StatusChart data={statusData} />
         <SupplierChart data={supplierData} />
         <DebtProgressChart debts={debts} />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <BudgetProgressChart budgets={budgets} />
+        <GoalProgressChart goals={goals} />
       </div>
 
       <RecentTransactions

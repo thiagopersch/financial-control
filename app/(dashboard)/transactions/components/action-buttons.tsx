@@ -10,17 +10,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { ArrowRightLeft, Download, FileSpreadsheet, FileText, Plus } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 type ActionButtonsProps = {
   setIsTransferModalOpen: (open: boolean) => void;
-  setIsModalOpen: (open: boolean) => void;
 };
 
-export function ActionButtons({ setIsTransferModalOpen, setIsModalOpen }: ActionButtonsProps) {
+export function ActionButtons({ setIsTransferModalOpen }: ActionButtonsProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const exportCSV = async () => {
@@ -147,7 +147,7 @@ export function ActionButtons({ setIsTransferModalOpen, setIsModalOpen }: Action
 
       <Button
         size="lg"
-        onClick={() => setIsModalOpen(true)}
+        onClick={() => router.push('/transactions/new')}
         className="w-full transition-all sm:w-auto"
       >
         <Plus className="h-4 w-4" />

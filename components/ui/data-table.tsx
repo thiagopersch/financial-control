@@ -28,7 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -98,32 +98,35 @@ export function DataTable<TData, TValue>({
   const canPreviousPage = manualPagination ? currentPage > 1 : table.getCanPreviousPage();
   const canNextPage = manualPagination ? currentPage < pageCount : table.getCanNextPage();
 
-  const paginationBar = (
-    <div
-      className={cn(
-        'flex items-center gap-3',
-        paginationSlot ? 'flex-row' : 'flex-col-reverse justify-between px-2 sm:flex-row',
-      )}
+  const goToPage = (page: number) => {
+    if (manualPagination) {
+      manualPagination.onPageChange(page);
+    } else {
+      table.setPageIndex(page - 1);
+    }
+  };
+
+  const pageSizeSelect = (
+    <Select
+      value={String(manualPagination?.pageSize ?? pageSize)}
+      onValueChange={(v) => manualPagination?.onPageSizeChange(Number(v))}
+      disabled={!manualPagination}
     >
-      <div className="text-muted-foreground flex items-center gap-2 text-sm">
-        <span className={cn(paginationSlot && 'max-lg:hidden')}>Itens por página</span>
-        <Select
-          value={String(manualPagination?.pageSize ?? pageSize)}
-          onValueChange={(v) => manualPagination?.onPageSizeChange(Number(v))}
-          disabled={!manualPagination}
-        >
-          <SelectTrigger className="h-8 w-[72px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <SelectItem key={size} value={String(size)}>
-                {size}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <SelectTrigger className="h-9 w-fit">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {PAGE_SIZE_OPTIONS.map((size) => (
+          <SelectItem key={size} value={String(size)}>
+            {size} Itens por página
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const pageInfoBar = (
+    <div className="flex flex-col-reverse items-center justify-between gap-3 px-2 sm:flex-row">
       <div className="text-muted-foreground text-sm">
         Página {currentPage} de {pageCount}
         {manualPagination && ` — ${manualPagination.totalCount} registros`}
@@ -132,9 +135,16 @@ export function DataTable<TData, TValue>({
         <Button
           variant="outline"
           size="sm"
-          onClick={() =>
-            manualPagination ? manualPagination.onPageChange(currentPage - 1) : table.previousPage()
-          }
+          onClick={() => goToPage(1)}
+          disabled={!canPreviousPage}
+          className="h-8 w-8 p-0"
+        >
+          <ChevronsLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => goToPage(currentPage - 1)}
           disabled={!canPreviousPage}
           className="h-8 w-8 p-0"
         >
@@ -143,13 +153,20 @@ export function DataTable<TData, TValue>({
         <Button
           variant="outline"
           size="sm"
-          onClick={() =>
-            manualPagination ? manualPagination.onPageChange(currentPage + 1) : table.nextPage()
-          }
+          onClick={() => goToPage(currentPage + 1)}
           disabled={!canNextPage}
           className="h-8 w-8 p-0"
         >
           <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => goToPage(pageCount)}
+          disabled={!canNextPage}
+          className="h-8 w-8 p-0"
+        >
+          <ChevronsRight className="h-4 w-4" />
         </Button>
       </div>
     </div>
@@ -209,7 +226,8 @@ export function DataTable<TData, TValue>({
         </div>
       </div>
 
-      {paginationSlot ? createPortal(paginationBar, paginationSlot) : paginationBar}
+      {paginationSlot ? createPortal(pageSizeSelect, paginationSlot) : pageSizeSelect}
+      {pageInfoBar}
     </div>
   );
 }

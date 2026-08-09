@@ -1,17 +1,15 @@
 'use client';
 
 import { DebtsCard } from '@/app/(dashboard)/debts/components/debts-card';
-import { DebtsForm } from '@/app/(dashboard)/debts/components/debts-form';
 import { DebtsHeader } from '@/app/(dashboard)/debts/components/debts-header';
 import { NotFoundDebts } from '@/app/(dashboard)/debts/components/not-found';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
 import { Progress } from '@/components/ui/progress';
 import { useDebtForm } from '@/hooks/forms/use-debt-form';
-import { useAccounts } from '@/lib/queries/accounts-client';
-import { useCategories } from '@/lib/queries/categories-client';
 import type { DebtDTO } from '@/lib/queries/debts';
 import { AlertTriangle, Calculator, History, TrendingDown } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 interface DebtsListProps {
@@ -27,23 +25,13 @@ const formatCurrency = (value: number) => {
 };
 
 export function DebtsList({ debts, onRefresh }: DebtsListProps) {
-  const [selectedDebt, setSelectedDebt] = useState<DebtDTO | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const router = useRouter();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [debtToDelete, setDebtToDelete] = useState<string | null>(null);
-  const { accounts } = useAccounts();
-  const { categories } = useCategories();
-  const expenseCategories = categories.filter((c) => c.type === 'EXPENSE');
-  const { refresh: refreshDebts } = {} as any;
 
   const { handleDelete } = useDebtForm({
-    refresh: () => {
-      onRefresh();
-      refreshDebts?.();
-    },
     onSuccess: () => {
       onRefresh();
-      setIsFormOpen(false);
       setIsDeleteOpen(false);
       setDebtToDelete(null);
     },
@@ -56,13 +44,11 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
   const paidPercentage = totalInitial > 0 ? ((totalInitial - totalDebt) / totalInitial) * 100 : 0;
 
   const openCreate = () => {
-    setSelectedDebt(null);
-    setIsFormOpen(true);
+    router.push('/debts/new');
   };
 
   const openEdit = (debt: DebtDTO) => {
-    setSelectedDebt(debt);
-    setIsFormOpen(true);
+    router.push(`/debts/${debt.id}/edit`);
   };
 
   const openDelete = (debt: DebtDTO) => {
@@ -146,18 +132,6 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
           </div>
         </div>
       )}
-
-      <DebtsForm
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        debt={selectedDebt}
-        accounts={accounts}
-        categories={expenseCategories}
-        onSuccess={() => {
-          onRefresh();
-          setIsFormOpen(false);
-        }}
-      />
 
       <DeleteConfirmModal
         title="Exclusão de dívida"

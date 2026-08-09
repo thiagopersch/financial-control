@@ -22,7 +22,9 @@ export type DebtDTO = {
   workspaceId: string;
   createdAt: string;
   updatedAt: string;
-  accountId?: string;
+  accountId: string | null;
+  categoryId: string | null;
+  supplierId: string | null;
 };
 
 export async function getDebts(): Promise<DebtDTO[]> {
@@ -58,6 +60,9 @@ export async function getDebts(): Promise<DebtDTO[]> {
       workspaceId: debt.workspaceId,
       createdAt: debt.createdAt.toISOString(),
       updatedAt: debt.updatedAt.toISOString(),
+      accountId: debt.accountId,
+      categoryId: debt.categoryId,
+      supplierId: debt.supplierId,
     }));
   } catch (error) {
     console.error('Error fetching debts:', error);
@@ -98,6 +103,9 @@ export async function getDebtById(id: string): Promise<DebtDTO | null> {
       workspaceId: debt.workspaceId,
       createdAt: debt.createdAt.toISOString(),
       updatedAt: debt.updatedAt.toISOString(),
+      accountId: debt.accountId,
+      categoryId: debt.categoryId,
+      supplierId: debt.supplierId,
     };
   } catch (error) {
     console.error('Error fetching debt:', error);

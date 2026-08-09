@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 import { SlidersHorizontal } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { TransactionModal } from './transaction-modal';
 import { TransferModal } from './transfer-modal';
 
 interface TransactionsHeaderProps {
@@ -37,7 +36,6 @@ export function TransactionsHeader({
   userRole,
   paginationSlotRef,
 }: TransactionsHeaderProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const router = useRouter();
@@ -95,15 +93,12 @@ export function TransactionsHeader({
         </div>
 
         <div className="flex w-full flex-col items-center gap-3 max-md:order-3 sm:flex-row md:w-auto">
-          <div ref={paginationSlotRef} />
           {isEditing && (
             <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
-              <ActionButtons
-                setIsTransferModalOpen={setIsTransferModalOpen}
-                setIsModalOpen={setIsModalOpen}
-              />
+              <ActionButtons setIsTransferModalOpen={setIsTransferModalOpen} />
             </div>
           )}
+          <div ref={paginationSlotRef} />
         </div>
       </div>
 
@@ -118,15 +113,6 @@ export function TransactionsHeader({
           accounts={accounts}
         />
       )}
-
-      <TransactionModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        categories={categories}
-        suppliers={suppliers}
-        accounts={accounts}
-        costCenters={costCenters}
-      />
 
       <TransferModal
         isOpen={isTransferModalOpen}

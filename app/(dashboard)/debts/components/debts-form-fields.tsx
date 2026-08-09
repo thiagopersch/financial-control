@@ -27,14 +27,26 @@ interface Category {
   color: string;
 }
 
+interface Supplier {
+  id: string;
+  name: string;
+}
+
 interface DebtsFormFieldsProps {
   form: UseFormReturn<any>;
   type: 'create' | 'edit';
   accounts: AccountDTO[];
   categories?: Category[];
+  suppliers?: Supplier[];
 }
 
-export function DebtsFormFields({ form, type, accounts, categories = [] }: DebtsFormFieldsProps) {
+export function DebtsFormFields({
+  form,
+  type,
+  accounts,
+  categories = [],
+  suppliers = [],
+}: DebtsFormFieldsProps) {
   const isFixedInstallment = form.watch('calculationType') === 'FIXED_INSTALLMENT';
 
   return (
@@ -91,10 +103,29 @@ export function DebtsFormFields({ form, type, accounts, categories = [] }: Debts
             />
             <FormField
               control={form.control}
+              name="supplierId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel required>Fornecedor</FormLabel>
+                  <FormControl>
+                    <SelectSearch
+                      options={suppliers.map((sup) => ({ value: sup.id, label: sup.name }))}
+                      value={field.value || null}
+                      onValueChange={(v) => field.onChange(v)}
+                      placeholder="Selecione um fornecedor"
+                      emptyText="Nenhum fornecedor encontrado."
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="categoryId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Categoria (opcional)</FormLabel>
+                  <FormLabel required>Categoria</FormLabel>
                   <FormControl>
                     <SelectSearch
                       options={categories.map((cat) => ({
@@ -109,7 +140,7 @@ export function DebtsFormFields({ form, type, accounts, categories = [] }: Debts
                       }))}
                       value={field.value || null}
                       onValueChange={(v) => field.onChange(v)}
-                      placeholder="Pagamento de Dívida (padrão)"
+                      placeholder="Selecione uma categoria"
                       emptyText="Nenhuma categoria de despesa encontrada."
                     />
                   </FormControl>
@@ -228,14 +259,14 @@ export function DebtsFormFields({ form, type, accounts, categories = [] }: Debts
           name="dueDay"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Dia de Vencimento no Mês</FormLabel>
+              <FormLabel required>Dia de Vencimento no Mês</FormLabel>
               <FormControl>
                 <Input
                   type="number"
                   min="1"
                   max="31"
                   step="1"
-                  placeholder="10 (padrão)"
+                  placeholder="Ex: 10"
                   {...field}
                   onChange={(e) => field.onChange(e.target.value.replace(/[^0-9]/g, ''))}
                 />

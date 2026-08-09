@@ -24,7 +24,6 @@ export async function GET(request: NextRequest) {
       where: {
         workspaceId: session.user.workspaceId,
         type: 'EXPENSE',
-        status: 'PAID',
         date: { gte: historicalStart, lte: historicalEnd },
       },
       include: { category: true },

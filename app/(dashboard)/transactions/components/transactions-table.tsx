@@ -30,7 +30,6 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { DeleteConfirmModal } from './delete-confirm-modal';
-import { TransactionModal } from './transaction-modal';
 
 type SerializedTransaction = Omit<Transaction, 'amount'> & {
   amount: number;
@@ -138,7 +137,6 @@ export function TransactionsTable({
 }: TransactionsTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [editingTransaction, setEditingTransaction] = useState<SerializedTransaction | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -315,7 +313,7 @@ export function TransactionsTable({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setEditingTransaction(t)}
+              onClick={() => router.push(`/transactions/${t.id}/edit`)}
               className="hover:bg-foreground/10 dark:hover:bg-foreground/10 h-8 w-8"
             >
               <Edit className="h-4 w-4" />
@@ -368,16 +366,6 @@ export function TransactionsTable({
             </TableCell>
           </TableRow>
         }
-      />
-
-      <TransactionModal
-        isOpen={!!editingTransaction}
-        onClose={() => setEditingTransaction(null)}
-        initialData={editingTransaction}
-        categories={categories}
-        suppliers={suppliers}
-        accounts={accounts}
-        costCenters={costCenters}
       />
 
       <DeleteConfirmModal
