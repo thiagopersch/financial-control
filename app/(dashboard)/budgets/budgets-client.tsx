@@ -191,16 +191,16 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <MonthSelector useNextYears={true} />
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           <Button
-            className="gap-2"
+            className="w-full gap-2 sm:w-auto"
             onClick={() => {
               setEditingBudget(null);
               setIsDialogOpen(true);
             }}
           >
             <Plus className="h-4 w-4" />
-            Configurar Orçamento
+            Novo Orçamento
           </Button>
           <div ref={setPaginationSlot} />
         </div>
@@ -281,10 +281,14 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              className="w-full sm:w-auto"
+            >
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>
+            <Button variant="destructive" onClick={handleConfirmDelete} className="w-full sm:w-auto">
               Excluir
             </Button>
           </DialogFooter>

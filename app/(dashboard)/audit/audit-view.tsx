@@ -336,7 +336,7 @@ export function AuditView() {
             <DialogDescription>Informações completas do registro de auditoria</DialogDescription>
           </DialogHeader>
           {selectedLog && (
-            <ScrollArea className="max-h-[75vh] pr-4">
+            <ScrollArea className="pr-4">
               <div className="space-y-6">
                 {selectedLog.action === 'DELETE' && (
                   <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950/20">

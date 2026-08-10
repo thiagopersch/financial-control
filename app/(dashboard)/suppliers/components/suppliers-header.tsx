@@ -15,8 +15,8 @@ export function SuppliersHeader({ onCreate, paginationSlotRef }: SuppliersHeader
         <h2 className="text-2xl font-bold tracking-tight">Fornecedores</h2>
         <p className="text-muted-foreground">Gerencie seus fornecedores e parceiros comerciais.</p>
       </div>
-      <div className="flex items-center gap-3">
-        <Button onClick={onCreate}>
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+        <Button onClick={onCreate} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" /> Novo fornecedor
         </Button>
         <div ref={paginationSlotRef} />

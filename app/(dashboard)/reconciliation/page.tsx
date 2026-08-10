@@ -46,25 +46,29 @@ export default function ReconciliationPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Conciliação Bancária</h1>
           <p className="text-muted-foreground">
             Concilie suas transações bancárias com seus registros
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Button variant="outline" asChild className="order-2 w-full sm:order-none sm:w-auto">
             <a href="/api/reconciliation/template">
               <Download className="mr-2 h-4 w-4" />
               Baixar modelo
             </a>
           </Button>
-          <Button variant="outline" onClick={() => refresh()}>
+          <Button
+            variant="outline"
+            onClick={() => refresh()}
+            className="order-3 w-full sm:order-none sm:w-auto"
+          >
             <RefreshCw className="mr-2 h-4 w-4" />
             Atualizar
           </Button>
-          <div className="relative">
+          <div className="relative order-1 w-full sm:order-none sm:w-auto">
             <input
               type="file"
               accept=".csv,.ofx,.xlsx"
@@ -72,7 +76,7 @@ export default function ReconciliationPage() {
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
               disabled={isUploading}
             />
-            <Button disabled={isUploading}>
+            <Button disabled={isUploading} className="w-full sm:w-auto">
               <Upload className="mr-2 h-4 w-4" />
               {isUploading ? 'Importando...' : 'Importar'}
             </Button>

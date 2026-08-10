@@ -181,8 +181,14 @@ export function DataTable<TData, TValue>({
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id} className="dark:bg-accent bg-slate-50/50">
                   {headerGroup.headers.map((header) => {
+                    const isActions = header.column.id === 'actions';
                     return (
-                      <TableHead key={header.id}>
+                      <TableHead
+                        key={header.id}
+                        className={cn(
+                          isActions && 'dark:bg-accent sticky right-0 z-10 bg-slate-50/50',
+                        )}
+                      >
                         {header.isPlaceholder
                           ? null
                           : flexRender(header.column.columnDef.header, header.getContext())}
@@ -199,15 +205,24 @@ export function DataTable<TData, TValue>({
                     key={row.id}
                     data-state={row.getIsSelected() && 'selected'}
                     className={cn(
-                      'transition-colors hover:bg-neutral-300/30 dark:hover:bg-neutral-300/30',
+                      'group transition-colors hover:bg-neutral-300/30 dark:hover:bg-neutral-300/30',
                       getRowClassName?.(row.original),
                     )}
                   >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
+                    {row.getVisibleCells().map((cell) => {
+                      const isActions = cell.column.id === 'actions';
+                      return (
+                        <TableCell
+                          key={cell.id}
+                          className={cn(
+                            isActions &&
+                              'dark:bg-accent sticky right-0 z-10 bg-white group-hover:bg-neutral-100 dark:group-hover:bg-neutral-800',
+                          )}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      );
+                    })}
                   </TableRow>
                 ))
               ) : (

@@ -42,18 +42,17 @@ export function SelectSearch({
   id,
   ...rest
 }: SelectSearchProps) {
-  const getLabel = React.useCallback(
-    (itemValue: string) => options.find((o) => o.value === itemValue)?.label ?? '',
-    [options],
+  const selected = React.useMemo(
+    () => options.find((o) => o.value === value) ?? null,
+    [options, value],
   );
 
   return (
     <Combobox
       items={options}
-      value={value ?? null}
-      onValueChange={(v) => onValueChange((v as string | undefined) ?? null)}
-      itemToStringLabel={getLabel}
-      itemToStringValue={(itemValue: string) => itemValue}
+      value={selected}
+      onValueChange={(v) => onValueChange((v as SelectSearchOption | null)?.value ?? null)}
+      isItemEqualToValue={(item, val) => item.value === val.value}
       disabled={disabled}
     >
       <ComboboxInput

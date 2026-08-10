@@ -52,11 +52,17 @@ export function FormDialog({
           {children}
           {showFooter && (
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="w-full sm:w-auto"
+              >
                 {cancelText}
               </Button>
               {onSubmit && (
-                <Button type="submit" disabled={isSubmitting}>
+                <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
                   {isSubmitting ? 'Salvando...' : confirmText}
                 </Button>
               )}

@@ -100,10 +100,15 @@ export function DepositDialog({
       </div>
 
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => onOpenChange(false)}
+          className="w-full sm:w-auto"
+        >
           Cancelar
         </Button>
-        <Button type="submit" disabled={isSubmitting || !amount}>
+        <Button type="submit" disabled={isSubmitting || !amount} className="w-full sm:w-auto">
           {isSubmitting ? (
             'Depositando...'
           ) : (
