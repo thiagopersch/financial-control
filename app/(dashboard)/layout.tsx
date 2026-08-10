@@ -15,7 +15,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   after(() => {
     processDueScheduledTransactions()
-      .then(() => runAllAlertChecks())
+      .then(() => runAllAlertChecks(session))
       .catch((error) => console.error('Error running background checks:', error));
   });
 

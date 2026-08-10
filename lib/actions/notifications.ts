@@ -3,7 +3,7 @@
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
 import { deliverNotification } from '@/lib/services/notification-delivery';
-import { getServerSession } from 'next-auth';
+import { getServerSession, type Session } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -86,9 +86,9 @@ export async function createNotification(data: z.infer<typeof createNotification
 
 export async function createBulkNotifications(
   notifications: Array<z.infer<typeof createNotificationSchema>>,
+  session: Session,
 ) {
   try {
-    const session = await getServerSession(authOptions);
     if (!session) return { success: false, error: 'Não autorizado' };
 
     const results = await prisma.notification.createMany({
@@ -208,9 +208,8 @@ export async function deleteOldNotifications(daysOld: number = 30) {
   }
 }
 
-export async function checkBudgetAlerts() {
+export async function checkBudgetAlerts(session: Session) {
   try {
-    const session = await getServerSession(authOptions);
     if (!session) return { success: false, error: 'Não autorizado' };
 
     const now = new Date();
@@ -326,7 +325,7 @@ export async function checkBudgetAlerts() {
     }
 
     if (notifications.length > 0) {
-      await createBulkNotifications(notifications);
+      await createBulkNotifications(notifications, session);
     }
 
     return { success: true, created: notifications.length };
@@ -336,9 +335,8 @@ export async function checkBudgetAlerts() {
   }
 }
 
-export async function checkInvoiceAlerts() {
+export async function checkInvoiceAlerts(session: Session) {
   try {
-    const session = await getServerSession(authOptions);
     if (!session) return { success: false, error: 'Não autorizado' };
 
     const now = new Date();
@@ -456,7 +454,7 @@ export async function checkInvoiceAlerts() {
     }
 
     if (notifications.length > 0) {
-      await createBulkNotifications(notifications);
+      await createBulkNotifications(notifications, session);
     }
 
     return { success: true, created: notifications.length };
@@ -466,9 +464,8 @@ export async function checkInvoiceAlerts() {
   }
 }
 
-export async function checkGoalAlerts() {
+export async function checkGoalAlerts(session: Session) {
   try {
-    const session = await getServerSession(authOptions);
     if (!session) return { success: false, error: 'Não autorizado' };
 
     const goals = await prisma.goal.findMany({
@@ -525,7 +522,7 @@ export async function checkGoalAlerts() {
     }
 
     if (notifications.length > 0) {
-      await createBulkNotifications(notifications);
+      await createBulkNotifications(notifications, session);
     }
 
     return { success: true, created: notifications.length };
@@ -535,9 +532,8 @@ export async function checkGoalAlerts() {
   }
 }
 
-export async function checkTransactionDueAlerts() {
+export async function checkTransactionDueAlerts(session: Session) {
   try {
-    const session = await getServerSession(authOptions);
     if (!session) return { success: false, error: 'Não autorizado' };
 
     const now = new Date();
@@ -602,7 +598,7 @@ export async function checkTransactionDueAlerts() {
     }
 
     if (notifications.length > 0) {
-      await createBulkNotifications(notifications);
+      await createBulkNotifications(notifications, session);
     }
 
     return { success: true, created: notifications.length };
@@ -713,9 +709,8 @@ export async function notifyTransactionStatusChange(transaction: {
   }
 }
 
-export async function checkCreditCardLimitAlerts() {
+export async function checkCreditCardLimitAlerts(session: Session) {
   try {
-    const session = await getServerSession(authOptions);
     if (!session) return { success: false, error: 'Não autorizado' };
 
     const creditCards = await prisma.creditCard.findMany({
@@ -778,7 +773,7 @@ export async function checkCreditCardLimitAlerts() {
     }
 
     if (notifications.length > 0) {
-      await createBulkNotifications(notifications);
+      await createBulkNotifications(notifications, session);
     }
 
     return { success: true, created: notifications.length };
@@ -823,13 +818,13 @@ export async function notifyAutomationResult(input: {
   }
 }
 
-export async function runAllAlertChecks() {
+export async function runAllAlertChecks(session: Session) {
   const [budget, invoice, goal, dueDate, creditCardLimit] = await Promise.all([
-    checkBudgetAlerts(),
-    checkInvoiceAlerts(),
-    checkGoalAlerts(),
-    checkTransactionDueAlerts(),
-    checkCreditCardLimitAlerts(),
+    checkBudgetAlerts(session),
+    checkInvoiceAlerts(session),
+    checkGoalAlerts(session),
+    checkTransactionDueAlerts(session),
+    checkCreditCardLimitAlerts(session),
   ]);
 
   return { budget, invoice, goal, dueDate, creditCardLimit };

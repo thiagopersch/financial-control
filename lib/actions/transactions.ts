@@ -151,7 +151,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
       });
       await applyConditionalRules(session.user.workspaceId, result.id);
       if (validated.type === TransactionType.EXPENSE) {
-        await checkBudgetAlerts();
+        await checkBudgetAlerts(session);
       }
 
       revalidatePath('/transactions');
@@ -211,7 +211,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
     });
     await applyConditionalRules(session.user.workspaceId, transaction.id);
     if (transaction.type === TransactionType.EXPENSE) {
-      await checkBudgetAlerts();
+      await checkBudgetAlerts(session);
     }
 
     revalidatePath('/transactions');
@@ -364,7 +364,7 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
 
     await applyConditionalRules(session.user.workspaceId, transaction.id);
     if (transaction.type === TransactionType.EXPENSE) {
-      await checkBudgetAlerts();
+      await checkBudgetAlerts(session);
     }
 
     revalidatePath('/transactions');

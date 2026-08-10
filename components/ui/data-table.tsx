@@ -1,4 +1,5 @@
 'use client';
+// hmr-poll-test
 
 import {
   ColumnDef,
@@ -180,21 +181,13 @@ export function DataTable<TData, TValue>({
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id} className="dark:bg-accent bg-slate-50/50">
-                  {headerGroup.headers.map((header) => {
-                    const isActions = header.column.id === 'actions';
-                    return (
-                      <TableHead
-                        key={header.id}
-                        className={cn(
-                          isActions && 'dark:bg-accent sticky right-0 z-10 bg-slate-50/50',
-                        )}
-                      >
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(header.column.columnDef.header, header.getContext())}
-                      </TableHead>
-                    );
-                  })}
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
                 </TableRow>
               ))}
             </TableHeader>
@@ -205,24 +198,15 @@ export function DataTable<TData, TValue>({
                     key={row.id}
                     data-state={row.getIsSelected() && 'selected'}
                     className={cn(
-                      'group transition-colors hover:bg-neutral-300/30 dark:hover:bg-neutral-300/30',
+                      'transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-50/50',
                       getRowClassName?.(row.original),
                     )}
                   >
-                    {row.getVisibleCells().map((cell) => {
-                      const isActions = cell.column.id === 'actions';
-                      return (
-                        <TableCell
-                          key={cell.id}
-                          className={cn(
-                            isActions &&
-                              'dark:bg-accent sticky right-0 z-10 bg-white group-hover:bg-neutral-300/30 dark:group-hover:bg-neutral-300/30',
-                          )}
-                        >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      );
-                    })}
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))
               ) : (

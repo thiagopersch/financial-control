@@ -66,12 +66,38 @@ export function DebtsCard({ debt, onEdit, onDelete }: DebtsCardProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
+          {(debt.accountName || debt.supplierName || debt.categoryName || debt.paymentMethodName) && (
+            <div className="text-muted-foreground grid grid-cols-2 gap-x-2 gap-y-1 border-b pb-2 text-xs">
+              {debt.accountName && (
+                <span>
+                  Conta: <span className="text-foreground font-medium">{debt.accountName}</span>
+                </span>
+              )}
+              {debt.supplierName && (
+                <span>
+                  Fornecedor:{' '}
+                  <span className="text-foreground font-medium">{debt.supplierName}</span>
+                </span>
+              )}
+              {debt.categoryName && (
+                <span>
+                  Categoria: <span className="text-foreground font-medium">{debt.categoryName}</span>
+                </span>
+              )}
+              {debt.paymentMethodName && (
+                <span>
+                  Pagamento:{' '}
+                  <span className="text-foreground font-medium">{debt.paymentMethodName}</span>
+                </span>
+              )}
+            </div>
+          )}
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Valor Original:</span>
+            <span className="text-muted-foreground">Valor Total:</span>
             <span className="font-medium">{formatCurrency(debt.initialValue)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Valor Atual:</span>
+            <span className="text-muted-foreground">Falta Pagar:</span>
             <span className="font-medium text-red-500">{formatCurrency(debt.currentValue)}</span>
           </div>
           {debt.interestRate && (
@@ -84,7 +110,7 @@ export function DebtsCard({ debt, onEdit, onDelete }: DebtsCardProps) {
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Parcelas:</span>
               <span className="font-medium">
-                {debt.installments}x (
+                {debt.remainingInstallments ?? debt.installments}/{debt.installments} restantes (
                 {debt.calculationType === 'FIXED_INSTALLMENT' ? 'valor fixo' : 'dividido'})
               </span>
             </div>
@@ -93,6 +119,12 @@ export function DebtsCard({ debt, onEdit, onDelete }: DebtsCardProps) {
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Valor da Parcela:</span>
               <span className="font-medium">{formatCurrency(debt.installmentValue)}</span>
+            </div>
+          )}
+          {debt.dueDay && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Vencimento:</span>
+              <span className="font-medium">Dia {debt.dueDay}</span>
             </div>
           )}
           <Progress value={debtPercentage} className="mt-2" />

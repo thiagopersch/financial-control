@@ -176,7 +176,7 @@ export async function depositToGoal(id: string, amount: number) {
       },
     });
 
-    await checkGoalAlerts();
+    await checkGoalAlerts(session);
 
     revalidatePath('/goals');
     revalidatePath('/dashboard');

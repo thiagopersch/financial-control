@@ -161,7 +161,8 @@ export function DebtFormPage({
       values.accountId !== (debt.accountId || '') ||
       values.categoryId !== (debt.categoryId || '') ||
       values.paymentMethodId !== (debt.paymentMethodId || '') ||
-      values.creditCardId !== debt.creditCardId
+      values.creditCardId !== debt.creditCardId ||
+      parseFloat(values.initialValue) !== debt.initialValue
     );
   };
 
@@ -238,9 +239,10 @@ export function DebtFormPage({
           <AlertDialogHeader>
             <AlertDialogTitle>Alterar parcelas da dívida?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta alteração afeta o parcelamento. Apenas as parcelas com status{' '}
-              <strong>não paga</strong> serão recalculadas e substituídas; as parcelas já pagas não
-              sofrerão alteração. Deseja continuar?
+              Esta alteração afeta o parcelamento. As parcelas com status <strong>não paga</strong>{' '}
+              serão atualizadas com os novos dados (categoria, conta, valores e datas); novas
+              parcelas só são criadas se o número de parcelas aumentar. As parcelas já pagas não
+              sofrerão nenhuma alteração. Deseja continuar?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

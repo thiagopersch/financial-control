@@ -27,7 +27,10 @@ services:
       - .:/app
     working_dir: /app
     user: "1000:1000"
-    command: sh -c "npm install && npx prisma generate && npx prisma migrate deploy && npm run prisma:seed && npm run dev"
+    # --webpack: Turbopack's file watcher doesn't reliably pick up changes through this
+    # Windows bind mount even with watchOptions.pollIntervalMs set in next.config.ts;
+    # webpack's watchpack-based polling is the proven path here.
+    command: sh -c "npm install && npx prisma generate && npx prisma migrate deploy && npm run prisma:seed && npm run dev -- --webpack"
     env_file:
       - .env
     environment:
