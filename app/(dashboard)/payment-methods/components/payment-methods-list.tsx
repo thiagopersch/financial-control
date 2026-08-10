@@ -90,7 +90,15 @@ export function PaymentMethodsList({
         row.original.accounts.length > 0 ? (
           <div className="flex flex-wrap gap-1">
             {row.original.accounts.map((account) => (
-              <Badge key={account.id} variant="secondary" className="font-normal">
+              <Badge
+                key={account.id}
+                variant="secondary"
+                className="gap-1.5 font-normal"
+              >
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: account.color || '#000000' }}
+                />
                 {account.name}
               </Badge>
             ))}

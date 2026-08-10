@@ -1,10 +1,12 @@
 import { Providers } from '@/app/providers';
 import { ThemeProvider } from '@/app/theme-provider';
+import { RouteTransitionIndicator } from '@/components/route-transition-indicator';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono, Outfit } from 'next/font/google';
 import Script from 'next/script';
+import { Suspense } from 'react';
 import { Toaster } from 'sonner';
 import './globals.css';
 
@@ -48,6 +50,9 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col">
         <ThemeProvider>
           <Providers>
+            <Suspense fallback={null}>
+              <RouteTransitionIndicator />
+            </Suspense>
             <TooltipProvider>{children}</TooltipProvider>
             <Toaster richColors position="top-right" />
           </Providers>

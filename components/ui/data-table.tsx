@@ -216,7 +216,7 @@ export function DataTable<TData, TValue>({
                           key={cell.id}
                           className={cn(
                             isActions &&
-                              'dark:bg-accent sticky right-0 z-10 bg-white group-hover:bg-neutral-100 dark:group-hover:bg-neutral-800',
+                              'dark:bg-accent sticky right-0 z-10 bg-white group-hover:bg-neutral-300/30 dark:group-hover:bg-neutral-300/30',
                           )}
                         >
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}

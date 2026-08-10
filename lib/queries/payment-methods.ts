@@ -9,7 +9,7 @@ export type PaymentMethodDTO = {
   isCreditCard: boolean;
   workspaceId: string;
   accountIds: string[];
-  accounts: { id: string; name: string }[];
+  accounts: { id: string; name: string; color: string | null }[];
   createdAt: string;
   updatedAt: string;
 };
@@ -25,7 +25,7 @@ export async function getPaymentMethods(): Promise<PaymentMethodDTO[]> {
       },
       include: {
         accounts: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, color: true },
         },
       },
       orderBy: {
@@ -62,7 +62,7 @@ export async function getPaymentMethodById(id: string): Promise<PaymentMethodDTO
       },
       include: {
         accounts: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, color: true },
         },
       },
     });
