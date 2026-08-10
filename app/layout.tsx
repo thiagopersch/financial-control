@@ -1,6 +1,5 @@
 import { Providers } from '@/app/providers';
 import { ThemeProvider } from '@/app/theme-provider';
-import { ComboboxDebugOverlay } from '@/components/debug/combobox-debug-overlay';
 import { RouteTransitionIndicator } from '@/components/route-transition-indicator';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -24,10 +23,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  // Evita que o teclado virtual encolha o visualViewport no mobile: isso fazia
-  // popups posicionados por floating-ui (ex: Combobox/SelectSearch) se
-  // deslocarem durante o gesto de toque, fazendo o tap em uma opção "errar" o
-  // alvo e ser interpretado como clique fora (fechando sem selecionar).
+  // Evita que o teclado virtual encolha o visualViewport no mobile, o que
+  // faz popups posicionados por floating-ui (ex: Combobox/SelectSearch)
+  // ficarem instáveis durante a digitação.
   interactiveWidget: 'overlays-content',
 };
 
@@ -68,7 +66,6 @@ export default function RootLayout({
             <Toaster richColors position="top-right" />
           </Providers>
         </ThemeProvider>
-        <ComboboxDebugOverlay />
       </body>
     </html>
   );

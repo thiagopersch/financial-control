@@ -10,7 +10,6 @@ import {
   ComboboxItem,
   ComboboxList,
 } from '@/components/ui/combobox';
-import { dispatchComboboxDebug } from '@/components/debug/combobox-debug-overlay';
 import { cn } from '@/lib/utils';
 
 export interface SelectSearchOption {
@@ -67,17 +66,7 @@ export function SelectSearch({
         <ComboboxEmpty>{emptyText}</ComboboxEmpty>
         <ComboboxList>
           {(option: SelectSearchOption) => (
-            <ComboboxItem
-              key={option.value}
-              value={option.value}
-              onPointerDown={(e) => dispatchComboboxDebug('pointerdown', e.target)}
-              onPointerUp={(e) => dispatchComboboxDebug('pointerup', e.target)}
-              onTouchStart={(e) => dispatchComboboxDebug('touchstart', e.target)}
-              onTouchEnd={(e) => dispatchComboboxDebug('touchend', e.target)}
-              onMouseDown={(e) => dispatchComboboxDebug('mousedown', e.target)}
-              onMouseUp={(e) => dispatchComboboxDebug('mouseup', e.target)}
-              onClick={(e) => dispatchComboboxDebug('CLICK-selected!', e.target)}
-            >
+            <ComboboxItem key={option.value} value={option}>
               {option.icon}
               {option.label}
             </ComboboxItem>
