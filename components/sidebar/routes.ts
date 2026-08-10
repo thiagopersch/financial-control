@@ -25,6 +25,7 @@ import {
   Truck,
   Users,
   Wallet,
+  Wallet2,
   Zap,
 } from 'lucide-react';
 
@@ -63,6 +64,12 @@ const accountsRoutes: Route[] = [
     icon: Landmark,
     href: '/accounts',
     color: 'text-blue-500',
+  },
+  {
+    label: 'Meios de Pagamento',
+    icon: Wallet2,
+    href: '/payment-methods',
+    color: 'text-sky-600',
   },
   {
     label: 'Cartões',

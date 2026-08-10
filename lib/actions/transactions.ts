@@ -2,7 +2,11 @@
 
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
-import { checkBudgetAlerts, notifyNewTransaction } from '@/lib/actions/notifications';
+import {
+  checkBudgetAlerts,
+  notifyNewTransaction,
+  notifyTransactionStatusChange,
+} from '@/lib/actions/notifications';
 import { createAuditLog } from '@/lib/services/audit';
 import { matchCategorizationRule } from '@/lib/services/categorization';
 import { applyConditionalRules } from '@/lib/services/conditional-rules';
@@ -21,6 +25,8 @@ const transactionSchema = z.object({
   status: z.enum(TransactionStatus),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
   accountId: z.string().min(1, 'Conta é obrigatória'),
+  paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
+  creditCardId: z.string().nullable().optional(),
   costCenterId: z.string().nullable().optional(),
   supplierId: z.string().nullable().optional(),
   notes: z.string().max(255, 'Máximo de 255 caracteres').optional(),
@@ -66,6 +72,8 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
             status: validated.status,
             categoryId: validated.categoryId,
             accountId: validated.accountId,
+            paymentMethodId: validated.paymentMethodId,
+            creditCardId: validated.creditCardId,
             costCenterId: validated.costCenterId,
             supplierId: validated.supplierId,
             notes: validated.notes,
@@ -95,6 +103,8 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
             status: TransactionStatus.PENDING,
             categoryId: validated.categoryId,
             accountId: validated.accountId,
+            paymentMethodId: validated.paymentMethodId,
+            creditCardId: validated.creditCardId,
             costCenterId: validated.costCenterId,
             supplierId: validated.supplierId,
             notes: `${validated.notes || ''} (${i + 1}/${count})`,
@@ -108,6 +118,13 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
         if (futureTransactions.length > 0) {
           await tx.transaction.createMany({
             data: futureTransactions,
+          });
+        }
+
+        if (validated.creditCardId && validated.type === TransactionType.EXPENSE) {
+          await tx.creditCard.update({
+            where: { id: validated.creditCardId },
+            data: { usedAmount: { increment: validated.amount } },
           });
         }
 
@@ -128,6 +145,9 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
         amount: validated.amount,
         type: validated.type,
         categoryName: category?.name || '',
+        dueDate: result.dueDate || result.date,
+        isRecurring: result.isRecurring,
+        debtId: result.debtId,
       });
       await applyConditionalRules(session.user.workspaceId, result.id);
       if (validated.type === TransactionType.EXPENSE) {
@@ -152,6 +172,8 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
           status: validated.status,
           categoryId: validated.categoryId,
           accountId: validated.accountId,
+          paymentMethodId: validated.paymentMethodId,
+          creditCardId: validated.creditCardId,
           costCenterId: validated.costCenterId,
           supplierId: validated.supplierId,
           notes: validated.notes,
@@ -159,6 +181,13 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
         },
         include: { category: true },
       });
+
+      if (validated.creditCardId && validated.type === TransactionType.EXPENSE) {
+        await tx.creditCard.update({
+          where: { id: validated.creditCardId },
+          data: { usedAmount: { increment: validated.amount } },
+        });
+      }
 
       return t;
     });
@@ -176,6 +205,9 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
       amount: Number(transaction.amount),
       type: transaction.type,
       categoryName: transaction.category.name,
+      dueDate: transaction.dueDate || transaction.date,
+      isRecurring: transaction.isRecurring,
+      debtId: transaction.debtId,
     });
     await applyConditionalRules(session.user.workspaceId, transaction.id);
     if (transaction.type === TransactionType.EXPENSE) {
@@ -246,6 +278,8 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
           status: validated.status,
           categoryId: validated.categoryId,
           accountId: validated.accountId,
+          paymentMethodId: validated.paymentMethodId,
+          creditCardId: validated.creditCardId,
           costCenterId: validated.costCenterId,
           supplierId: validated.supplierId,
           notes: validated.notes,
@@ -254,6 +288,33 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
           installments: validated.installments,
         },
       });
+
+      const oldCardUsage =
+        oldTransaction.creditCardId && oldTransaction.type === TransactionType.EXPENSE
+          ? Number(oldTransaction.amount)
+          : 0;
+      const newCardUsage =
+        validated.creditCardId && validated.type === TransactionType.EXPENSE ? validated.amount : 0;
+
+      if (oldTransaction.creditCardId !== validated.creditCardId) {
+        if (oldTransaction.creditCardId && oldCardUsage > 0) {
+          await tx.creditCard.update({
+            where: { id: oldTransaction.creditCardId },
+            data: { usedAmount: { decrement: oldCardUsage } },
+          });
+        }
+        if (validated.creditCardId && newCardUsage > 0) {
+          await tx.creditCard.update({
+            where: { id: validated.creditCardId },
+            data: { usedAmount: { increment: newCardUsage } },
+          });
+        }
+      } else if (validated.creditCardId && oldCardUsage !== newCardUsage) {
+        await tx.creditCard.update({
+          where: { id: validated.creditCardId },
+          data: { usedAmount: { increment: newCardUsage - oldCardUsage } },
+        });
+      }
 
       if (validated.status === TransactionStatus.PAID) {
         if (updated.debtId) {
@@ -285,6 +346,21 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
       entityId: transaction.id,
       newValue: validated,
     });
+
+    if (oldTransaction.status !== transaction.status) {
+      const category = await prisma.category.findUnique({ where: { id: transaction.categoryId } });
+      await notifyTransactionStatusChange({
+        id: transaction.id,
+        description: transaction.description,
+        amount: Number(transaction.amount),
+        categoryName: category?.name || '',
+        oldStatus: oldTransaction.status,
+        newStatus: transaction.status,
+        dueDate: transaction.dueDate || transaction.date,
+        isRecurring: transaction.isRecurring,
+        debtId: transaction.debtId,
+      });
+    }
 
     await applyConditionalRules(session.user.workspaceId, transaction.id);
     if (transaction.type === TransactionType.EXPENSE) {
@@ -319,6 +395,13 @@ export async function deleteTransaction(id: string) {
     if (!transaction) return { success: false, error: 'Transação não encontrada' };
 
     await prisma.$transaction(async (tx) => {
+      if (transaction.creditCardId && transaction.type === TransactionType.EXPENSE) {
+        await tx.creditCard.update({
+          where: { id: transaction.creditCardId },
+          data: { usedAmount: { decrement: Number(transaction.amount) } },
+        });
+      }
+
       await tx.transaction.delete({
         where: { id },
       });

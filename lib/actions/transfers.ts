@@ -13,6 +13,8 @@ const transferSchema = z.object({
   description: z.string().optional(),
   fromAccountId: z.string().min(1, 'Conta de origem é obrigatória'),
   toAccountId: z.string().min(1, 'Conta de destino é obrigatória'),
+  paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
+  creditCardId: z.string().nullable().optional(),
 });
 
 export async function createTransfer(data: z.infer<typeof transferSchema>) {
@@ -64,6 +66,8 @@ export async function createTransfer(data: z.infer<typeof transferSchema>) {
           status: TransactionStatus.PAID,
           notes: `[SAÍDA] Transferência: ${validated.description || ''}`,
           accountId: validated.fromAccountId,
+          paymentMethodId: validated.paymentMethodId,
+          creditCardId: validated.creditCardId,
           workspaceId: session.user.workspaceId,
           categoryId: transferCategory!.id,
         },

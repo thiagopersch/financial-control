@@ -33,14 +33,6 @@ export async function createCreditCard(data: z.infer<typeof creditCardSchema>) {
       return { success: false, error: 'Conta não encontrada' };
     }
 
-    const existingCard = await prisma.creditCard.findUnique({
-      where: { accountId: validated.accountId },
-    });
-
-    if (existingCard) {
-      return { success: false, error: 'Esta conta já possui um cartão de crédito vinculado' };
-    }
-
     const creditCard = await prisma.creditCard.create({
       data: {
         limit: validated.limit,
@@ -284,7 +276,11 @@ export async function closeInvoice(invoiceId: string) {
   }
 }
 
-export async function payInvoice(invoiceId: string, paymentAccountId: string) {
+export async function payInvoice(
+  invoiceId: string,
+  paymentAccountId: string,
+  paymentMethodId?: string,
+) {
   const session = await getServerSession(authOptions);
   if (!session) return { success: false, error: 'Não autorizado' };
 
@@ -319,6 +315,7 @@ export async function payInvoice(invoiceId: string, paymentAccountId: string) {
           description: `Pagamento fatura ${invoice.month}/${invoice.year} - ${invoice.creditCard.account.name}`,
           categoryId: invoice.creditCard.account.id,
           accountId: paymentAccountId,
+          paymentMethodId,
           notes: 'Pagamento de fatura de cartão de crédito',
           workspaceId: session.user.workspaceId,
         },

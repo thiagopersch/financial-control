@@ -23,13 +23,16 @@ import {
 } from '@/components/ui/select';
 import { SelectSearch } from '@/components/ui/select-search';
 import { Textarea } from '@/components/ui/textarea';
+import { CreditCardSelect } from '@/components/transactions/credit-card-select';
 import { createTransaction, updateTransaction } from '@/lib/actions/transactions';
+import type { CreditCardDTO } from '@/lib/queries/credit-cards';
+import type { PaymentMethodDTO } from '@/lib/queries/payment-methods';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TransactionStatus, TransactionType } from '@prisma/client';
 import { ArrowLeft, Repeat } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -41,6 +44,8 @@ const transactionSchema = z.object({
   status: z.enum([TransactionStatus.PAID, TransactionStatus.PENDING, TransactionStatus.OVERDUE]),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
   accountId: z.string().min(1, 'Conta é obrigatória'),
+  paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
+  creditCardId: z.string().nullable().optional(),
   costCenterId: z.string().nullable().optional(),
   supplierId: z.string().nullable().optional(),
   notes: z.string().max(255, 'Máximo de 255 caracteres').optional(),
@@ -56,6 +61,8 @@ interface TransactionFormPageProps {
   suppliers: { id: string; name: string }[];
   accounts: { id: string; name: string; color: string | null }[];
   costCenters?: { id: string; name: string }[];
+  paymentMethods: PaymentMethodDTO[];
+  creditCards: CreditCardDTO[];
   initialData?: any;
 }
 
@@ -70,6 +77,8 @@ export function TransactionFormPage({
   suppliers,
   accounts,
   costCenters = [],
+  paymentMethods,
+  creditCards,
   initialData,
 }: TransactionFormPageProps) {
   const router = useRouter();
@@ -86,6 +95,8 @@ export function TransactionFormPage({
           status: initialData.status,
           categoryId: initialData.categoryId,
           accountId: initialData.accountId || '',
+          paymentMethodId: initialData.paymentMethodId || '',
+          creditCardId: initialData.creditCardId || null,
           costCenterId: initialData.costCenterId || null,
           supplierId: initialData.supplierId,
           notes: initialData.notes || '',
@@ -97,10 +108,12 @@ export function TransactionFormPage({
           description: '',
           type: TransactionType.EXPENSE,
           amount: 0,
-          date: new Date(),
+          date: undefined as unknown as Date,
           status: TransactionStatus.PENDING,
           categoryId: '',
           accountId: '',
+          paymentMethodId: '',
+          creditCardId: null,
           costCenterId: null,
           supplierId: null,
           notes: '',
@@ -113,6 +126,8 @@ export function TransactionFormPage({
   const isRecurring = form.watch('isRecurring');
   const recurrenceType = form.watch('recurrenceType');
   const selectedType = form.watch('type');
+  const selectedAccountId = form.watch('accountId');
+  const selectedPaymentMethodId = form.watch('paymentMethodId');
 
   useEffect(() => {
     if (selectedType === TransactionType.INCOME) {
@@ -120,9 +135,49 @@ export function TransactionFormPage({
     }
   }, [selectedType, form]);
 
+  useEffect(() => {
+    if (!initialData && !form.getValues('date')) {
+      form.setValue('date', new Date());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const filteredCategories = categories.filter((c) => c.type === selectedType);
 
+  const accountPaymentMethods = useMemo(
+    () => paymentMethods.filter((pm) => pm.accountIds.includes(selectedAccountId)),
+    [paymentMethods, selectedAccountId],
+  );
+
+  const selectedPaymentMethod = useMemo(
+    () => accountPaymentMethods.find((pm) => pm.id === selectedPaymentMethodId),
+    [accountPaymentMethods, selectedPaymentMethodId],
+  );
+
+  const accountCreditCards = useMemo(
+    () => creditCards.filter((card) => card.accountId === selectedAccountId),
+    [creditCards, selectedAccountId],
+  );
+
+  useEffect(() => {
+    if (
+      selectedPaymentMethodId &&
+      !accountPaymentMethods.some((pm) => pm.id === selectedPaymentMethodId)
+    ) {
+      form.setValue('paymentMethodId', '');
+      form.setValue('creditCardId', null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccountId]);
+
   async function onSubmit(data: TransactionFormValues) {
+    if (selectedPaymentMethod?.isCreditCard && !data.creditCardId) {
+      form.setError('creditCardId', {
+        message: 'Cartão é obrigatório para este meio de pagamento',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       let result;
@@ -291,6 +346,73 @@ export function TransactionFormPage({
                   </FormItem>
                 )}
               />
+              <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+                <FormField
+                  control={form.control}
+                  name="paymentMethodId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required>Meio de Pagamento</FormLabel>
+                      <Select
+                        onValueChange={(v) => {
+                          field.onChange(v);
+                          form.setValue('creditCardId', null);
+                        }}
+                        value={field.value}
+                        disabled={!selectedAccountId}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue
+                              placeholder={
+                                selectedAccountId
+                                  ? 'Selecione o meio de pagamento'
+                                  : 'Selecione a conta primeiro'
+                              }
+                            />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {accountPaymentMethods.length === 0 && (
+                            <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                              Nenhum meio de pagamento vinculado a esta conta.
+                            </div>
+                          )}
+                          {accountPaymentMethods.map((pm) => (
+                            <SelectItem key={pm.id} value={pm.id}>
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="h-2 w-2 rounded-full"
+                                  style={{ backgroundColor: pm.color || '#6366f1' }}
+                                />
+                                {pm.name}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {selectedPaymentMethod?.isCreditCard && (
+                  <FormField
+                    control={form.control}
+                    name="creditCardId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel required>Cartão</FormLabel>
+                        <CreditCardSelect
+                          cards={accountCreditCards}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
                 <FormField
                   control={form.control}
@@ -504,11 +626,7 @@ export function TransactionFormPage({
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting
-                    ? 'Salvando...'
-                    : initialData
-                      ? 'Atualizar'
-                      : 'Cadastrar'}
+                  {isSubmitting ? 'Salvando...' : initialData ? 'Atualizar' : 'Cadastrar'}
                 </Button>
               </div>
             </form>

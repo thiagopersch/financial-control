@@ -32,6 +32,8 @@ export const createDebtSchema = z
     accountId: z.string().min(1, 'Conta é obrigatória'),
     categoryId: z.string().min(1, 'Categoria é obrigatória'),
     supplierId: z.string().min(1, 'Fornecedor é obrigatório'),
+    paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
+    creditCardId: z.string().nullable().optional(),
     calculationType: z.string().min(1, 'Tipo de cálculo é obrigatório'),
     installmentValue: z.preprocess(
       (v) => (v === '' || v === undefined ? null : v),
@@ -60,6 +62,12 @@ export const editDebtSchema = z.object({
   calculationType: z.string().optional(),
   installmentValue: z.string().optional(),
   firstInstallmentMonth: z.string().optional(),
+  accountId: z.string().min(1, 'Conta é obrigatória'),
+  categoryId: z.string().min(1, 'Categoria é obrigatória'),
+  supplierId: z.string().min(1, 'Fornecedor é obrigatório'),
+  paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
+  creditCardId: z.string().nullable().optional(),
+  initialValue: z.union([z.string(), z.number()]).optional(),
 });
 
 export type CreateDebtFormValues = z.infer<typeof createDebtSchema>;
@@ -86,6 +94,8 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
     accountId: '',
     categoryId: '',
     supplierId: '',
+    paymentMethodId: '',
+    creditCardId: null,
     calculationType: 'TOTAL_DIVIDED',
     installmentValue: null,
     firstInstallmentMonth: 'NEXT',
@@ -100,6 +110,12 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
         calculationType: debt.calculationType || 'TOTAL_DIVIDED',
         installmentValue: debt.installmentValue?.toString() || '',
         firstInstallmentMonth: debt.firstInstallmentMonth || 'NEXT',
+        accountId: debt.accountId || '',
+        categoryId: debt.categoryId || '',
+        supplierId: debt.supplierId || '',
+        paymentMethodId: debt.paymentMethodId || '',
+        creditCardId: debt.creditCardId,
+        initialValue: debt.initialValue?.toString() || '',
       }
     : {
         name: '',
@@ -109,6 +125,12 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
         calculationType: 'TOTAL_DIVIDED',
         installmentValue: '',
         firstInstallmentMonth: 'NEXT',
+        accountId: '',
+        categoryId: '',
+        supplierId: '',
+        paymentMethodId: '',
+        creditCardId: null,
+        initialValue: '',
       };
 
   async function handleCreate(values: CreateDebtFormValues) {
@@ -150,6 +172,12 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
         calculationType: values.calculationType,
         installmentValue: values.installmentValue ? parseFloat(values.installmentValue) : undefined,
         firstInstallmentMonth: values.firstInstallmentMonth,
+        accountId: values.accountId,
+        categoryId: values.categoryId,
+        supplierId: values.supplierId,
+        paymentMethodId: values.paymentMethodId,
+        creditCardId: values.creditCardId,
+        initialValue: values.initialValue ? parseFloat(String(values.initialValue)) : undefined,
       };
 
       const result = await updateDebt(debt.id, parsedValues);

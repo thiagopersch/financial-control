@@ -13,6 +13,6 @@ export interface Account {
   transactions?: Transaction[];
   transfersFrom?: Transfer[];
   transfersTo?: Transfer[];
-  creditCardDetails?: CreditCard;
+  creditCardDetails?: CreditCard[];
   bankAccount?: BankAccount;
 }

@@ -49,6 +49,10 @@ interface TransactionsTableProps {
   userRole?: string;
   totalCount: number;
   totalAmount: number;
+  totalExpenseAmount: number;
+  totalIncomeAmount: number;
+  expenseCount: number;
+  incomeCount: number;
   page: number;
   pageSize: number;
   paginationSlot?: HTMLDivElement | null;
@@ -130,7 +134,10 @@ export function TransactionsTable({
   costCenters = [],
   userRole,
   totalCount,
-  totalAmount,
+  totalExpenseAmount,
+  totalIncomeAmount,
+  expenseCount,
+  incomeCount,
   page,
   pageSize,
   paginationSlot,
@@ -362,7 +369,16 @@ export function TransactionsTable({
               Total: {totalCount} transaç{totalCount === 1 ? 'ão' : 'ões'}
             </TableCell>
             <TableCell colSpan={userRole !== 'VIEWER' ? 2 : 1} className="text-right">
-              {formatCurrency(totalAmount)}
+              <div className="flex flex-col items-end gap-0.5">
+                <span className="text-rose-600 dark:text-rose-400">
+                  {expenseCount} Despesa{expenseCount === 1 ? '' : 's'}:{' '}
+                  {formatCurrency(totalExpenseAmount)}
+                </span>
+                <span className="text-emerald-600 dark:text-emerald-400">
+                  {incomeCount} Receita{incomeCount === 1 ? '' : 's'}:{' '}
+                  {formatCurrency(totalIncomeAmount)}
+                </span>
+              </div>
             </TableCell>
           </TableRow>
         }

@@ -112,9 +112,10 @@ export async function getCashFlowProjection(days: number = 30) {
   const creditCardAvailableLimit = accounts.reduce(
     (acc, a) =>
       acc +
-      (a.creditCardDetails
-        ? Number(a.creditCardDetails.limit) - Number(a.creditCardDetails.usedAmount)
-        : 0),
+      a.creditCardDetails.reduce(
+        (sum, card) => sum + (Number(card.limit) - Number(card.usedAmount)),
+        0,
+      ),
     0,
   );
 

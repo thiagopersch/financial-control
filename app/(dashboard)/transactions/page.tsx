@@ -4,6 +4,9 @@ import prisma from '@/lib/prisma';
 import { getAvailableRange, getTransactionCountsByYear } from '@/lib/queries/dashboard';
 import { getCostCenters } from '@/lib/queries/cost-centers';
 import { getAccountsWithBalance } from '@/lib/queries/accounts';
+import { getCreditCards } from '@/lib/queries/credit-cards';
+import { getPaymentMethods } from '@/lib/queries/payment-methods';
+import { compareTransactionsDefault } from '@/lib/utils/transaction-order';
 import { type TransactionStatus, type TransactionType } from '@prisma/client';
 import { endOfMonth, startOfMonth } from 'date-fns';
 import { getServerSession } from 'next-auth';
@@ -118,14 +121,14 @@ export default async function TransactionsPage({
   const page = Math.max(1, parseInt(searchParams.page || '1', 10) || 1);
 
   const [
-    rawTransactions,
-    totalCount,
-    totals,
+    allTransactions,
     categories,
     suppliers,
     accounts,
     costCenters,
     accountsWithBalance,
+    paymentMethods,
+    creditCards,
   ] = await Promise.all([
     prisma.transaction.findMany({
       where,
@@ -134,14 +137,7 @@ export default async function TransactionsPage({
         supplier: true,
         account: true,
       },
-      orderBy: {
-        date: 'desc',
-      },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
     }),
-    prisma.transaction.count({ where }),
-    prisma.transaction.aggregate({ where, _sum: { amount: true } }),
     prisma.category.findMany({
       where: { workspaceId: session.user.workspaceId },
       orderBy: { name: 'asc' },
@@ -156,9 +152,26 @@ export default async function TransactionsPage({
     }),
     getCostCenters(),
     getAccountsWithBalance(),
+    getPaymentMethods(),
+    getCreditCards(),
   ]);
 
-  const transactions = rawTransactions.map((transaction) => ({
+  const sortedTransactions = [...allTransactions].sort(compareTransactionsDefault);
+
+  const totalCount = sortedTransactions.length;
+  const totalAmount = sortedTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+  const totalExpenseAmount = sortedTransactions
+    .filter((t) => t.type === 'EXPENSE')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+  const totalIncomeAmount = sortedTransactions
+    .filter((t) => t.type === 'INCOME')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+  const expenseCount = sortedTransactions.filter((t) => t.type === 'EXPENSE').length;
+  const incomeCount = sortedTransactions.filter((t) => t.type === 'INCOME').length;
+
+  const pageTransactions = sortedTransactions.slice((page - 1) * pageSize, page * pageSize);
+
+  const transactions = pageTransactions.map((transaction) => ({
     ...transaction,
     amount: Number(transaction.amount),
     account: transaction.account
@@ -180,12 +193,18 @@ export default async function TransactionsPage({
         accounts={formattedAccounts}
         accountsWithBalance={accountsWithBalance}
         costCenters={costCenters}
+        paymentMethods={paymentMethods}
+        creditCards={creditCards}
         availableRange={availableRange}
         transactionCounts={transactionCounts}
         userRole={session.user.role}
         transactions={transactions}
         totalCount={totalCount}
-        totalAmount={Number(totals._sum.amount || 0)}
+        totalAmount={totalAmount}
+        totalExpenseAmount={totalExpenseAmount}
+        totalIncomeAmount={totalIncomeAmount}
+        expenseCount={expenseCount}
+        incomeCount={incomeCount}
         page={page}
         pageSize={pageSize}
       />

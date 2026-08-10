@@ -10,6 +10,8 @@ interface TransactionsContentProps {
   accounts: any[];
   accountsWithBalance?: any[];
   costCenters?: { id: string; name: string }[];
+  paymentMethods?: any[];
+  creditCards?: any[];
   availableRange?: {
     minDate: Date | string | null;
     maxDate: Date | string | null;
@@ -19,6 +21,10 @@ interface TransactionsContentProps {
   transactions: any[];
   totalCount: number;
   totalAmount: number;
+  totalExpenseAmount: number;
+  totalIncomeAmount: number;
+  expenseCount: number;
+  incomeCount: number;
   page: number;
   pageSize: number;
 }
@@ -29,12 +35,18 @@ export function TransactionsContent({
   accounts,
   accountsWithBalance,
   costCenters,
+  paymentMethods,
+  creditCards,
   availableRange,
   transactionCounts,
   userRole,
   transactions,
   totalCount,
   totalAmount,
+  totalExpenseAmount,
+  totalIncomeAmount,
+  expenseCount,
+  incomeCount,
   page,
   pageSize,
 }: TransactionsContentProps) {
@@ -48,6 +60,8 @@ export function TransactionsContent({
         accounts={accounts}
         accountsWithBalance={accountsWithBalance}
         costCenters={costCenters}
+        paymentMethods={paymentMethods}
+        creditCards={creditCards}
         availableRange={availableRange}
         transactionCounts={transactionCounts}
         userRole={userRole}
@@ -62,6 +76,10 @@ export function TransactionsContent({
         userRole={userRole}
         totalCount={totalCount}
         totalAmount={totalAmount}
+        totalExpenseAmount={totalExpenseAmount}
+        totalIncomeAmount={totalIncomeAmount}
+        expenseCount={expenseCount}
+        incomeCount={incomeCount}
         page={page}
         pageSize={pageSize}
         paginationSlot={paginationSlot}

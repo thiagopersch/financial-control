@@ -22,6 +22,8 @@ const debtSchema = z.object({
   accountId: z.string().min(1, 'Conta é obrigatória'),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
   supplierId: z.string().min(1, 'Fornecedor é obrigatório'),
+  paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
+  creditCardId: z.string().nullable().optional(),
 });
 
 const DEFAULT_DUE_DAY = 10;
@@ -109,6 +111,8 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
           accountId: validated.accountId,
           categoryId: validated.categoryId,
           supplierId: validated.supplierId,
+          paymentMethodId: validated.paymentMethodId,
+          creditCardId: validated.creditCardId,
           isActive: true,
           workspaceId,
         },
@@ -154,6 +158,8 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
               status: TransactionStatus.PENDING,
               categoryId: category.id,
               accountId: account.id,
+              paymentMethodId: validated.paymentMethodId,
+              creditCardId: validated.creditCardId,
               notes: `${validated.name} - Parcela ${i + 1}/${validated.installments}`,
               workspaceId,
               debtId: newDebt.id,
@@ -161,6 +167,13 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
               recurrenceType: 'INSTALLMENTS' as const,
               installments: validated.installments,
             },
+          });
+        }
+
+        if (validated.creditCardId) {
+          await tx.creditCard.update({
+            where: { id: validated.creditCardId },
+            data: { usedAmount: { increment: validated.initialValue } },
           });
         }
       }
@@ -202,7 +215,13 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
         data.calculationType !== existingDebt.calculationType) ||
       (data.firstInstallmentMonth !== undefined &&
         data.firstInstallmentMonth !== existingDebt.firstInstallmentMonth) ||
-      (data.dueDay !== undefined && data.dueDay !== existingDebt.dueDay);
+      (data.dueDay !== undefined && data.dueDay !== existingDebt.dueDay) ||
+      (data.accountId !== undefined && data.accountId !== existingDebt.accountId) ||
+      (data.categoryId !== undefined && data.categoryId !== existingDebt.categoryId) ||
+      (data.paymentMethodId !== undefined &&
+        data.paymentMethodId !== existingDebt.paymentMethodId) ||
+      (data.creditCardId !== undefined && data.creditCardId !== existingDebt.creditCardId) ||
+      (data.initialValue !== undefined && data.initialValue !== Number(existingDebt.initialValue));
 
     const updatedData: any = { ...data };
     if (data.startDate) {
@@ -258,13 +277,18 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
         const firstInstallmentMonth =
           data.firstInstallmentMonth ?? existingDebt.firstInstallmentMonth ?? 'NEXT';
         const dueDay = updatedDebt.dueDay ?? DEFAULT_DUE_DAY;
+        const paymentMethodId = data.paymentMethodId ?? existingDebt.paymentMethodId ?? null;
+        const creditCardId =
+          data.creditCardId !== undefined ? data.creditCardId : existingDebt.creditCardId;
 
         if (installments && installments > 0) {
-          const category = existingDebt.categoryId
-            ? await tx.category.findUnique({ where: { id: existingDebt.categoryId } })
+          const categoryId = data.categoryId ?? existingDebt.categoryId;
+          const category = categoryId
+            ? await tx.category.findUnique({ where: { id: categoryId } })
             : await getOrCreateDebtCategory(session.user.workspaceId);
 
-          const accountId = existingDebt.accountId ?? pendingTransactions[0]?.accountId;
+          const accountId =
+            data.accountId ?? existingDebt.accountId ?? pendingTransactions[0]?.accountId;
 
           if (!accountId) {
             throw new Error('Conta não encontrada para atualizar parcelas');
@@ -274,7 +298,7 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
           }
 
           const installmentAmount = calculateInstallmentAmount(
-            Number(existingDebt.initialValue),
+            data.initialValue ?? Number(existingDebt.initialValue),
             installments,
             calculationType,
             installmentValue,
@@ -292,12 +316,38 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
                 status: TransactionStatus.PENDING,
                 categoryId: category.id,
                 accountId,
+                paymentMethodId,
+                creditCardId,
                 notes: `${existingDebt.name} - Parcela ${i + 1}/${installments}`,
                 workspaceId: session.user.workspaceId,
                 debtId: id,
                 isRecurring: true,
                 recurrenceType: 'INSTALLMENTS' as const,
                 installments,
+              },
+            });
+          }
+
+          const newInitialValue = data.initialValue ?? Number(existingDebt.initialValue);
+
+          if (existingDebt.creditCardId !== creditCardId) {
+            if (existingDebt.creditCardId) {
+              await tx.creditCard.update({
+                where: { id: existingDebt.creditCardId },
+                data: { usedAmount: { decrement: Number(existingDebt.initialValue) } },
+              });
+            }
+            if (creditCardId) {
+              await tx.creditCard.update({
+                where: { id: creditCardId },
+                data: { usedAmount: { increment: newInitialValue } },
+              });
+            }
+          } else if (creditCardId && newInitialValue !== Number(existingDebt.initialValue)) {
+            await tx.creditCard.update({
+              where: { id: creditCardId },
+              data: {
+                usedAmount: { increment: newInitialValue - Number(existingDebt.initialValue) },
               },
             });
           }

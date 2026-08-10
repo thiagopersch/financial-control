@@ -16,6 +16,8 @@ interface TransactionsHeaderProps {
   accounts: any[];
   accountsWithBalance?: any[];
   costCenters?: { id: string; name: string }[];
+  paymentMethods?: any[];
+  creditCards?: any[];
   availableRange?: {
     minDate: Date | string | null;
     maxDate: Date | string | null;
@@ -31,6 +33,8 @@ export function TransactionsHeader({
   accounts,
   accountsWithBalance,
   costCenters = [],
+  paymentMethods = [],
+  creditCards = [],
   availableRange,
   transactionCounts,
   userRole,
@@ -118,6 +122,8 @@ export function TransactionsHeader({
         isOpen={isTransferModalOpen}
         onClose={() => setIsTransferModalOpen(false)}
         accounts={accountsWithBalance || accounts}
+        paymentMethods={paymentMethods}
+        creditCards={creditCards}
       />
     </div>
   );

@@ -173,5 +173,27 @@ export async function applyConditionalRules(workspaceId: string, transactionId: 
     }
   } catch (error) {
     console.error('Error applying conditional rules:', error);
+    await notifyAutomationFailure(
+      workspaceId,
+      `Falha ao aplicar regras de automação: ${error instanceof Error ? error.message : 'erro desconhecido'}`,
+    );
+  }
+}
+
+async function notifyAutomationFailure(workspaceId: string, detail: string) {
+  try {
+    const user = await prisma.user.findFirst({ where: { workspaceId } });
+    if (!user) return;
+
+    const { notifyAutomationResult } = await import('@/lib/actions/notifications');
+    await notifyAutomationResult({
+      source: 'CONDITIONAL_RULE',
+      success: false,
+      detail,
+      userId: user.id,
+      workspaceId,
+    });
+  } catch (error) {
+    console.error('Error notifying automation failure:', error);
   }
 }

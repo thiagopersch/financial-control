@@ -25,6 +25,8 @@ export type DebtDTO = {
   accountId: string | null;
   categoryId: string | null;
   supplierId: string | null;
+  paymentMethodId: string | null;
+  creditCardId: string | null;
 };
 
 export async function getDebts(): Promise<DebtDTO[]> {
@@ -63,6 +65,8 @@ export async function getDebts(): Promise<DebtDTO[]> {
       accountId: debt.accountId,
       categoryId: debt.categoryId,
       supplierId: debt.supplierId,
+      paymentMethodId: debt.paymentMethodId,
+      creditCardId: debt.creditCardId,
     }));
   } catch (error) {
     console.error('Error fetching debts:', error);
@@ -106,6 +110,8 @@ export async function getDebtById(id: string): Promise<DebtDTO | null> {
       accountId: debt.accountId,
       categoryId: debt.categoryId,
       supplierId: debt.supplierId,
+      paymentMethodId: debt.paymentMethodId,
+      creditCardId: debt.creditCardId,
     };
   } catch (error) {
     console.error('Error fetching debt:', error);

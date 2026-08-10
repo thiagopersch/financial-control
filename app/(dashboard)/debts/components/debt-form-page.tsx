@@ -20,7 +20,9 @@ import {
   useDebtForm,
 } from '@/hooks/forms/use-debt-form';
 import type { AccountDTO } from '@/lib/queries/accounts';
+import type { CreditCardDTO } from '@/lib/queries/credit-cards';
 import type { DebtDTO } from '@/lib/queries/debts';
+import type { PaymentMethodDTO } from '@/lib/queries/payment-methods';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -44,6 +46,8 @@ interface DebtFormPageProps {
   accounts: AccountDTO[];
   categories: Category[];
   suppliers: Supplier[];
+  paymentMethods: PaymentMethodDTO[];
+  creditCards: CreditCardDTO[];
 }
 
 const defaultValuesCreate = {
@@ -59,6 +63,8 @@ const defaultValuesCreate = {
   accountId: '',
   categoryId: '',
   supplierId: '',
+  paymentMethodId: '',
+  creditCardId: null,
   startDate: new Date().toISOString(),
 };
 
@@ -67,6 +73,8 @@ export function DebtFormPage({
   accounts = [],
   categories = [],
   suppliers = [],
+  paymentMethods = [],
+  creditCards = [],
 }: DebtFormPageProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,6 +101,11 @@ export function DebtFormPage({
           calculationType: debt.calculationType || 'TOTAL_DIVIDED',
           installmentValue: debt.installmentValue?.toString() || '',
           firstInstallmentMonth: debt.firstInstallmentMonth || 'NEXT',
+          accountId: debt.accountId || '',
+          categoryId: debt.categoryId || '',
+          supplierId: debt.supplierId || '',
+          paymentMethodId: debt.paymentMethodId || '',
+          creditCardId: debt.creditCardId,
         }
       : defaultValuesCreate,
   });
@@ -111,6 +124,8 @@ export function DebtFormPage({
       accountId: values.accountId,
       categoryId: values.categoryId,
       supplierId: values.supplierId,
+      paymentMethodId: values.paymentMethodId,
+      creditCardId: values.creditCardId,
       startDate: new Date().toISOString(),
     };
     await handleCreate(createValues);
@@ -125,6 +140,12 @@ export function DebtFormPage({
       calculationType: values.calculationType,
       installmentValue: values.installmentValue || '',
       firstInstallmentMonth: values.firstInstallmentMonth,
+      accountId: values.accountId,
+      categoryId: values.categoryId,
+      supplierId: values.supplierId,
+      paymentMethodId: values.paymentMethodId,
+      creditCardId: values.creditCardId,
+      initialValue: values.initialValue,
     };
     await handleUpdate(editValues);
   };
@@ -136,7 +157,11 @@ export function DebtFormPage({
       values.calculationType !== (debt.calculationType || 'TOTAL_DIVIDED') ||
       values.installmentValue !== (debt.installmentValue?.toString() || '') ||
       values.firstInstallmentMonth !== (debt.firstInstallmentMonth || 'NEXT') ||
-      values.dueDay !== (debt.dueDay?.toString() || '10')
+      values.dueDay !== (debt.dueDay?.toString() || '10') ||
+      values.accountId !== (debt.accountId || '') ||
+      values.categoryId !== (debt.categoryId || '') ||
+      values.paymentMethodId !== (debt.paymentMethodId || '') ||
+      values.creditCardId !== debt.creditCardId
     );
   };
 
@@ -171,12 +196,7 @@ export function DebtFormPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <Button
-        type="button"
-        variant="ghost"
-        className="gap-2"
-        onClick={() => router.push('/debts')}
-      >
+      <Button type="button" variant="ghost" className="gap-2" onClick={() => router.push('/debts')}>
         <ArrowLeft className="h-4 w-4" />
         Voltar
       </Button>
@@ -193,6 +213,8 @@ export function DebtFormPage({
               accounts={accounts}
               categories={categories}
               suppliers={suppliers}
+              paymentMethods={paymentMethods}
+              creditCards={creditCards}
             />
             <div className="flex justify-end gap-2 border-t pt-4">
               <Button
@@ -204,11 +226,7 @@ export function DebtFormPage({
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting
-                  ? 'Salvando...'
-                  : type === 'create'
-                    ? 'Salvar'
-                    : 'Atualizar'}
+                {isSubmitting ? 'Salvando...' : type === 'create' ? 'Salvar' : 'Atualizar'}
               </Button>
             </div>
           </form>

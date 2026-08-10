@@ -13,6 +13,9 @@ const scheduledTransactionSchema = z.object({
   frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'BUSINESS_DAYS']),
   dayOfMonth: z.number().min(1).max(31).optional(),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
+  accountId: z.string().min(1, 'Conta é obrigatória'),
+  paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
+  creditCardId: z.string().nullable().optional(),
   nextRun: z.string().optional(),
 });
 
@@ -35,6 +38,9 @@ export async function createScheduledTransaction(data: z.infer<typeof scheduledT
         nextRun,
         isActive: true,
         categoryId: validated.categoryId,
+        accountId: validated.accountId,
+        paymentMethodId: validated.paymentMethodId,
+        creditCardId: validated.creditCardId,
         workspaceId: session.user.workspaceId,
       },
     });

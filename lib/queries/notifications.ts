@@ -14,11 +14,12 @@ export interface Notification {
   createdAt: string;
 }
 
-export function useNotifications() {
+export function useNotifications(limit: number = 30) {
   const { data, error, isLoading, mutate } = useSWR<{
     notifications: Notification[];
     unreadCount: number;
-  }>('/api/notifications', fetcher, {
+    total: number;
+  }>(`/api/notifications?page=1&limit=${limit}`, fetcher, {
     revalidateOnFocus: true,
     refreshInterval: 60000,
   });
@@ -26,6 +27,7 @@ export function useNotifications() {
   return {
     notifications: data?.notifications || [],
     unreadCount: data?.unreadCount || 0,
+    total: data?.total || 0,
     isLoading,
     isError: error,
     refresh: mutate,

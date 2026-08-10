@@ -18,11 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { CreditCardSelect } from '@/components/transactions/credit-card-select';
 import { createTransfer } from '@/lib/actions/transfers';
+import type { CreditCardDTO } from '@/lib/queries/credit-cards';
+import type { PaymentMethodDTO } from '@/lib/queries/payment-methods';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowRightLeft } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -33,6 +36,8 @@ const transferSchema = z
     description: z.string().optional(),
     fromAccountId: z.string().min(1, 'Conta de origem é obrigatória'),
     toAccountId: z.string().min(1, 'Conta de destino é obrigatória'),
+    paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
+    creditCardId: z.string().nullable().optional(),
   })
   .refine((data) => data.fromAccountId !== data.toAccountId, {
     message: 'A conta de destino deve ser diferente da conta de origem',
@@ -45,13 +50,21 @@ interface TransferModalProps {
   isOpen: boolean;
   onClose: () => void;
   accounts: { id: string; name: string; color?: string; balance?: number }[];
+  paymentMethods: PaymentMethodDTO[];
+  creditCards: CreditCardDTO[];
 }
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
 
-export function TransferModal({ isOpen, onClose, accounts }: TransferModalProps) {
+export function TransferModal({
+  isOpen,
+  onClose,
+  accounts,
+  paymentMethods,
+  creditCards,
+}: TransferModalProps) {
   const [loading, setLoading] = useState(false);
 
   const form = useForm<TransferFormValues>({
@@ -62,6 +75,8 @@ export function TransferModal({ isOpen, onClose, accounts }: TransferModalProps)
       description: '',
       fromAccountId: '',
       toAccountId: '',
+      paymentMethodId: '',
+      creditCardId: null,
     },
   });
 
@@ -72,8 +87,42 @@ export function TransferModal({ isOpen, onClose, accounts }: TransferModalProps)
   }, [isOpen, form]);
 
   const fromAccountId = form.watch('fromAccountId');
+  const selectedPaymentMethodId = form.watch('paymentMethodId');
+
+  const accountPaymentMethods = useMemo(
+    () => paymentMethods.filter((pm) => pm.accountIds.includes(fromAccountId)),
+    [paymentMethods, fromAccountId],
+  );
+
+  const selectedPaymentMethod = useMemo(
+    () => accountPaymentMethods.find((pm) => pm.id === selectedPaymentMethodId),
+    [accountPaymentMethods, selectedPaymentMethodId],
+  );
+
+  const accountCreditCards = useMemo(
+    () => creditCards.filter((card) => card.accountId === fromAccountId),
+    [creditCards, fromAccountId],
+  );
+
+  useEffect(() => {
+    if (
+      selectedPaymentMethodId &&
+      !accountPaymentMethods.some((pm) => pm.id === selectedPaymentMethodId)
+    ) {
+      form.setValue('paymentMethodId', '');
+      form.setValue('creditCardId', null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromAccountId]);
 
   async function onSubmit(values: TransferFormValues) {
+    if (selectedPaymentMethod?.isCreditCard && !values.creditCardId) {
+      form.setError('creditCardId', {
+        message: 'Cartão é obrigatório para este meio de pagamento',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await createTransfer(values);
@@ -195,6 +244,74 @@ export function TransferModal({ isOpen, onClose, accounts }: TransferModalProps)
                 </FormItem>
               )}
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+            <FormField
+              control={form.control}
+              name="paymentMethodId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel required>Meio de Pagamento</FormLabel>
+                  <Select
+                    onValueChange={(v) => {
+                      field.onChange(v);
+                      form.setValue('creditCardId', null);
+                    }}
+                    value={field.value}
+                    disabled={!fromAccountId}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue
+                          placeholder={
+                            fromAccountId
+                              ? 'Selecione o meio de pagamento'
+                              : 'Selecione a conta de origem primeiro'
+                          }
+                        />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {accountPaymentMethods.length === 0 && (
+                        <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                          Nenhum meio de pagamento vinculado a esta conta.
+                        </div>
+                      )}
+                      {accountPaymentMethods.map((pm) => (
+                        <SelectItem key={pm.id} value={pm.id}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: pm.color || '#6366f1' }}
+                            />
+                            {pm.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {selectedPaymentMethod?.isCreditCard && (
+              <FormField
+                control={form.control}
+                name="creditCardId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel required>Cartão</FormLabel>
+                    <CreditCardSelect
+                      cards={accountCreditCards}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">

@@ -43,9 +43,6 @@ type AccountTypeOption = {
 };
 
 const accountTypeOptions: AccountTypeOption[] = [
-  { value: AccountType.PIX, label: 'PIX', color: '#10B981' },
-  { value: AccountType.CREDIT_CARD, label: 'Cartão de Crédito', color: '#3B82F6' },
-  { value: AccountType.DEBIT_CARD, label: 'Cartão de Débito', color: '#6366F1' },
   { value: AccountType.BANK, label: 'Banco', color: '#0EA5E9' },
   { value: AccountType.WALLET, label: 'Carteira', color: '#F59E0B' },
   { value: AccountType.INVESTMENT, label: 'Investimento', color: '#8B5CF6' },

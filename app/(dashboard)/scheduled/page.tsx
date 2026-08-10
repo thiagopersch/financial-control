@@ -31,15 +31,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { CreditCardSelect } from '@/components/transactions/credit-card-select';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useMemo } from 'react';
 import { z } from 'zod';
 import {
   useScheduledTransactions,
   useCategories,
   type ScheduledTransaction,
 } from '@/lib/queries/scheduled';
+import { useAccounts } from '@/lib/queries/accounts-client';
+import { usePaymentMethods } from '@/lib/queries/payment-methods-client';
+import { useCreditCards } from '@/lib/queries/credit-cards-client';
 import {
   createScheduledTransaction,
   deleteScheduledTransaction,
@@ -53,6 +58,9 @@ const scheduledSchema = z.object({
   frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'BUSINESS_DAYS']),
   dayOfMonth: z.string().min(1, 'Dia do mês é obrigatório'),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
+  accountId: z.string().min(1, 'Conta é obrigatória'),
+  paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
+  creditCardId: z.string().nullable().optional(),
 });
 
 type ScheduledFormData = z.infer<typeof scheduledSchema>;
@@ -64,6 +72,9 @@ export default function ScheduledPage() {
 
   const { transactions, isLoading, refresh } = useScheduledTransactions();
   const { categories } = useCategories();
+  const { accounts } = useAccounts();
+  const { paymentMethods } = usePaymentMethods();
+  const { creditCards } = useCreditCards();
 
   const form = useForm<ScheduledFormData>({
     resolver: zodResolver(scheduledSchema),
@@ -74,10 +85,49 @@ export default function ScheduledPage() {
       frequency: 'MONTHLY',
       dayOfMonth: '1',
       categoryId: '',
+      accountId: '',
+      paymentMethodId: '',
+      creditCardId: null,
     },
   });
 
+  const selectedAccountId = form.watch('accountId');
+  const selectedPaymentMethodId = form.watch('paymentMethodId');
+
+  const accountPaymentMethods = useMemo(
+    () => paymentMethods.filter((pm) => pm.accountIds.includes(selectedAccountId)),
+    [paymentMethods, selectedAccountId],
+  );
+
+  const selectedPaymentMethod = useMemo(
+    () => accountPaymentMethods.find((pm) => pm.id === selectedPaymentMethodId),
+    [accountPaymentMethods, selectedPaymentMethodId],
+  );
+
+  const accountCreditCards = useMemo(
+    () => creditCards.filter((card) => card.accountId === selectedAccountId),
+    [creditCards, selectedAccountId],
+  );
+
+  useEffect(() => {
+    if (
+      selectedPaymentMethodId &&
+      !accountPaymentMethods.some((pm) => pm.id === selectedPaymentMethodId)
+    ) {
+      form.setValue('paymentMethodId', '');
+      form.setValue('creditCardId', null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccountId]);
+
   const handleSubmit = async (data: ScheduledFormData) => {
+    if (selectedPaymentMethod?.isCreditCard && !data.creditCardId) {
+      form.setError('creditCardId', {
+        message: 'Cartão é obrigatório para este meio de pagamento',
+      });
+      return;
+    }
+
     try {
       const nextRun = new Date();
       if (data.frequency === 'MONTHLY') {
@@ -94,6 +144,9 @@ export default function ScheduledPage() {
         frequency: data.frequency as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'BUSINESS_DAYS',
         dayOfMonth: parseInt(data.dayOfMonth),
         categoryId: data.categoryId,
+        accountId: data.accountId,
+        paymentMethodId: data.paymentMethodId,
+        creditCardId: data.creditCardId,
         nextRun: nextRun.toISOString(),
       });
 
@@ -435,6 +488,103 @@ export default function ScheduledPage() {
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="accountId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel required>Conta</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione a conta" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {accounts.map((acc) => (
+                        <SelectItem key={acc.id} value={acc.id}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: acc.color || '#94a3b8' }}
+                            />
+                            {acc.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+              <FormField
+                control={form.control}
+                name="paymentMethodId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel required>Meio de Pagamento</FormLabel>
+                    <Select
+                      onValueChange={(v) => {
+                        field.onChange(v);
+                        form.setValue('creditCardId', null);
+                      }}
+                      value={field.value}
+                      disabled={!selectedAccountId}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue
+                            placeholder={
+                              selectedAccountId
+                                ? 'Selecione o meio de pagamento'
+                                : 'Selecione a conta primeiro'
+                            }
+                          />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {accountPaymentMethods.length === 0 && (
+                          <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                            Nenhum meio de pagamento vinculado a esta conta.
+                          </div>
+                        )}
+                        {accountPaymentMethods.map((pm) => (
+                          <SelectItem key={pm.id} value={pm.id}>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="h-2 w-2 rounded-full"
+                                style={{ backgroundColor: pm.color || '#6366f1' }}
+                              />
+                              {pm.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {selectedPaymentMethod?.isCreditCard && (
+                <FormField
+                  control={form.control}
+                  name="creditCardId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required>Cartão</FormLabel>
+                      <CreditCardSelect
+                        cards={accountCreditCards}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
           </div>
         </Form>
       </FormDialog>
