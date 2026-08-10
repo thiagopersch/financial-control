@@ -1,5 +1,6 @@
 import { Providers } from '@/app/providers';
 import { ThemeProvider } from '@/app/theme-provider';
+import { ComboboxDebugOverlay } from '@/components/debug/combobox-debug-overlay';
 import { RouteTransitionIndicator } from '@/components/route-transition-indicator';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -67,6 +68,7 @@ export default function RootLayout({
             <Toaster richColors position="top-right" />
           </Providers>
         </ThemeProvider>
+        <ComboboxDebugOverlay />
       </body>
     </html>
   );
