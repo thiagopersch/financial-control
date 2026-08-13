@@ -12,6 +12,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -30,7 +31,7 @@ import type { PaymentMethodDTO } from '@/lib/queries/payment-methods';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TransactionStatus, TransactionType } from '@prisma/client';
-import { ArrowLeft, Repeat } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Repeat } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -42,6 +43,7 @@ const transactionSchema = z.object({
   amount: z.coerce.number().positive('Valor deve ser maior que zero'),
   date: z.coerce.date({ error: 'Data de vencimento inválida' }),
   status: z.enum([TransactionStatus.PAID, TransactionStatus.PENDING, TransactionStatus.OVERDUE]),
+  paidAt: z.coerce.date().nullable().optional(),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
   accountId: z.string().min(1, 'Conta é obrigatória'),
   paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
@@ -52,6 +54,7 @@ const transactionSchema = z.object({
   isRecurring: z.boolean().default(false),
   recurrenceType: z.enum(['CONTINUOUS', 'INSTALLMENTS']).nullable().optional(),
   installments: z.coerce.number().min(1, 'Deve ser no mínimo 1 parcela').nullable().optional(),
+  autoMoveEnabled: z.boolean().default(false),
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
@@ -93,6 +96,7 @@ export function TransactionFormPage({
           amount: Number(initialData.amount),
           date: parseDate(initialData.date) || new Date(),
           status: initialData.status,
+          paidAt: parseDate(initialData.paidAt),
           categoryId: initialData.categoryId,
           accountId: initialData.accountId || '',
           paymentMethodId: initialData.paymentMethodId || '',
@@ -103,6 +107,7 @@ export function TransactionFormPage({
           isRecurring: initialData.isRecurring || false,
           recurrenceType: initialData.recurrenceType || 'CONTINUOUS',
           installments: initialData.installments || 1,
+          autoMoveEnabled: initialData.autoMoveEnabled || false,
         }
       : {
           description: '',
@@ -110,6 +115,7 @@ export function TransactionFormPage({
           amount: 0,
           date: undefined as unknown as Date,
           status: TransactionStatus.PENDING,
+          paidAt: null,
           categoryId: '',
           accountId: '',
           paymentMethodId: '',
@@ -120,6 +126,7 @@ export function TransactionFormPage({
           isRecurring: false,
           recurrenceType: 'CONTINUOUS',
           installments: 1,
+          autoMoveEnabled: false,
         },
   });
 
@@ -128,12 +135,22 @@ export function TransactionFormPage({
   const selectedType = form.watch('type');
   const selectedAccountId = form.watch('accountId');
   const selectedPaymentMethodId = form.watch('paymentMethodId');
+  const selectedStatus = form.watch('status');
 
   useEffect(() => {
     if (selectedType === TransactionType.INCOME) {
       form.setValue('status', TransactionStatus.PAID);
     }
   }, [selectedType, form]);
+
+  useEffect(() => {
+    if (selectedStatus === TransactionStatus.PAID && !form.getValues('paidAt')) {
+      form.setValue('paidAt', new Date());
+    } else if (selectedStatus !== TransactionStatus.PAID) {
+      form.setValue('paidAt', null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStatus]);
 
   useEffect(() => {
     if (!initialData && !form.getValues('date')) {
@@ -316,6 +333,24 @@ export function TransactionFormPage({
                   />
                 )}
               </div>
+              {selectedStatus === TransactionStatus.PAID && (
+                <FormField
+                  control={form.control}
+                  name="paidAt"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Data de pagamento</FormLabel>
+                      <FormControl>
+                        <DatePicker
+                          date={field.value || undefined}
+                          setDate={(date) => field.onChange(date || null)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={form.control}
                 name="accountId"
@@ -445,32 +480,15 @@ export function TransactionFormPage({
                 <FormField
                   control={form.control}
                   name="amount"
-                  render={({ field }) => {
-                    const displayValue = field.value
-                      ? Number(field.value).toLocaleString('pt-BR', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })
-                      : '';
-                    return (
-                      <FormItem>
-                        <FormLabel required>Valor (R$)</FormLabel>
-                        <FormControl>
-                          <Input
-                            inputMode="decimal"
-                            placeholder="0,00"
-                            value={displayValue}
-                            onChange={(e) => {
-                              const digits = e.target.value.replace(/\D/g, '');
-                              const numeric = digits ? parseInt(digits, 10) / 100 : 0;
-                              field.onChange(numeric);
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required>Valor (R$)</FormLabel>
+                      <FormControl>
+                        <CurrencyInput value={field.value} onChange={field.onChange} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
@@ -597,6 +615,30 @@ export function TransactionFormPage({
                     )}
                   </div>
                 )}
+              </div>
+              <div className="flex items-center space-x-2 rounded-lg border p-4">
+                <FormField
+                  control={form.control}
+                  name="autoMoveEnabled"
+                  render={({ field }) => (
+                    <>
+                      <FormControl>
+                        <Checkbox
+                          id="autoMoveEnabled"
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <Label
+                        htmlFor="autoMoveEnabled"
+                        className="flex cursor-pointer items-center gap-2"
+                      >
+                        <RefreshCw className="text-muted-foreground h-4 w-4" />
+                        Mover automaticamente para o mês vigente quando vencida
+                      </Label>
+                    </>
+                  )}
+                />
               </div>
               <FormField
                 control={form.control}

@@ -1,15 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import type { AccountDTO } from '@/lib/queries/accounts';
-import { MoreHorizontal, Pencil, Trash2, Wallet } from 'lucide-react';
+import { Trash2, Wallet } from 'lucide-react';
 
 export function ActionsAccounts({
   accounts,
@@ -47,31 +39,16 @@ export function ActionsAccounts({
                   <CardDescription className="text-xs">{label}</CardDescription>
                 </div>
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" className="h-8 w-8 p-0">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => openEdit(account)}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(account.id);
-                    }}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Excluir
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button
+                variant="ghost"
+                className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(account.id);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </CardHeader>
           </Card>
         );

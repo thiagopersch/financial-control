@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
+import { DataTable } from '@/components/ui/data-table';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useAuditLogs, type AuditLog } from '@/lib/queries/audit';
+import type { ColumnDef } from '@tanstack/react-table';
 import {
   Calendar,
   ScrollText,
@@ -232,6 +234,42 @@ export function AuditView() {
     return <Badge>Outros</Badge>;
   };
 
+  const columns: ColumnDef<AuditLog>[] = [
+    {
+      accessorKey: 'action',
+      header: 'Ação',
+      cell: ({ row }) => getActionBadge(row.original.action),
+    },
+    {
+      accessorKey: 'entity',
+      header: 'Entidade',
+      cell: ({ row }) => (
+        <span className="font-medium">
+          {entityLabels[row.original.entity] || row.original.entity}
+        </span>
+      ),
+    },
+    {
+      id: 'user',
+      header: 'Usuário',
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {row.original.user.name || row.original.user.email}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'createdAt',
+      header: 'Data',
+      cell: ({ row }) => (
+        <div className="text-muted-foreground flex items-center gap-1 whitespace-nowrap">
+          <Calendar className="h-3.5 w-3.5" />
+          {new Date(row.original.createdAt).toLocaleString('pt-BR')}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-8">
       <div>
@@ -292,41 +330,12 @@ export function AuditView() {
           </p>
         </div>
       ) : (
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[120px]">Ação</TableHead>
-                <TableHead>Entidade</TableHead>
-                <TableHead>Usuário</TableHead>
-                <TableHead className="w-[180px]">Data</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredLogs.map((log) => (
-                <TableRow
-                  key={log.id}
-                  className="hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => setSelectedLog(log)}
-                >
-                  <TableCell>{getActionBadge(log.action)}</TableCell>
-                  <TableCell className="font-medium">
-                    {entityLabels[log.entity] || log.entity}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {log.user.name || log.user.email}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground whitespace-nowrap">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5" />
-                      {new Date(log.createdAt).toLocaleString('pt-BR')}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <DataTable
+          columns={columns}
+          data={filteredLogs}
+          emptyMessage="Nenhum registro encontrado."
+          onRowClick={setSelectedLog}
+        />
       )}
 
       <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>

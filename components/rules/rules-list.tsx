@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { ColumnDef } from '@tanstack/react-table';
 import { ArrowRight, ArrowUpDown, Edit, Trash, Zap } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { DeleteRuleModal } from './delete-rule-modal';
 import { RuleModal } from './rule-modal';
@@ -13,11 +14,31 @@ interface RulesListProps {
   rules: any[];
   categories: { id: string; name: string; type: string; color: string }[];
   userRole?: string;
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
+  paginationSlot?: HTMLDivElement | null;
 }
 
-export function RulesList({ rules, categories, userRole }: RulesListProps) {
+export function RulesList({
+  rules,
+  categories,
+  userRole,
+  totalCount,
+  page,
+  pageSize,
+  paginationSlot,
+}: RulesListProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [editingRule, setEditingRule] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const updateParam = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set(key, value);
+    router.push(`${window.location.pathname}?${params.toString()}`);
+  };
 
   const getCategoryById = (id: string) => categories.find((c) => c.id === id);
 
@@ -113,6 +134,23 @@ export function RulesList({ rules, categories, userRole }: RulesListProps) {
         columns={columns}
         data={rules}
         emptyMessage="Nenhuma regra criada. Crie regras para categorizar transações automaticamente."
+        manualPagination={
+          totalCount !== undefined && page !== undefined && pageSize !== undefined
+            ? {
+                page,
+                pageSize,
+                totalCount,
+                onPageChange: (p) => updateParam('page', String(p)),
+                onPageSizeChange: (size) => {
+                  const params = new URLSearchParams(searchParams);
+                  params.set('pageSize', String(size));
+                  params.set('page', '1');
+                  router.push(`${window.location.pathname}?${params.toString()}`);
+                },
+              }
+            : undefined
+        }
+        paginationSlot={paginationSlot}
       />
 
       <RuleModal

@@ -2,10 +2,13 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { DataTable } from '@/components/ui/data-table';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { markTransactionAsPaid, toggleTransactionAutoMove } from '@/lib/actions/transactions';
 import { cn } from '@/lib/utils';
+import { showError, showSuccess } from '@/lib/utils/toast';
 import {
   Category,
   Supplier,
@@ -22,6 +25,7 @@ import {
   ArrowUpCircle,
   Calendar,
   CheckCircle,
+  CheckCircle2,
   Clock,
   Edit,
   RepeatIcon,
@@ -144,12 +148,52 @@ export function TransactionsTable({
 }: TransactionsTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingTransaction, setDeletingTransaction] = useState<SerializedTransaction | null>(
+    null,
+  );
   const [mounted, setMounted] = useState(false);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleMarkAsPaid = async (t: SerializedTransaction) => {
+    setProcessingId(t.id);
+    try {
+      const result = await markTransactionAsPaid(t.id);
+      if (result.success) {
+        showSuccess(
+          result.movedToCurrentMonth
+            ? 'Transação marcada como paga e movida para o mês vigente.'
+            : 'Transação marcada como paga.',
+        );
+        router.refresh();
+      } else {
+        showError(result.error || 'Erro ao marcar transação como paga.');
+      }
+    } catch {
+      showError('Erro inesperado ao marcar transação como paga.');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleToggleAutoMove = async (t: SerializedTransaction, checked: boolean) => {
+    setProcessingId(t.id);
+    try {
+      const result = await toggleTransactionAutoMove(t.id, checked);
+      if (result.success) {
+        router.refresh();
+      } else {
+        showError(result.error || 'Erro ao atualizar transação.');
+      }
+    } catch {
+      showError('Erro inesperado ao atualizar transação.');
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   const statusMap = {
     [TransactionStatus.PAID]: {
@@ -311,12 +355,67 @@ export function TransactionsTable({
       cell: ({ row }) => <SituacaoBadge transaction={row.original} />,
     },
     {
+      accessorKey: 'paidAt',
+      header: 'Pago em',
+      cell: ({ row }) => {
+        const paidAt = row.original.paidAt;
+        if (!paidAt) return <div className="text-muted-foreground">-</div>;
+        return (
+          <div className="text-sm whitespace-nowrap" suppressHydrationWarning>
+            {mounted ? format(new Date(paidAt), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
+          </div>
+        );
+      },
+    },
+    {
+      id: 'autoMove',
+      header: () => (
+        <Tooltip>
+          <TooltipTrigger className="cursor-default">Auto-mover</TooltipTrigger>
+          <TooltipContent>
+            <p>
+              Quando marcado, transações pendentes/atrasadas de meses anteriores são movidas
+              automaticamente para o mês vigente.
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      ),
+      cell: ({ row }) => {
+        const t = row.original;
+        return (
+          <Checkbox
+            checked={t.autoMoveEnabled}
+            disabled={processingId === t.id}
+            onCheckedChange={(checked) => handleToggleAutoMove(t, checked === true)}
+          />
+        );
+      },
+    },
+    {
       id: 'actions',
       header: () => <div className="text-right">Ações</div>,
       cell: ({ row }) => {
         const t = row.original;
         return (
           <div className="space-x-1 text-right whitespace-nowrap">
+            {t.status !== TransactionStatus.PAID && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleMarkAsPaid(t)}
+                    disabled={processingId === t.id}
+                    className="h-8 w-8 text-emerald-600 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Marcar como pago</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -328,7 +427,7 @@ export function TransactionsTable({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setDeletingId(t.id)}
+              onClick={() => setDeletingTransaction(t)}
               className="h-8 w-8 text-red-500 hover:bg-red-500/10 dark:hover:bg-red-500/10"
             >
               <Trash className="h-4 w-4 text-red-500" />
@@ -348,7 +447,7 @@ export function TransactionsTable({
         data={transactions}
         emptyMessage="Nenhuma transação encontrada."
         getRowClassName={(transaction) =>
-          transaction.id === deletingId ? 'bg-red-50/30 dark:bg-red-950/10' : ''
+          transaction.id === deletingTransaction?.id ? 'bg-red-50/30 dark:bg-red-950/10' : ''
         }
         manualPagination={{
           page,
@@ -385,9 +484,11 @@ export function TransactionsTable({
       />
 
       <DeleteConfirmModal
-        isOpen={!!deletingId}
-        onClose={() => setDeletingId(null)}
-        id={deletingId || ''}
+        isOpen={!!deletingTransaction}
+        onClose={() => setDeletingTransaction(null)}
+        id={deletingTransaction?.id || ''}
+        isRecurring={deletingTransaction?.isRecurring || false}
+        hasDebt={!!deletingTransaction?.debtId}
       />
     </div>
   );

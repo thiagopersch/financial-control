@@ -70,86 +70,73 @@ export async function GET(request: NextRequest) {
 
     const expenseTransactions = transactions.filter((t) => t.type === 'EXPENSE');
 
-    const categoryData = expenseTransactions.reduce(
-      (acc, t) => {
-        const catName = t.category?.name || 'Sem categoria';
-        if (!acc[catName]) acc[catName] = 0;
-        acc[catName] += Number(t.amount);
+    type Grouped = Record<string, { value: number; color: string | null }>;
+
+    const groupBy = (
+      list: typeof transactions,
+      getName: (t: (typeof transactions)[number]) => string,
+      getColor: (t: (typeof transactions)[number]) => string | null,
+    ) =>
+      list.reduce((acc, t) => {
+        const name = getName(t);
+        if (!acc[name]) acc[name] = { value: 0, color: getColor(t) };
+        acc[name].value += Number(t.amount);
         return acc;
-      },
-      {} as Record<string, number>,
+      }, {} as Grouped);
+
+    const categoryData = groupBy(
+      expenseTransactions,
+      (t) => t.category?.name || 'Sem categoria',
+      (t) => t.category?.color || null,
     );
 
-    const accountData = expenseTransactions.reduce(
-      (acc, t) => {
-        const accName = t.account?.name || 'Sem conta';
-        if (!acc[accName]) acc[accName] = 0;
-        acc[accName] += Number(t.amount);
-        return acc;
-      },
-      {} as Record<string, number>,
+    const accountData = groupBy(
+      expenseTransactions,
+      (t) => t.account?.name || 'Sem conta',
+      (t) => t.account?.color || null,
     );
 
-    const costCenterData = expenseTransactions.reduce(
-      (acc, t) => {
-        const ccName = t.costCenter?.name || 'Sem centro';
-        if (!acc[ccName]) acc[ccName] = 0;
-        acc[ccName] += Number(t.amount);
-        return acc;
-      },
-      {} as Record<string, number>,
+    const costCenterData = groupBy(
+      expenseTransactions,
+      (t) => t.costCenter?.name || 'Sem centro',
+      (t) => t.costCenter?.color || null,
     );
 
-    let chartData: { name: string; value: number; fill?: string }[] = [];
+    let chartData: { name: string; value: number; fill?: string | null }[] = [];
     let tableData: { category: string; value: number; percentage: string }[] = [];
 
     switch (metric) {
       case 'total_income': {
-        const incomeByCategory = transactions
-          .filter((t) => t.type === 'INCOME')
-          .reduce(
-            (acc, t) => {
-              const catName = t.category?.name || 'Sem categoria';
-              if (!acc[catName]) acc[catName] = 0;
-              acc[catName] += Number(t.amount);
-              return acc;
-            },
-            {} as Record<string, number>,
-          );
-        chartData = Object.entries(incomeByCategory).map(([name, value]) => ({
+        const incomeByCategory = groupBy(
+          transactions.filter((t) => t.type === 'INCOME'),
+          (t) => t.category?.name || 'Sem categoria',
+          (t) => t.category?.color || null,
+        );
+        chartData = Object.entries(incomeByCategory).map(([name, g]) => ({
           name,
-          value,
+          value: g.value,
+          fill: g.color,
         }));
         tableData = Object.entries(incomeByCategory)
-          .map(([category, value]) => ({
+          .map(([category, g]) => ({
             category,
-            value,
-            percentage: totalIncome > 0 ? ((value / totalIncome) * 100).toFixed(1) : '0.0',
+            value: g.value,
+            percentage: totalIncome > 0 ? ((g.value / totalIncome) * 100).toFixed(1) : '0.0',
           }))
           .sort((a, b) => b.value - a.value);
         break;
       }
       case 'total_expense': {
-        const expenseByCategory = transactions
-          .filter((t) => t.type === 'EXPENSE')
-          .reduce(
-            (acc, t) => {
-              const catName = t.category?.name || 'Sem categoria';
-              if (!acc[catName]) acc[catName] = 0;
-              acc[catName] += Number(t.amount);
-              return acc;
-            },
-            {} as Record<string, number>,
-          );
-        chartData = Object.entries(expenseByCategory).map(([name, value]) => ({
+        chartData = Object.entries(categoryData).map(([name, g]) => ({
           name,
-          value,
+          value: g.value,
+          fill: g.color,
         }));
-        tableData = Object.entries(expenseByCategory)
-          .map(([category, value]) => ({
+        tableData = Object.entries(categoryData)
+          .map(([category, g]) => ({
             category,
-            value,
-            percentage: totalExpense > 0 ? ((value / totalExpense) * 100).toFixed(1) : '0.0',
+            value: g.value,
+            percentage: totalExpense > 0 ? ((g.value / totalExpense) * 100).toFixed(1) : '0.0',
           }))
           .sort((a, b) => b.value - a.value);
         break;
@@ -167,32 +154,44 @@ export async function GET(request: NextRequest) {
         ];
         break;
       case 'by_category':
-        chartData = Object.entries(categoryData).map(([name, value]) => ({ name, value }));
+        chartData = Object.entries(categoryData).map(([name, g]) => ({
+          name,
+          value: g.value,
+          fill: g.color,
+        }));
         tableData = Object.entries(categoryData)
-          .map(([category, value]) => ({
+          .map(([category, g]) => ({
             category,
-            value,
-            percentage: totalExpense > 0 ? ((value / totalExpense) * 100).toFixed(1) : '0.0',
+            value: g.value,
+            percentage: totalExpense > 0 ? ((g.value / totalExpense) * 100).toFixed(1) : '0.0',
           }))
           .sort((a, b) => b.value - a.value);
         break;
       case 'by_account':
-        chartData = Object.entries(accountData).map(([name, value]) => ({ name, value }));
+        chartData = Object.entries(accountData).map(([name, g]) => ({
+          name,
+          value: g.value,
+          fill: g.color,
+        }));
         tableData = Object.entries(accountData)
-          .map(([category, value]) => ({
+          .map(([category, g]) => ({
             category,
-            value,
-            percentage: totalExpense > 0 ? ((value / totalExpense) * 100).toFixed(1) : '0.0',
+            value: g.value,
+            percentage: totalExpense > 0 ? ((g.value / totalExpense) * 100).toFixed(1) : '0.0',
           }))
           .sort((a, b) => b.value - a.value);
         break;
       case 'by_cost_center':
-        chartData = Object.entries(costCenterData).map(([name, value]) => ({ name, value }));
+        chartData = Object.entries(costCenterData).map(([name, g]) => ({
+          name,
+          value: g.value,
+          fill: g.color,
+        }));
         tableData = Object.entries(costCenterData)
-          .map(([category, value]) => ({
+          .map(([category, g]) => ({
             category,
-            value,
-            percentage: totalExpense > 0 ? ((value / totalExpense) * 100).toFixed(1) : '0.0',
+            value: g.value,
+            percentage: totalExpense > 0 ? ((g.value / totalExpense) * 100).toFixed(1) : '0.0',
           }))
           .sort((a, b) => b.value - a.value);
         break;
@@ -216,7 +215,7 @@ export async function GET(request: NextRequest) {
 
     chartData = chartData.map((item, idx) => ({
       ...item,
-      fill: chartColors[idx % chartColors.length],
+      fill: item.fill || chartColors[idx % chartColors.length],
     }));
 
     return NextResponse.json({

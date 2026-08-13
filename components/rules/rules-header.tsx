@@ -1,32 +1,55 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { ListPageHeader } from '@/components/ui/list-page-header';
+import { useUrlFilters } from '@/hooks/use-url-filters';
 import { useState } from 'react';
 import { RuleModal } from './rule-modal';
+import { RulesFilters } from './rules-filters';
 
 interface RulesHeaderProps {
   categories: { id: string; name: string; type: string; color: string }[];
   userRole?: string;
+  paginationSlotRef?: (node: HTMLDivElement | null) => void;
 }
 
-export function RulesHeader({ categories, userRole }: RulesHeaderProps) {
+export function RulesHeader({ categories, userRole, paginationSlotRef }: RulesHeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const canModify = userRole !== 'VIEWER';
+  const {
+    searchParams,
+    showFilters,
+    toggleFilters,
+    hasActiveFilters,
+    applyFilters,
+    handleSearch,
+    handleClearFilters,
+  } = useUrlFilters();
 
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Regras</h1>
-        <p className="text-muted-foreground">Automatize a categorização de transações.</p>
-      </div>
-      {canModify && (
-        <Button onClick={() => setIsOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nova Regra
-        </Button>
-      )}
+    <>
+      <ListPageHeader
+        title="Regras"
+        description="Automatize a categorização de transações."
+        searchParams={searchParams}
+        onSearch={handleSearch}
+        hasActiveFilters={hasActiveFilters}
+        showFilters={showFilters}
+        onToggleFilters={toggleFilters}
+        canCreate={canModify}
+        createLabel="Nova Regra"
+        onCreate={() => setIsOpen(true)}
+        paginationSlotRef={paginationSlotRef}
+        filtersPanel={
+          <RulesFilters
+            searchParams={searchParams}
+            applyFilters={applyFilters}
+            handleClearFilters={handleClearFilters}
+            categories={categories}
+          />
+        }
+      />
+
       <RuleModal isOpen={isOpen} onClose={() => setIsOpen(false)} categories={categories} />
-    </div>
+    </>
   );
 }

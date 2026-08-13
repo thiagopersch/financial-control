@@ -66,7 +66,10 @@ export function DebtsCard({ debt, onEdit, onDelete }: DebtsCardProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          {(debt.accountName || debt.supplierName || debt.categoryName || debt.paymentMethodName) && (
+          {(debt.accountName ||
+            debt.supplierName ||
+            debt.categoryName ||
+            debt.paymentMethodName) && (
             <div className="text-muted-foreground grid grid-cols-2 gap-x-2 gap-y-1 border-b pb-2 text-xs">
               {debt.accountName && (
                 <span>
@@ -81,7 +84,8 @@ export function DebtsCard({ debt, onEdit, onDelete }: DebtsCardProps) {
               )}
               {debt.categoryName && (
                 <span>
-                  Categoria: <span className="text-foreground font-medium">{debt.categoryName}</span>
+                  Categoria:{' '}
+                  <span className="text-foreground font-medium">{debt.categoryName}</span>
                 </span>
               )}
               {debt.paymentMethodName && (
@@ -110,7 +114,8 @@ export function DebtsCard({ debt, onEdit, onDelete }: DebtsCardProps) {
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Parcelas:</span>
               <span className="font-medium">
-                {debt.remainingInstallments ?? debt.installments}/{debt.installments} restantes (
+                {debt.installments - (debt.remainingInstallments ?? debt.installments)}/
+                {debt.installments} pagas (
                 {debt.calculationType === 'FIXED_INSTALLMENT' ? 'valor fixo' : 'dividido'})
               </span>
             </div>

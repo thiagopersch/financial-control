@@ -10,9 +10,10 @@ import { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ArrowUpDown, Shield, User as UserIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DeleteUserModal } from './delete-user-modal';
 import { UserModal } from './user-modal';
+import { UsersHeader } from './users-header';
 
 interface UserListProps {
   users: User[];
@@ -38,6 +39,25 @@ const roleConfig: Record<Role, { label: string; className: string }> = {
 export function UserList({ users, currentUserId, userRole }: UserListProps) {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
+  const canModify = userRole !== 'VIEWER';
+
+  const searchParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (search) params.set('q', search);
+    return params;
+  }, [search]);
+
+  const filteredUsers = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return users;
+    return users.filter(
+      (user) =>
+        (user.name || '').toLowerCase().includes(term) || user.email.toLowerCase().includes(term),
+    );
+  }, [users, search]);
 
   const initialColumns: ColumnDef<User>[] = [
     {
@@ -149,15 +169,25 @@ export function UserList({ users, currentUserId, userRole }: UserListProps) {
 
   return (
     <div className="flex flex-col gap-4">
+      <UsersHeader
+        canCreate={canModify}
+        onCreate={() => setIsCreateOpen(true)}
+        searchParams={searchParams}
+        onSearch={setSearch}
+        paginationSlotRef={setPaginationSlot}
+      />
+
       <DataTable
         columns={columns}
-        data={users}
+        data={filteredUsers}
         emptyMessage="Nenhum usuário encontrado."
         getRowClassName={(user) =>
           user.id === currentUserId ? 'bg-primary/10 dark:bg-primary/5' : ''
         }
+        paginationSlot={paginationSlot}
       />
 
+      <UserModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
       <UserModal
         isOpen={!!editingUser}
         onClose={() => setEditingUser(null)}

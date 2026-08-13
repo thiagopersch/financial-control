@@ -24,8 +24,10 @@ export type DebtDTO = {
   updatedAt: string;
   accountId: string | null;
   accountName: string | null;
+  accountColor: string | null;
   categoryId: string | null;
   categoryName: string | null;
+  categoryColor: string | null;
   supplierId: string | null;
   supplierName: string | null;
   paymentMethodId: string | null;
@@ -35,8 +37,8 @@ export type DebtDTO = {
 };
 
 const debtInclude = {
-  account: { select: { name: true } },
-  category: { select: { name: true } },
+  account: { select: { name: true, color: true } },
+  category: { select: { name: true, color: true } },
   supplier: { select: { name: true } },
   paymentMethod: { select: { name: true } },
   transactions: { select: { status: true } },
@@ -62,9 +64,9 @@ function mapDebt(debt: {
   createdAt: Date;
   updatedAt: Date;
   accountId: string | null;
-  account: { name: string } | null;
+  account: { name: string; color: string | null } | null;
   categoryId: string | null;
-  category: { name: string } | null;
+  category: { name: string; color: string } | null;
   supplierId: string | null;
   supplier: { name: string } | null;
   paymentMethodId: string | null;
@@ -97,8 +99,10 @@ function mapDebt(debt: {
     updatedAt: debt.updatedAt.toISOString(),
     accountId: debt.accountId,
     accountName: debt.account?.name ?? null,
+    accountColor: debt.account?.color ?? null,
     categoryId: debt.categoryId,
     categoryName: debt.category?.name ?? null,
+    categoryColor: debt.category?.color ?? null,
     supplierId: debt.supplierId,
     supplierName: debt.supplier?.name ?? null,
     paymentMethodId: debt.paymentMethodId,
@@ -125,7 +129,9 @@ export async function getDebts(): Promise<DebtDTO[]> {
 
     return debts
       .map(mapDebt)
-      .sort((a, b) => (a.remainingInstallments ?? Infinity) - (b.remainingInstallments ?? Infinity));
+      .sort(
+        (a, b) => (a.remainingInstallments ?? Infinity) - (b.remainingInstallments ?? Infinity),
+      );
   } catch (error) {
     console.error('Error fetching debts:', error);
     return [];

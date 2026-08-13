@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { cn, formatCurrency } from '@/lib/utils';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Edit, Trash2 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const monthNames = [
   'Janeiro',
@@ -47,9 +48,29 @@ interface BudgetsTableProps {
   onEdit: (budget: BudgetData) => void;
   onDelete: (budget: BudgetData) => void;
   paginationSlot?: HTMLDivElement | null;
+  page: number;
+  pageSize: number;
+  totalCount: number;
 }
 
-export function BudgetsTable({ budgets, onEdit, onDelete, paginationSlot }: BudgetsTableProps) {
+export function BudgetsTable({
+  budgets,
+  onEdit,
+  onDelete,
+  paginationSlot,
+  page,
+  pageSize,
+  totalCount,
+}: BudgetsTableProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const updateParam = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set(key, value);
+    router.push(`${window.location.pathname}?${params.toString()}`);
+  };
+
   const columns: ColumnDef<BudgetData>[] = [
     {
       accessorKey: 'category.name',
@@ -163,6 +184,18 @@ export function BudgetsTable({ budgets, onEdit, onDelete, paginationSlot }: Budg
       data={budgets}
       emptyMessage="Nenhum orçamento configurado."
       paginationSlot={paginationSlot}
+      manualPagination={{
+        page,
+        pageSize,
+        totalCount,
+        onPageChange: (p) => updateParam('page', String(p)),
+        onPageSizeChange: (size) => {
+          const params = new URLSearchParams(searchParams);
+          params.set('pageSize', String(size));
+          params.set('page', '1');
+          router.push(`${window.location.pathname}?${params.toString()}`);
+        },
+      }}
     />
   );
 }

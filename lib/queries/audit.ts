@@ -3,7 +3,6 @@ import useSWR from 'swr';
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export interface AuditLog {
-  id: string;
   action: string;
   entity: string;
   entityId: string | null;

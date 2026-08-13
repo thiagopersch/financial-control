@@ -3,11 +3,13 @@
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
+import { useCrudDialogState } from '@/hooks/use-crud-dialog-state';
+import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
 import { deleteCostCenter } from '@/lib/actions/cost-centers';
 import type { CostCenterDTO } from '@/lib/queries/cost-centers';
-import { showError, showSuccess } from '@/lib/utils/toast';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, Edit, Trash2, TrendingUp } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { CostCentersForm } from './cost-centers-form';
 import { CostCentersHeader } from './cost-centers-header';
@@ -15,42 +17,45 @@ import { CostCentersHeader } from './cost-centers-header';
 interface CostCentersListProps {
   costCenters: CostCenterDTO[];
   onRefresh: () => void;
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }
 
-export function CostCentersList({ costCenters, onRefresh }: CostCentersListProps) {
-  const [selectedCostCenter, setSelectedCostCenter] = useState<CostCenterDTO | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [costCenterToDelete, setCostCenterToDelete] = useState<string | null>(null);
+export function CostCentersList({
+  costCenters,
+  onRefresh,
+  totalCount,
+  page,
+  pageSize,
+}: CostCentersListProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
-  const handleDelete = (id: string) => {
-    setCostCenterToDelete(id);
-    setIsDeleteOpen(true);
-  };
+  const {
+    selected: selectedCostCenter,
+    isFormOpen,
+    openCreate,
+    openEdit,
+    close,
+  } = useCrudDialogState<CostCenterDTO>();
 
-  const confirmDelete = async () => {
-    if (costCenterToDelete) {
-      const result = await deleteCostCenter(costCenterToDelete);
-      if (result.success) {
-        showSuccess('Centro de custo excluído com sucesso');
-        onRefresh();
-      } else {
-        showError(result.error || 'Erro ao excluir centro de custo');
-      }
-      setIsDeleteOpen(false);
-      setCostCenterToDelete(null);
-    }
-  };
+  const {
+    isOpen: isDeleteOpen,
+    requestDelete: handleDelete,
+    confirmDelete,
+    cancel: cancelDelete,
+  } = useDeleteConfirm(deleteCostCenter, {
+    successMessage: 'Centro de custo excluído com sucesso',
+    errorMessage: 'Erro ao excluir centro de custo',
+    onSuccess: onRefresh,
+  });
 
-  const openCreate = () => {
-    setSelectedCostCenter(null);
-    setIsFormOpen(true);
-  };
-
-  const openEdit = (costCenter: CostCenterDTO) => {
-    setSelectedCostCenter(costCenter);
-    setIsFormOpen(true);
+  const updateParam = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set(key, value);
+    router.push(`${window.location.pathname}?${params.toString()}`);
   };
 
   const columns: ColumnDef<CostCenterDTO>[] = [
@@ -113,16 +118,28 @@ export function CostCentersList({ costCenters, onRefresh }: CostCentersListProps
         columns={columns}
         data={costCenters}
         emptyMessage="Nenhum centro de custo criado."
+        manualPagination={{
+          page,
+          pageSize,
+          totalCount,
+          onPageChange: (p) => updateParam('page', String(p)),
+          onPageSizeChange: (size) => {
+            const params = new URLSearchParams(searchParams);
+            params.set('pageSize', String(size));
+            params.set('page', '1');
+            router.push(`${window.location.pathname}?${params.toString()}`);
+          },
+        }}
         paginationSlot={paginationSlot}
       />
 
       <CostCentersForm
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
+        onClose={close}
         costCenter={selectedCostCenter}
         onSuccess={() => {
           onRefresh();
-          setIsFormOpen(false);
+          close();
         }}
       />
 
@@ -130,7 +147,7 @@ export function CostCentersList({ costCenters, onRefresh }: CostCentersListProps
         title="Excluir Centro de Custo"
         description="Tem certeza que deseja excluir este centro de custo? Esta ação não pode ser desfeita."
         isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
+        onClose={cancelDelete}
         onConfirm={confirmDelete}
         confirmText="Excluir"
         cancelText="Cancelar"

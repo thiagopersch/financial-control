@@ -1,22 +1,61 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { ListPageHeader } from '@/components/ui/list-page-header';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface CreditCardsHeaderProps {
+  showControls?: boolean;
+  searchParams: URLSearchParams;
+  onSearch: (value: string) => void;
+  accountFilter: string;
+  onAccountFilterChange: (value: string) => void;
+  accountOptions: { id: string; name: string }[];
   onCreate: () => void;
+  paginationSlotRef?: (node: HTMLDivElement | null) => void;
 }
 
-export function CreditCardsHeader({ onCreate }: CreditCardsHeaderProps) {
+export function CreditCardsHeader({
+  showControls = true,
+  searchParams,
+  onSearch,
+  accountFilter,
+  onAccountFilterChange,
+  accountOptions,
+  onCreate,
+  paginationSlotRef,
+}: CreditCardsHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Cartões de Crédito</h2>
-        <p className="text-muted-foreground">Gerencie seus cartões de crédito e faturas.</p>
-      </div>
-      <Button onClick={onCreate} className="h-10 w-full sm:w-auto">
-        <Plus className="mr-2 h-4 w-4" /> Novo Cartão
-      </Button>
-    </div>
+    <ListPageHeader
+      title="Cartões de Crédito"
+      description="Gerencie seus cartões de crédito e faturas."
+      showControls={showControls}
+      searchParams={searchParams}
+      onSearch={onSearch}
+      showFilterToggle={false}
+      inlineFilters={
+        <Select value={accountFilter} onValueChange={onAccountFilterChange}>
+          <SelectTrigger className="h-10 w-full md:w-56">
+            <SelectValue placeholder="Todas as contas" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as contas</SelectItem>
+            {accountOptions.map((account) => (
+              <SelectItem key={account.id} value={account.id}>
+                {account.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      }
+      createLabel="Novo Cartão"
+      onCreate={onCreate}
+      paginationSlotRef={paginationSlotRef}
+    />
   );
 }

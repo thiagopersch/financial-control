@@ -9,12 +9,12 @@ type SearchInputProps = {
 
 export function SearchInput({ searchParams, handleSearch }: SearchInputProps) {
   return (
-    <div className="flex w-full items-center gap-2">
-      <div className="relative flex-1">
+    <div className="flex w-full items-center gap-2 md:w-auto">
+      <div className="relative w-full md:w-[25rem]">
         <Search className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
         <Input
           placeholder="Buscar por descrição, categoria ou fornecedor..."
-          className="bg-background h-10 pl-8 shadow-sm"
+          className="bg-background h-10 w-full pl-8 shadow-sm"
           defaultValue={searchParams.get('q') ?? ''}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {

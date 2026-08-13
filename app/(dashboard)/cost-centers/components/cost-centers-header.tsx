@@ -1,7 +1,8 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { ListPageHeader } from '@/components/ui/list-page-header';
+import { useUrlFilters } from '@/hooks/use-url-filters';
+import { CostCentersFilters } from './cost-centers-filters';
 
 interface CostCentersHeaderProps {
   onCreate: () => void;
@@ -9,18 +10,35 @@ interface CostCentersHeaderProps {
 }
 
 export function CostCentersHeader({ onCreate, paginationSlotRef }: CostCentersHeaderProps) {
+  const {
+    searchParams,
+    showFilters,
+    toggleFilters,
+    hasActiveFilters,
+    applyFilters,
+    handleSearch,
+    handleClearFilters,
+  } = useUrlFilters();
+
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Centros de Custo</h2>
-        <p className="text-muted-foreground">Organize suas despesas por centro de custo.</p>
-      </div>
-      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-        <Button onClick={onCreate} className="h-10 w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" /> Novo Centro de Custo
-        </Button>
-        <div ref={paginationSlotRef} />
-      </div>
-    </div>
+    <ListPageHeader
+      title="Centros de Custo"
+      description="Organize suas despesas por centro de custo."
+      searchParams={searchParams}
+      onSearch={handleSearch}
+      hasActiveFilters={hasActiveFilters}
+      showFilters={showFilters}
+      onToggleFilters={toggleFilters}
+      createLabel="Novo Centro de Custo"
+      onCreate={onCreate}
+      paginationSlotRef={paginationSlotRef}
+      filtersPanel={
+        <CostCentersFilters
+          searchParams={searchParams}
+          applyFilters={applyFilters}
+          handleClearFilters={handleClearFilters}
+        />
+      }
+    />
   );
 }

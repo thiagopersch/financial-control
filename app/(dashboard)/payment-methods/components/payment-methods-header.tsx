@@ -1,7 +1,8 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { ListPageHeader } from '@/components/ui/list-page-header';
+import { useUrlFilters } from '@/hooks/use-url-filters';
+import { PaymentMethodsFilters } from './payment-methods-filters';
 
 interface PaymentMethodsHeaderProps {
   onCreate: () => void;
@@ -9,20 +10,35 @@ interface PaymentMethodsHeaderProps {
 }
 
 export function PaymentMethodsHeader({ onCreate, paginationSlotRef }: PaymentMethodsHeaderProps) {
+  const {
+    searchParams,
+    showFilters,
+    toggleFilters,
+    hasActiveFilters,
+    applyFilters,
+    handleSearch,
+    handleClearFilters,
+  } = useUrlFilters();
+
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Meios de Pagamento</h2>
-        <p className="text-muted-foreground">
-          Gerencie os meios de pagamento e vincule uma ou mais contas a cada um.
-        </p>
-      </div>
-      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-        <Button onClick={onCreate} className="h-10 w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" /> Novo Meio de Pagamento
-        </Button>
-        <div ref={paginationSlotRef} />
-      </div>
-    </div>
+    <ListPageHeader
+      title="Meios de Pagamento"
+      description="Gerencie os meios de pagamento e vincule uma ou mais contas a cada um."
+      searchParams={searchParams}
+      onSearch={handleSearch}
+      hasActiveFilters={hasActiveFilters}
+      showFilters={showFilters}
+      onToggleFilters={toggleFilters}
+      createLabel="Novo Meio de Pagamento"
+      onCreate={onCreate}
+      paginationSlotRef={paginationSlotRef}
+      filtersPanel={
+        <PaymentMethodsFilters
+          searchParams={searchParams}
+          applyFilters={applyFilters}
+          handleClearFilters={handleClearFilters}
+        />
+      }
+    />
   );
 }

@@ -16,6 +16,7 @@ export async function GET() {
       },
       include: {
         category: true,
+        supplier: true,
       },
       orderBy: {
         nextRun: 'asc',

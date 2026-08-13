@@ -1,34 +1,54 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { ListPageHeader } from '@/components/ui/list-page-header';
+import { useUrlFilters } from '@/hooks/use-url-filters';
+import { CategoriesFilters } from './categories-filters';
 
 interface CategoriesHeaderProps {
   onCreate: () => void;
   userRole?: string;
   paginationSlotRef?: (node: HTMLDivElement | null) => void;
+  colors?: string[];
 }
 
-export function CategoriesHeader({ onCreate, userRole, paginationSlotRef }: CategoriesHeaderProps) {
+export function CategoriesHeader({
+  onCreate,
+  userRole,
+  paginationSlotRef,
+  colors,
+}: CategoriesHeaderProps) {
   const canModify = userRole !== 'VIEWER';
+  const {
+    searchParams,
+    showFilters,
+    toggleFilters,
+    hasActiveFilters,
+    applyFilters,
+    handleSearch,
+    handleClearFilters,
+  } = useUrlFilters();
 
   return (
-    <div className="flex items-center justify-between gap-4 max-md:flex-col max-md:items-start">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Categorias</h2>
-        <p className="text-muted-foreground">
-          Organize suas transações com categorias personalizadas.
-        </p>
-      </div>
-
-      <div className="flex items-center gap-3 max-md:w-full max-md:flex-col">
-        {canModify && (
-          <Button onClick={onCreate} className="max-md:w-full">
-            <Plus className="mr-2 h-4 w-4" /> Nova Categoria
-          </Button>
-        )}
-        <div ref={paginationSlotRef} />
-      </div>
-    </div>
+    <ListPageHeader
+      title="Categorias"
+      description="Organize suas transações com categorias personalizadas."
+      searchParams={searchParams}
+      onSearch={handleSearch}
+      hasActiveFilters={hasActiveFilters}
+      showFilters={showFilters}
+      onToggleFilters={toggleFilters}
+      canCreate={canModify}
+      createLabel="Nova Categoria"
+      onCreate={onCreate}
+      paginationSlotRef={paginationSlotRef}
+      filtersPanel={
+        <CategoriesFilters
+          searchParams={searchParams}
+          applyFilters={applyFilters}
+          handleClearFilters={handleClearFilters}
+          colors={colors}
+        />
+      }
+    />
   );
 }

@@ -1,23 +1,21 @@
 'use client';
 
+import { BudgetsFilters } from '@/app/(dashboard)/budgets/components/budgets-filters';
 import { BudgetsTable } from '@/app/(dashboard)/budgets/components/budgets-table';
 import { BudgetDialog } from '@/components/budgets/budget-dialog';
 import { MonthSelector } from '@/components/month-selector';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
+import { ListPageHeader } from '@/components/ui/list-page-header';
+import { useCrudDialogState } from '@/hooks/use-crud-dialog-state';
+import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
 import { deleteBudget } from '@/lib/actions/budgets';
-import { showError, showSuccess } from '@/lib/utils/toast';
-import { PieChart, Plus } from 'lucide-react';
+import { PieChart } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+
+const ALLOWED_PAGE_SIZES = [10, 20, 50, 100];
 
 interface Category {
   id: string;
@@ -85,16 +83,42 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
   const searchParams = useSearchParams();
   const yearParam = searchParams.get('year');
   const monthParam = searchParams.get('month');
+  const qParam = searchParams.get('q') || '';
+  const categoryParam = searchParams.get('category') || '';
 
   const [budgets, setBudgets] = useState<BudgetData[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingBudget, setEditingBudget] = useState<BudgetData | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [budgetToDelete, setBudgetToDelete] = useState<BudgetData | null>(null);
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+
+  const {
+    selected: editingBudget,
+    isFormOpen: isDialogOpen,
+    openCreate: openCreateBudget,
+    openEdit: openEditBudget,
+    close: closeBudgetDialog,
+  } = useCrudDialogState<BudgetData>();
+
+  const {
+    isOpen: isDeleteDialogOpen,
+    idToDelete: budgetToDelete,
+    requestDelete: handleDelete,
+    confirmDelete: handleConfirmDelete,
+    cancel: cancelDelete,
+  } = useDeleteConfirm<BudgetData>((budget) => deleteBudget(budget.id), {
+    successMessage: 'Orçamento excluído com sucesso.',
+    errorMessage: 'Erro ao excluir orçamento',
+    onSuccess: () => fetchBudgets(),
+  });
 
   const { month, year, isAllPeriod, isYear } = parseMonthParams(yearParam, monthParam);
+
+  const pageSizeParam = Number(searchParams.get('pageSize'));
+  const pageSize = ALLOWED_PAGE_SIZES.includes(pageSizeParam) ? pageSizeParam : 10;
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+
+  const hasActiveFilters = !!categoryParam;
 
   const fetchBudgets = useCallback(async () => {
     setIsLoading(true);
@@ -114,52 +138,58 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
         params.set('year', String(now.getFullYear()));
       }
 
+      if (qParam) params.set('q', qParam);
+      if (categoryParam) params.set('category', categoryParam);
+      params.set('page', String(page));
+      params.set('pageSize', String(pageSize));
+
       const url = `/api/budgets?${params.toString()}`;
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setBudgets(data.budgets || []);
+        setTotalCount(data.totalCount ?? 0);
       }
     } catch (error) {
       console.error('Error fetching budgets:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [month, year, isAllPeriod, isYear, monthParam]);
+  }, [month, year, isAllPeriod, isYear, monthParam, qParam, categoryParam, page, pageSize]);
 
   useEffect(() => {
     fetchBudgets();
-  }, [month, year, isAllPeriod, isYear]);
+  }, [month, year, isAllPeriod, isYear, qParam, categoryParam, page, pageSize]);
+
+  const applyFilters = (params: URLSearchParams) => {
+    params.delete('page');
+    router.push(`${window.location.pathname}?${params.toString()}`);
+  };
+
+  const handleSearch = (value: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (!value) {
+      params.delete('q');
+    } else {
+      params.set('q', value);
+    }
+    applyFilters(params);
+  };
+
+  const handleClearFilters = () => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('q');
+    params.delete('category');
+    params.delete('page');
+    router.push(`${window.location.pathname}?${params.toString()}`);
+  };
 
   const handleSuccess = async () => {
     await fetchBudgets();
   };
 
-  const handleDelete = (budget: BudgetData) => {
-    setBudgetToDelete(budget);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!budgetToDelete) return;
-
-    try {
-      const result = await deleteBudget(budgetToDelete.id);
-      if (result.success) {
-        showSuccess('Orçamento excluído', 'Orçamento excluído com sucesso.');
-        setIsDeleteDialogOpen(false);
-        setBudgetToDelete(null);
-        handleSuccess();
-      } else {
-        showError('Erro ao excluir orçamento', result.error);
-      }
-    } catch (error) {
-      showError('Erro ao excluir orçamento');
-    }
-  };
-
   const handleEdit = (budget: BudgetData) => {
-    setEditingBudget({
+    openEditBudget({
       id: budget.id,
       categoryId: budget.categoryId,
       amount: budget.amount,
@@ -169,7 +199,6 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
       alertAt100: budget.alertAt100,
       category: budget.category,
     });
-    setIsDialogOpen(true);
   };
 
   const monthNames = [
@@ -189,22 +218,25 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <MonthSelector useNextYears={true} />
-        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          <Button
-            className="w-full gap-2 sm:w-auto"
-            onClick={() => {
-              setEditingBudget(null);
-              setIsDialogOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Novo Orçamento
-          </Button>
-          <div ref={setPaginationSlot} />
-        </div>
-      </div>
+      <ListPageHeader
+        headerActions={<MonthSelector useNextYears={true} />}
+        searchParams={searchParams}
+        onSearch={handleSearch}
+        hasActiveFilters={hasActiveFilters}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((prev) => !prev)}
+        createLabel="Novo Orçamento"
+        onCreate={openCreateBudget}
+        paginationSlotRef={setPaginationSlot}
+        filtersPanel={
+          <BudgetsFilters
+            searchParams={searchParams}
+            applyFilters={applyFilters}
+            handleClearFilters={handleClearFilters}
+            categories={categories}
+          />
+        }
+      />
 
       <div className="text-muted-foreground text-sm">
         {isAllPeriod ? (
@@ -235,6 +267,9 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
           onEdit={handleEdit}
           onDelete={handleDelete}
           paginationSlot={paginationSlot}
+          page={page}
+          pageSize={pageSize}
+          totalCount={totalCount}
         />
       ) : (
         <Card className="col-span-full py-20">
@@ -249,14 +284,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
                 atingi-los.
               </p>
             </div>
-            <Button
-              variant="outline"
-              className="mt-4"
-              onClick={() => {
-                setEditingBudget(null);
-                setIsDialogOpen(true);
-              }}
-            >
+            <Button variant="outline" className="mt-4" onClick={openCreateBudget}>
               Começar agora
             </Button>
           </CardContent>
@@ -265,35 +293,21 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
 
       <BudgetDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        onOpenChange={(open) => !open && closeBudgetDialog()}
         categories={categories}
         editingBudget={editingBudget}
         onSuccess={handleSuccess}
       />
 
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Excluir Orçamento</DialogTitle>
-            <DialogDescription>
-              Tem certeza que deseja excluir o orçamento de &ldquo;{budgetToDelete?.category.name}
-              &rdquo;? Esta ação não pode ser desfeita.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(false)}
-              className="w-full sm:w-auto"
-            >
-              Cancelar
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete} className="w-full sm:w-auto">
-              Excluir
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteConfirmModal
+        title="Excluir Orçamento"
+        description={`Tem certeza que deseja excluir o orçamento de "${budgetToDelete?.category.name}"? Esta ação não pode ser desfeita.`}
+        isOpen={isDeleteDialogOpen}
+        onClose={cancelDelete}
+        onConfirm={handleConfirmDelete}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+      />
     </div>
   );
 }

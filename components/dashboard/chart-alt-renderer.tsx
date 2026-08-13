@@ -180,7 +180,11 @@ export function ChartAltRenderer({
             radius={isHorizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]}
             barSize={isHorizontal ? 16 : 20}
             name={s.name}
-          />
+          >
+            {series.length === 1 &&
+              data.some((d) => d[pieColorKey]) &&
+              data.map((entry, i) => <Cell key={i} fill={entry[pieColorKey] || s.color} />)}
+          </Bar>
         ))}
       </BarChart>
     </ResponsiveContainer>

@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
+import { getBudgetsFiltered } from '@/lib/queries/budgets';
+
+const ALLOWED_PAGE_SIZES = [10, 20, 50, 100];
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,57 +16,23 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const month = parseInt(searchParams.get('month') || '') || new Date().getMonth() + 1;
     const year = parseInt(searchParams.get('year') || '') || new Date().getFullYear();
+    const q = searchParams.get('q')?.trim() || undefined;
+    const category = searchParams.get('category') || undefined;
+    const pageSizeParam = Number(searchParams.get('pageSize'));
+    const pageSize = ALLOWED_PAGE_SIZES.includes(pageSizeParam) ? pageSizeParam : 10;
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
 
-    const budgets = await prisma.budget.findMany({
-      where: {
-        workspaceId: session.user.workspaceId,
-        month,
-        year,
-      },
-      include: { category: true },
-      orderBy: { category: { name: 'asc' } },
+    const { budgets, totalCount } = await getBudgetsFiltered({
+      workspaceId: session.user.workspaceId,
+      month,
+      year,
+      q,
+      category,
+      page,
+      pageSize,
     });
 
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59);
-
-    const budgetsWithSpent = await Promise.all(
-      budgets.map(async (budget) => {
-        const spent = await prisma.transaction.aggregate({
-          where: {
-            workspaceId: session.user.workspaceId,
-            categoryId: budget.categoryId,
-            type: 'EXPENSE',
-            status: 'PAID',
-            date: { gte: startOfMonth, lte: endOfMonth },
-          },
-          _sum: { amount: true },
-        });
-
-        const spentAmount = Number(spent._sum.amount || 0);
-        const budgetAmount = Number(budget.amount);
-        const percentage = budgetAmount > 0 ? (spentAmount / budgetAmount) * 100 : 0;
-        const remaining = budgetAmount - spentAmount;
-
-        let status: 'safe' | 'warning' | 'exceeded' = 'safe';
-        if (percentage >= 100) status = 'exceeded';
-        else if (percentage >= 80) status = 'warning';
-
-        return {
-          ...budget,
-          amount: budgetAmount,
-          spentAmount,
-          remaining,
-          percentage,
-          status,
-          category: budget.category
-            ? { id: budget.category.id, name: budget.category.name, color: budget.category.color }
-            : null,
-        };
-      }),
-    );
-
-    return NextResponse.json({ budgets: budgetsWithSpent });
+    return NextResponse.json({ budgets, totalCount, page, pageSize });
   } catch (error) {
     console.error('Error fetching budgets:', error);
     return NextResponse.json({ error: 'Erro ao buscar orçamentos' }, { status: 500 });

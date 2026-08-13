@@ -22,6 +22,9 @@ import {
 import { FormDialog } from '@/components/ui/form-dialog';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { Input } from '@/components/ui/input';
+import { ListPageHeader } from '@/components/ui/list-page-header';
+import { ListPagination } from '@/components/ui/list-pagination';
+import { SelectSearch } from '@/components/ui/select-search';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -31,11 +34,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { useCrudDialogState } from '@/hooks/use-crud-dialog-state';
+import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
 import { deleteConditionalRule, toggleConditionalRule } from '@/lib/actions/conditional-rules';
 import { useConditionalRules } from '@/lib/queries/automation';
+import { useNotificationTemplates } from '@/lib/queries/notification-templates-client';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { GitBranch, MoreHorizontal, Pencil, Play, Plus, Zap } from 'lucide-react';
+import { GitBranch, MoreHorizontal, Pencil, Play, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
@@ -50,29 +56,55 @@ const conditionOptions = [
   { value: 'AMOUNT_LESS', label: 'Valor menor que' },
   { value: 'AMOUNT_EQUAL', label: 'Valor igual a' },
   { value: 'CATEGORY_IS', label: 'Categoria é' },
+  { value: 'CATEGORY_NOT', label: 'Categoria não é' },
   { value: 'TAG_IS', label: 'Tag é' },
+  { value: 'TAG_NOT', label: 'Tag não é' },
   { value: 'CONTAINS', label: 'Descrição contém' },
 ];
 
 const actionOptions = [
   { value: 'ADD_TAG', label: 'Adicionar tag' },
+  { value: 'REMOVE_TAG', label: 'Remover tag' },
   { value: 'ADD_CATEGORY', label: 'Mudar categoria' },
+  { value: 'ADD_COST_CENTER', label: 'Definir centro de custo' },
+  { value: 'SET_ACCOUNT', label: 'Definir conta' },
+  { value: 'SET_PAYMENT_METHOD', label: 'Definir meio de pagamento' },
+  { value: 'SET_SUPPLIER', label: 'Definir fornecedor' },
   { value: 'SET_STATUS', label: 'Alterar status' },
   { value: 'NOTIFY', label: 'Enviar notificação' },
 ];
 
 export default function AutomationPage() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedRule, setSelectedRule] = useState<ConditionalRule | null>(null);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [ruleToDelete, setRuleToDelete] = useState<string | null>(null);
   const { rules, isLoading, refresh } = useConditionalRules();
+
+  const {
+    selected: selectedRule,
+    isFormOpen: isDialogOpen,
+    openCreate,
+    openEdit,
+    close: closeDialog,
+  } = useCrudDialogState<ConditionalRule>();
+
+  const {
+    isOpen: isDeleteOpen,
+    requestDelete: handleDelete,
+    confirmDelete,
+    cancel: cancelDelete,
+  } = useDeleteConfirm(deleteConditionalRule, {
+    successMessage: 'A regra foi excluída com sucesso!',
+    errorMessage: 'Erro ao excluir regra',
+    onSuccess: () => refresh(),
+  });
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const { handleSubmit: handleFormSubmit, isEditing } = useAutomationForm({
     rule: selectedRule,
     onSuccess: () => {
-      setIsDialogOpen(false);
-      setSelectedRule(null);
+      closeDialog();
       refresh();
     },
   });
@@ -109,9 +141,21 @@ export default function AutomationPage() {
     defaultValues,
   });
 
+  const { templates: notificationTemplates } = useNotificationTemplates();
+  const activeNotificationTemplates = useMemo(
+    () => notificationTemplates.filter((t) => t.isActive),
+    [notificationTemplates],
+  );
+  const selectedActionType = form.watch('actionType');
+  const selectedActionValue = form.watch('actionValue');
+  const isNotifyAction = selectedActionType === 'NOTIFY';
+  const isUsingTemplate = selectedActionValue?.startsWith('template:') ?? false;
+  const [notifyMode, setNotifyMode] = useState<'custom' | 'template'>('custom');
+
   useEffect(() => {
     if (isDialogOpen) {
       form.reset(defaultValues);
+      setNotifyMode(defaultValues.actionValue?.startsWith('template:') ? 'template' : 'custom');
     }
   }, [isDialogOpen, defaultValues, form]);
 
@@ -137,53 +181,66 @@ export default function AutomationPage() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    setRuleToDelete(id);
-    setIsDeleteOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (ruleToDelete) {
-      try {
-        const result = await deleteConditionalRule(ruleToDelete);
-        if (result.success) {
-          showSuccess('Regra excluída', 'A regra foi excluída com sucesso!');
-          refresh();
-        } else {
-          showError('Erro ao excluir regra', result.error);
-        }
-      } catch {
-        showError('Erro ao excluir regra');
-      }
-      setIsDeleteOpen(false);
-      setRuleToDelete(null);
-    }
-  };
-
-  const openCreate = () => {
-    setSelectedRule(null);
-    setIsDialogOpen(true);
-  };
-
-  const openEdit = (rule: ConditionalRule) => {
-    setSelectedRule(rule);
-    setIsDialogOpen(true);
-  };
-
   const activeCount = rules.filter((r) => r.isActive).length;
+
+  const filteredRules = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return rules.filter((rule) => {
+      const matchesSearch =
+        !term ||
+        rule.name.toLowerCase().includes(term) ||
+        (rule.description || '').toLowerCase().includes(term);
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && rule.isActive) ||
+        (statusFilter === 'inactive' && !rule.isActive);
+      return matchesSearch && matchesStatus;
+    });
+  }, [rules, search, statusFilter]);
+
+  const totalCount = filteredRules.length;
+  const paginatedRules = filteredRules.slice((page - 1) * pageSize, page * pageSize);
+
+  const searchParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (search) params.set('q', search);
+    return params;
+  }, [search]);
+
+  const handleSearch = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Fluxo de Automação</h1>
-          <p className="text-muted-foreground">Crie regras condicionais para automatizar tarefas</p>
-        </div>
-        <Button onClick={openCreate} className="w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" />
-          Nova Regra
-        </Button>
-      </div>
+      <ListPageHeader
+        title="Fluxo de Automação"
+        description="Crie regras condicionais para automatizar tarefas"
+        searchParams={searchParams}
+        onSearch={handleSearch}
+        showFilterToggle={false}
+        inlineFilters={
+          <Select
+            value={statusFilter}
+            onValueChange={(value) => {
+              setStatusFilter(value as 'all' | 'active' | 'inactive');
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="active">Ativas</SelectItem>
+              <SelectItem value="inactive">Inativas</SelectItem>
+            </SelectContent>
+          </Select>
+        }
+        createLabel="Nova Regra"
+        onCreate={openCreate}
+      />
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -226,19 +283,21 @@ export default function AutomationPage() {
             </Card>
           ))}
         </div>
-      ) : rules.length === 0 ? (
+      ) : filteredRules.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <GitBranch className="text-muted-foreground mb-4 h-12 w-12" />
-            <h3 className="text-lg font-semibold">Nenhuma regra criada</h3>
+            <h3 className="text-lg font-semibold">Nenhuma regra encontrada</h3>
             <p className="text-muted-foreground mt-2 text-center">
-              Crie regras para automatizar suas transações
+              {rules.length === 0
+                ? 'Crie regras para automatizar suas transações'
+                : 'Ajuste os filtros para encontrar regras'}
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
-          {rules.map((rule) => (
+          {paginatedRules.map((rule) => (
             <Card key={rule.id}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex items-center gap-2">
@@ -297,14 +356,24 @@ export default function AutomationPage() {
         </div>
       )}
 
+      {!isLoading && filteredRules.length > 0 && (
+        <ListPagination
+          page={page}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+      )}
+
       <FormDialog
         title={isEditing ? 'Editar Regra de Automação' : 'Nova Regra de Automação'}
         description="Configure condições e ações para automatizar transações"
         isOpen={isDialogOpen}
-        onClose={() => {
-          setIsDialogOpen(false);
-          setSelectedRule(null);
-        }}
+        onClose={closeDialog}
         onSubmit={form.handleSubmit(onSubmit)}
         isSubmitting={isSubmitting}
       >
@@ -407,11 +476,49 @@ export default function AutomationPage() {
                   <FormItem>
                     <FormLabel required className="flex items-center gap-1">
                       Parâmetro
-                      <InfoTooltip text="O valor usado pela ação: nome da categoria (Mudar categoria), nome da tag (Adicionar tag), status PAID/PENDING/OVERDUE (Alterar status) ou o texto da notificação (Enviar notificação)." />
+                      <InfoTooltip text="O valor usado pela ação: nome da tag (Adicionar/Remover tag), nome da categoria (Mudar categoria), nome do centro de custo (Definir centro de custo), nome da conta (Definir conta), nome do meio de pagamento (Definir meio de pagamento), nome do fornecedor (Definir fornecedor), status PAID/PENDING/OVERDUE (Alterar status) ou o texto/template da notificação (Enviar notificação)." />
                     </FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: Alimentação" {...field} />
-                    </FormControl>
+                    {isNotifyAction ? (
+                      <div className="space-y-2">
+                        <Select
+                          value={notifyMode}
+                          onValueChange={(v) => {
+                            const mode = (v as 'custom' | 'template') || 'custom';
+                            setNotifyMode(mode);
+                            field.onChange('');
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="custom">Mensagem personalizada</SelectItem>
+                            <SelectItem value="template">Template de mensagem</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {notifyMode === 'template' ? (
+                          <SelectSearch
+                            options={activeNotificationTemplates.map((t) => ({
+                              value: `template:${t.id}`,
+                              label: t.name,
+                            }))}
+                            value={isUsingTemplate ? field.value : null}
+                            onValueChange={(v) => field.onChange(v || '')}
+                            placeholder="Buscar template..."
+                            emptyText="Nenhum template criado ainda"
+                            disabled={activeNotificationTemplates.length === 0}
+                          />
+                        ) : (
+                          <Input placeholder="Texto da notificação" {...field} />
+                        )}
+                      </div>
+                    ) : (
+                      <FormControl>
+                        <Input placeholder="Ex: Alimentação" {...field} />
+                      </FormControl>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -443,7 +550,7 @@ export default function AutomationPage() {
         title="Excluir Regra de Automação"
         description="Tem certeza que deseja excluir esta regra? Esta ação não pode ser desfeita."
         isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
+        onClose={cancelDelete}
         onConfirm={confirmDelete}
         confirmText="Excluir"
         cancelText="Cancelar"

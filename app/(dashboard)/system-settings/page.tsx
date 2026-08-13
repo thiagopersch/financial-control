@@ -1,4 +1,5 @@
 import { NotificationSettingsForm } from '@/components/profiles/notification-settings-form';
+import { NotificationTemplatesSection } from '@/components/profiles/notification-templates-section';
 import { TestNotificationForm } from '@/components/profiles/test-notification-form';
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
@@ -43,6 +44,8 @@ export default async function SystemSettingsPage() {
       />
 
       <TestNotificationForm users={users} />
+
+      <NotificationTemplatesSection />
     </div>
   );
 }

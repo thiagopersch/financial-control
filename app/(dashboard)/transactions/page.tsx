@@ -1,7 +1,8 @@
 import { TransactionsContent } from '@/app/(dashboard)/transactions/components/transactions-content';
 import { authOptions } from '@/lib/auth-options';
+import { autoMoveOverdueTransactions } from '@/lib/actions/transactions';
 import prisma from '@/lib/prisma';
-import { getAvailableRange, getTransactionCountsByYear } from '@/lib/queries/dashboard';
+import { getTransactionCountsByMonth, getTransactionCountsByYear } from '@/lib/queries/dashboard';
 import { getCostCenters } from '@/lib/queries/cost-centers';
 import { getAccountsWithBalance } from '@/lib/queries/accounts';
 import { getCreditCards } from '@/lib/queries/credit-cards';
@@ -39,9 +40,12 @@ export default async function TransactionsPage({
 }) {
   const searchParams = await searchParamsPromise;
   const session = await getServerSession(authOptions);
-  const [availableRange, transactionCounts] = await Promise.all([
-    getAvailableRange(),
+
+  await autoMoveOverdueTransactions();
+
+  const [transactionCounts, monthCounts] = await Promise.all([
     getTransactionCountsByYear(),
+    getTransactionCountsByMonth(),
   ]);
 
   if (!session) return null;
@@ -195,8 +199,8 @@ export default async function TransactionsPage({
         costCenters={costCenters}
         paymentMethods={paymentMethods}
         creditCards={creditCards}
-        availableRange={availableRange}
         transactionCounts={transactionCounts}
+        monthCounts={monthCounts}
         userRole={session.user.role}
         transactions={transactions}
         totalCount={totalCount}

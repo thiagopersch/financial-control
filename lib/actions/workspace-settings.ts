@@ -89,6 +89,7 @@ export async function sendTestNotification(userId: string) {
   await deliverNotification({
     userId: user.id,
     workspaceId: session.user.workspaceId,
+    type: 'SYSTEM',
     title: 'Notificação de teste',
     message: 'Esta é uma mensagem de teste da integração de notificações.',
   });

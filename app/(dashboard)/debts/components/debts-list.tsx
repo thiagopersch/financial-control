@@ -3,14 +3,23 @@
 import { DebtsCard } from '@/app/(dashboard)/debts/components/debts-card';
 import { DebtsHeader } from '@/app/(dashboard)/debts/components/debts-header';
 import { NotFoundDebts } from '@/app/(dashboard)/debts/components/not-found';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
+import { ListPagination } from '@/components/ui/list-pagination';
 import { Progress } from '@/components/ui/progress';
 import { useDebtForm } from '@/hooks/forms/use-debt-form';
 import type { DebtDTO } from '@/lib/queries/debts';
-import { AlertTriangle, Calculator, History, TrendingDown } from 'lucide-react';
+import {
+  AlertTriangle,
+  Calculator,
+  ChevronDown,
+  ChevronUp,
+  History,
+  TrendingDown,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 interface DebtsListProps {
   debts: DebtDTO[];
@@ -29,6 +38,20 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [debtToDelete, setDebtToDelete] = useState<string | null>(null);
 
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [accountFilter, setAccountFilter] = useState('all');
+  const [supplierFilter, setSupplierFilter] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
+
+  const [activePage, setActivePage] = useState(1);
+  const [activePageSize, setActivePageSize] = useState(10);
+  const [showAllPaid, setShowAllPaid] = useState(false);
+
+  const [activePaginationSlot, setActivePaginationSlot] = useState<HTMLDivElement | null>(null);
+
+  const PAID_VISIBLE_LIMIT = 4;
+
   const { handleDelete } = useDebtForm({
     onSuccess: () => {
       onRefresh();
@@ -37,11 +60,109 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
     },
   });
 
-  const activeDebts = debts.filter((d) => d.isActive);
-  const paidDebts = debts.filter((d) => !d.isActive);
-  const totalDebt = activeDebts.reduce((sum, d) => sum + d.currentValue, 0);
-  const totalInitial = activeDebts.reduce((sum, d) => sum + d.initialValue, 0);
+  const categoryOptions = useMemo(() => {
+    const map = new Map<string, { name: string; color: string }>();
+    debts.forEach((d) => {
+      if (d.categoryId && d.categoryName) {
+        map.set(d.categoryId, { name: d.categoryName, color: d.categoryColor ?? '#94a3b8' });
+      }
+    });
+    return Array.from(map, ([id, { name, color }]) => ({ id, name, color })).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [debts]);
+
+  const accountOptions = useMemo(() => {
+    const map = new Map<string, { name: string; color: string }>();
+    debts.forEach((d) => {
+      if (d.accountId && d.accountName) {
+        map.set(d.accountId, { name: d.accountName, color: d.accountColor ?? '#94a3b8' });
+      }
+    });
+    return Array.from(map, ([id, { name, color }]) => ({ id, name, color })).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [debts]);
+
+  const supplierOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    debts.forEach((d) => {
+      if (d.supplierId && d.supplierName) map.set(d.supplierId, d.supplierName);
+    });
+    return Array.from(map, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [debts]);
+
+  const filteredDebts = useMemo(() => {
+    const searchLower = search.trim().toLowerCase();
+    return debts.filter((d) => {
+      if (searchLower && !d.name.toLowerCase().includes(searchLower)) return false;
+      if (categoryFilter !== 'all' && d.categoryId !== categoryFilter) return false;
+      if (accountFilter !== 'all' && d.accountId !== accountFilter) return false;
+      if (supplierFilter !== 'all' && d.supplierId !== supplierFilter) return false;
+      return true;
+    });
+  }, [debts, search, categoryFilter, accountFilter, supplierFilter]);
+
+  const resetPages = () => {
+    setActivePage(1);
+    setShowAllPaid(false);
+  };
+
+  const activeDebts = filteredDebts.filter((d) => d.isActive);
+  const paidDebts = filteredDebts.filter((d) => !d.isActive);
+
+  const paginatedActiveDebts = activeDebts.slice(
+    (activePage - 1) * activePageSize,
+    activePage * activePageSize,
+  );
+  const visiblePaidDebts = showAllPaid ? paidDebts : paidDebts.slice(0, PAID_VISIBLE_LIMIT);
+
+  const allActiveDebts = debts.filter((d) => d.isActive);
+  const totalDebt = allActiveDebts.reduce((sum, d) => sum + d.currentValue, 0);
+  const totalInitial = allActiveDebts.reduce((sum, d) => sum + d.initialValue, 0);
   const paidPercentage = totalInitial > 0 ? ((totalInitial - totalDebt) / totalInitial) * 100 : 0;
+
+  const hasActiveFilters =
+    search !== '' ||
+    categoryFilter !== 'all' ||
+    accountFilter !== 'all' ||
+    supplierFilter !== 'all';
+
+  const searchParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (search) params.set('q', search);
+    return params;
+  }, [search]);
+
+  const handleSearch = (value: string) => {
+    setSearch(value);
+    resetPages();
+  };
+
+  const handleApplyFilters = ({
+    category,
+    account,
+    supplier,
+  }: {
+    category: string;
+    account: string;
+    supplier: string;
+  }) => {
+    setCategoryFilter(category);
+    setAccountFilter(account);
+    setSupplierFilter(supplier);
+    resetPages();
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setCategoryFilter('all');
+    setAccountFilter('all');
+    setSupplierFilter('all');
+    resetPages();
+  };
 
   const openCreate = () => {
     router.push('/debts/new');
@@ -66,7 +187,24 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
 
   return (
     <div className="space-y-6">
-      <DebtsHeader onCreate={openCreate} />
+      <DebtsHeader
+        onCreate={openCreate}
+        searchParams={searchParams}
+        onSearch={handleSearch}
+        hasActiveFilters={hasActiveFilters}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((v) => !v)}
+        categoryFilter={categoryFilter}
+        accountFilter={accountFilter}
+        supplierFilter={supplierFilter}
+        categoryOptions={categoryOptions}
+        accountOptions={accountOptions}
+        supplierOptions={supplierOptions}
+        onApplyFilters={handleApplyFilters}
+        onClearFilters={clearFilters}
+        showActivePagination={activeDebts.length > 0}
+        activePaginationSlotRef={setActivePaginationSlot}
+      />
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
@@ -75,7 +213,7 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
             <AlertTriangle className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeDebts.length}</div>
+            <div className="text-2xl font-bold">{allActiveDebts.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -109,11 +247,30 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
 
       {debts.length === 0 && <NotFoundDebts openCreate={openCreate} />}
 
+      {debts.length > 0 && filteredDebts.length === 0 && (
+        <p className="text-muted-foreground py-8 text-center text-sm">
+          Nenhuma dívida encontrada para os filtros selecionados.
+        </p>
+      )}
+
       {activeDebts.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {activeDebts.map((debt) => (
-            <DebtsCard key={debt.id} debt={debt} onEdit={openEdit} onDelete={openDelete} />
-          ))}
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {paginatedActiveDebts.map((debt) => (
+              <DebtsCard key={debt.id} debt={debt} onEdit={openEdit} onDelete={openDelete} />
+            ))}
+          </div>
+          <ListPagination
+            page={activePage}
+            pageSize={activePageSize}
+            totalCount={activeDebts.length}
+            onPageChange={setActivePage}
+            onPageSizeChange={(size) => {
+              setActivePageSize(size);
+              setActivePage(1);
+            }}
+            paginationSlot={activePaginationSlot}
+          />
         </div>
       )}
 
@@ -126,10 +283,26 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
             </h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {paidDebts.map((debt) => (
+            {visiblePaidDebts.map((debt) => (
               <DebtsCard key={debt.id} debt={debt} onEdit={openEdit} onDelete={openDelete} />
             ))}
           </div>
+          {paidDebts.length > PAID_VISIBLE_LIMIT && (
+            <div className="flex justify-center">
+              <Button variant="outline" onClick={() => setShowAllPaid((v) => !v)}>
+                {showAllPaid ? (
+                  <>
+                    <ChevronUp className="mr-2 h-4 w-4" /> Mostrar menos
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="mr-2 h-4 w-4" /> Mostrar mais (
+                    {paidDebts.length - PAID_VISIBLE_LIMIT})
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

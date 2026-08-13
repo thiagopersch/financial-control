@@ -25,14 +25,7 @@ import {
 } from 'recharts';
 import { useState, useCallback } from 'react';
 import { Download, FileBarChart, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -264,14 +257,18 @@ export default function ReportsPage() {
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={handleExport} disabled={tableData.length === 0}>
+        <Button
+          onClick={handleExport}
+          disabled={tableData.length === 0}
+          className="w-full sm:w-auto"
+        >
           <Download className="mr-2 h-4 w-4" />
           Exportar
         </Button>
       </div>
 
       {summary && !isLoading && (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Receitas</CardTitle>
@@ -356,8 +353,8 @@ export default function ReportsPage() {
                         <YAxis tickFormatter={(value) => formatCurrency(value)} />
                         <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                         <Bar dataKey="value" name="Valor">
-                          {sortedChartData.map((_entry, idx) => (
-                            <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                          {sortedChartData.map((entry, idx) => (
+                            <Cell key={idx} fill={entry.fill || COLORS[idx % COLORS.length]} />
                           ))}
                         </Bar>
                       </BarChart>
@@ -377,8 +374,8 @@ export default function ReportsPage() {
                             `${name ?? ''} (${((percent ?? 0) * 100).toFixed(0)}%)`
                           }
                         >
-                          {sortedChartData.map((_entry, idx) => (
-                            <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                          {sortedChartData.map((entry, idx) => (
+                            <Cell key={idx} fill={entry.fill || COLORS[idx % COLORS.length]} />
                           ))}
                         </Pie>
                         <Tooltip formatter={(value) => formatCurrency(Number(value))} />
@@ -409,39 +406,47 @@ export default function ReportsPage() {
                   Nenhum dado disponível
                 </div>
               ) : (
-                <div className="rounded-lg border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Categoria</TableHead>
-                        <TableHead className="text-right">Valor</TableHead>
-                        <TableHead className="text-right">%</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sortedChartData.map((row, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell className="flex items-center gap-2 font-medium">
-                            <div
-                              className="h-2.5 w-2.5 shrink-0 rounded-full"
-                              style={{ backgroundColor: COLORS[idx % COLORS.length] }}
-                            />
-                            {row.name}
-                          </TableCell>
-                          <TableCell className="text-right">{formatCurrency(row.value)}</TableCell>
-                          <TableCell className="text-right">
-                            {(
-                              (row.value /
-                                (sortedChartData.reduce((s, d) => s + d.value, 0) || 1)) *
-                              100
-                            ).toFixed(1)}
-                            %
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                <DataTable
+                  columns={[
+                    {
+                      accessorKey: 'name',
+                      header: 'Categoria',
+                      cell: ({ row }: any) => (
+                        <div className="flex items-center gap-2 font-medium">
+                          <div
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{
+                              backgroundColor:
+                                row.original.fill || COLORS[row.index % COLORS.length],
+                            }}
+                          />
+                          {row.original.name}
+                        </div>
+                      ),
+                    },
+                    {
+                      accessorKey: 'value',
+                      header: () => <div className="text-right">Valor</div>,
+                      cell: ({ row }: any) => (
+                        <div className="text-right">{formatCurrency(row.original.value)}</div>
+                      ),
+                    },
+                    {
+                      id: 'percentage',
+                      header: () => <div className="text-right">%</div>,
+                      cell: ({ row }: any) => {
+                        const total = sortedChartData.reduce((s, d) => s + d.value, 0) || 1;
+                        return (
+                          <div className="text-right">
+                            {((row.original.value / total) * 100).toFixed(1)}%
+                          </div>
+                        );
+                      },
+                    },
+                  ]}
+                  data={sortedChartData}
+                  emptyMessage="Nenhum dado disponível"
+                />
               )}
             </CardContent>
           </Card>

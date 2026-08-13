@@ -12,11 +12,8 @@ interface TransactionsContentProps {
   costCenters?: { id: string; name: string }[];
   paymentMethods?: any[];
   creditCards?: any[];
-  availableRange?: {
-    minDate: Date | string | null;
-    maxDate: Date | string | null;
-  };
   transactionCounts?: Record<string, number>;
+  monthCounts?: Record<string, number>;
   userRole?: string;
   transactions: any[];
   totalCount: number;
@@ -37,8 +34,8 @@ export function TransactionsContent({
   costCenters,
   paymentMethods,
   creditCards,
-  availableRange,
   transactionCounts,
+  monthCounts,
   userRole,
   transactions,
   totalCount,
@@ -62,8 +59,8 @@ export function TransactionsContent({
         costCenters={costCenters}
         paymentMethods={paymentMethods}
         creditCards={creditCards}
-        availableRange={availableRange}
         transactionCounts={transactionCounts}
+        monthCounts={monthCounts}
         userRole={userRole}
         paginationSlotRef={setPaginationSlot}
       />

@@ -4,12 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
+import { useCrudDialogState } from '@/hooks/use-crud-dialog-state';
+import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
 import { deleteCategory } from '@/lib/actions/categories';
 import type { CategoryDTO } from '@/lib/queries/categories';
-import { showError, showSuccess } from '@/lib/utils/toast';
 import { TransactionType } from '@prisma/client';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, Edit, Trash2 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { CategoriesForm } from './categories-form';
 import { CategoriesHeader } from './categories-header';
@@ -18,42 +20,48 @@ interface CategoriesListProps {
   categories: CategoryDTO[];
   onRefresh: () => void;
   userRole?: string;
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  colors?: string[];
 }
 
-export function CategoriesList({ categories, onRefresh, userRole }: CategoriesListProps) {
-  const [selectedCategory, setSelectedCategory] = useState<CategoryDTO | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+export function CategoriesList({
+  categories,
+  onRefresh,
+  userRole,
+  totalCount,
+  page,
+  pageSize,
+  colors,
+}: CategoriesListProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
-  const handleDelete = (id: string) => {
-    setCategoryToDelete(id);
-    setIsDeleteOpen(true);
-  };
+  const {
+    selected: selectedCategory,
+    isFormOpen,
+    openCreate,
+    openEdit,
+    close,
+  } = useCrudDialogState<CategoryDTO>();
 
-  const confirmDelete = async () => {
-    if (categoryToDelete) {
-      const result = await deleteCategory(categoryToDelete);
-      if (result.success) {
-        showSuccess('Categoria excluída com sucesso');
-        onRefresh();
-      } else {
-        showError(result.error || 'Erro ao excluir categoria');
-      }
-      setIsDeleteOpen(false);
-      setCategoryToDelete(null);
-    }
-  };
+  const {
+    isOpen: isDeleteOpen,
+    requestDelete: handleDelete,
+    confirmDelete,
+    cancel: cancelDelete,
+  } = useDeleteConfirm(deleteCategory, {
+    successMessage: 'Categoria excluída com sucesso',
+    errorMessage: 'Erro ao excluir categoria',
+    onSuccess: onRefresh,
+  });
 
-  const openCreate = () => {
-    setSelectedCategory(null);
-    setIsFormOpen(true);
-  };
-
-  const openEdit = (category: CategoryDTO) => {
-    setSelectedCategory(category);
-    setIsFormOpen(true);
+  const updateParam = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set(key, value);
+    router.push(`${window.location.pathname}?${params.toString()}`);
   };
 
   const initialColumns: ColumnDef<CategoryDTO>[] = [
@@ -139,21 +147,38 @@ export function CategoriesList({ categories, onRefresh, userRole }: CategoriesLi
 
   return (
     <div className="flex flex-col gap-4">
-      <CategoriesHeader onCreate={openCreate} paginationSlotRef={setPaginationSlot} />
+      <CategoriesHeader
+        onCreate={openCreate}
+        userRole={userRole}
+        paginationSlotRef={setPaginationSlot}
+        colors={colors}
+      />
       <DataTable
         columns={columns}
         data={categories}
         emptyMessage="Nenhuma categoria criada."
         paginationSlot={paginationSlot}
+        manualPagination={{
+          page,
+          pageSize,
+          totalCount,
+          onPageChange: (p) => updateParam('page', String(p)),
+          onPageSizeChange: (size) => {
+            const params = new URLSearchParams(searchParams);
+            params.set('pageSize', String(size));
+            params.set('page', '1');
+            router.push(`${window.location.pathname}?${params.toString()}`);
+          },
+        }}
       />
 
       <CategoriesForm
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
+        onClose={close}
         category={selectedCategory}
         onSuccess={() => {
           onRefresh();
-          setIsFormOpen(false);
+          close();
         }}
       />
 
@@ -161,7 +186,7 @@ export function CategoriesList({ categories, onRefresh, userRole }: CategoriesLi
         title="Exclusão de Categoria"
         description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
         isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
+        onClose={cancelDelete}
         onConfirm={confirmDelete}
         confirmText="Confirmar"
         cancelText="Cancelar"

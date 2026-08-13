@@ -35,6 +35,8 @@ const CURRENCY_KEYS = new Set([
   'target',
   'used',
   'limit',
+  'available',
+  'topCategoryAmount',
 ]);
 
 const metadataLabels: Record<string, string> = {
@@ -50,6 +52,12 @@ const metadataLabels: Record<string, string> = {
   target: 'Meta',
   used: 'Usado',
   limit: 'Limite',
+  available: 'Disponível',
+  cardName: 'Cartão',
+  topCategory: 'Categoria que mais contribuiu',
+  topCategoryAmount: 'Valor na categoria',
+  closingDay: 'Dia de fechamento',
+  dueDay: 'Dia de vencimento',
 };
 
 function formatMetadataValue(key: string, value: unknown): string {
@@ -117,7 +125,11 @@ export function NotificationBell() {
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-80 p-0">
+        <PopoverContent
+          align="end"
+          sideOffset={8}
+          className="w-80 p-0 max-[768px]:w-[calc(100vw-2rem)] max-[768px]:max-w-[calc(100vw-2rem)]"
+        >
           <div className="flex items-center justify-between border-b p-3">
             <span className="text-sm font-semibold">Notificações</span>
             {unreadCount > 0 && (
@@ -132,7 +144,7 @@ export function NotificationBell() {
               </Button>
             )}
           </div>
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-96 overflow-y-auto max-[768px]:max-h-[70vh]">
             {notifications.length === 0 ? (
               <div className="text-muted-foreground p-6 text-center text-sm">
                 Nenhuma notificação por aqui.

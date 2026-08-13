@@ -1,33 +1,88 @@
 import prisma from '@/lib/prisma';
 import nodemailer from 'nodemailer';
+import path from 'path';
 
 interface DeliveryTarget {
   userId: string;
   workspaceId: string;
+  type: string;
   title: string;
   message: string;
+  metadata?: Record<string, unknown> | null;
+}
+
+function interpolate(text: string, vars: Record<string, unknown>): string {
+  return text.replace(/\{\{(\w+)\}\}/g, (_match, key) => {
+    const value = vars[key];
+    return value === undefined || value === null ? '' : String(value);
+  });
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function absoluteImageUrl(imageUrl: string) {
+  const base = process.env.NEXT_PUBLIC_APP_URL;
+  return base ? `${base.replace(/\/$/, '')}${imageUrl}` : null;
 }
 
 /**
  * Best-effort delivery: never throws, since a failed WhatsApp/e-mail send
  * must not block the in-app notification that already succeeded.
  */
-export async function deliverNotification({ userId, workspaceId, title, message }: DeliveryTarget) {
+export async function deliverNotification({
+  userId,
+  workspaceId,
+  type,
+  title,
+  message,
+  metadata,
+}: DeliveryTarget) {
   try {
-    const [profile, workspace] = await Promise.all([
+    const [profile, workspace, user, emailTemplate, whatsappTemplate] = await Promise.all([
       prisma.profile.findUnique({ where: { userId } }),
       prisma.workspace.findUnique({ where: { id: workspaceId } }),
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.notificationTemplate.findFirst({
+        where: { userId, workspaceId, type: type as never, channel: 'EMAIL', isActive: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.notificationTemplate.findFirst({
+        where: { userId, workspaceId, type: type as never, channel: 'WHATSAPP', isActive: true },
+        orderBy: { createdAt: 'desc' },
+      }),
     ]);
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!profile || !user) return;
 
+    const vars: Record<string, unknown> = { title, message, ...(metadata || {}) };
+
     if (profile.notifyEmail && user.email) {
-      await sendEmail(workspace, user.email, title, message);
+      if (emailTemplate) {
+        const subject = interpolate(emailTemplate.subject, vars);
+        const htmlBody = interpolate(emailTemplate.bodyHtml, vars);
+        await sendEmail(
+          workspace,
+          user.email,
+          subject,
+          stripHtml(htmlBody),
+          htmlBody,
+          emailTemplate.imageUrl,
+        );
+      } else {
+        await sendEmail(workspace, user.email, title, message, null, null);
+      }
     }
 
     if (profile.notifyWhatsapp && profile.phone) {
-      await sendWhatsApp(workspace, profile.phone, `*${title}*\n${message}`);
+      const waMessage = whatsappTemplate
+        ? stripHtml(interpolate(whatsappTemplate.bodyWhatsapp, vars))
+        : `*${title}*\n${message}`;
+      await sendWhatsApp(workspace, profile.phone, waMessage, whatsappTemplate?.imageUrl ?? null);
     }
   } catch (error) {
     console.error('Error delivering notification:', error);
@@ -45,6 +100,8 @@ async function sendEmail(
   to: string,
   subject: string,
   text: string,
+  html: string | null,
+  imageUrl: string | null,
 ) {
   if (!workspace?.smtpHost || !workspace.smtpUser || !workspace.smtpPassword) {
     return;
@@ -61,11 +118,29 @@ async function sendEmail(
       },
     });
 
+    const attachments =
+      imageUrl && imageUrl.startsWith('/uploads/')
+        ? [
+            {
+              filename: path.basename(imageUrl),
+              path: path.join(process.cwd(), 'public', imageUrl),
+              cid: 'notification-image',
+            },
+          ]
+        : [];
+
+    const htmlWithImage =
+      html && attachments.length > 0
+        ? `${html}<p><img src="cid:notification-image" style="max-width:100%;margin-top:12px" alt="" /></p>`
+        : html;
+
     await transporter.sendMail({
       from: workspace.smtpFrom || workspace.smtpUser,
       to,
       subject,
       text,
+      html: htmlWithImage || undefined,
+      attachments,
     });
   } catch (error) {
     console.error('Error sending email notification:', error);
@@ -76,19 +151,22 @@ async function sendWhatsApp(
   workspace: { whatsappApiUrl: string | null; whatsappApiToken: string | null } | null,
   phone: string,
   message: string,
+  imageUrl: string | null,
 ) {
   if (!workspace?.whatsappApiUrl || !workspace.whatsappApiToken) {
     return;
   }
 
   try {
+    const mediaUrl = imageUrl ? absoluteImageUrl(imageUrl) : null;
+
     await fetch(workspace.whatsappApiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${workspace.whatsappApiToken}`,
       },
-      body: JSON.stringify({ phone, message }),
+      body: JSON.stringify({ phone, message, ...(mediaUrl ? { mediaUrl } : {}) }),
     });
   } catch (error) {
     console.error('Error sending WhatsApp notification:', error);

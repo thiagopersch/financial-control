@@ -2,12 +2,21 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useState } from 'react';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { ChartAltRenderer } from './chart-alt-renderer';
 import { ChartTypeSwitcher, type ChartVisualType } from './chart-type-switcher';
 
 interface SupplierChartProps {
-  data: { name: string; value: number }[];
+  data: { name: string; value: number; color?: string }[];
 }
 
 const currencyFormatter = (value: number) =>
@@ -67,7 +76,11 @@ export function SupplierChart({ data }: SupplierChartProps) {
                   }}
                   cursor={{ fill: '#f8fafc' }}
                 />
-                <Bar dataKey="value" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={16} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={16}>
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color || '#6366f1'} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -77,6 +90,7 @@ export function SupplierChart({ data }: SupplierChartProps) {
               series={[{ dataKey: 'value', name: 'Fornecedor', color: '#6366f1' }]}
               tooltipFormatter={currencyFormatter}
               axisFormatter={(v) => `R$${v}`}
+              pieColorKey="color"
             />
           )}
         </div>

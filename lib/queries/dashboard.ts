@@ -1,4 +1,5 @@
 import { authOptions } from '@/lib/auth-options';
+import { CHART_STATUS_COLORS, getCategoricalColor } from '@/lib/chart-colors';
 import prisma from '@/lib/prisma';
 import { Prisma, TransactionType } from '@prisma/client';
 import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
@@ -15,7 +16,10 @@ export async function getDashboardStats(start?: Date, end?: Date) {
     where: { workspaceId },
   });
 
-  const paidByAccount = allTransactions.filter((t) => t.status === 'PAID');
+  // Credit card purchases don't move cash out of an account until the invoice is
+  // paid — that payment is recorded as its own transaction (without creditCardId).
+  // Counting both would double-deduct the same expense from net worth.
+  const paidByAccount = allTransactions.filter((t) => t.status === 'PAID' && !t.creditCardId);
   const totalBalance = paidByAccount.reduce((acc, t) => {
     if (t.type === TransactionType.INCOME) return acc + Number(t.amount);
     if (t.type === TransactionType.EXPENSE) return acc - Number(t.amount);
@@ -411,9 +415,9 @@ export async function getStatusData(start?: Date, end?: Date) {
   });
 
   const statusLabels: Record<string, { label: string; color: string }> = {
-    PAID: { label: 'Pago', color: '#10b981' },
-    PENDING: { label: 'Pendente', color: '#f59e0b' },
-    OVERDUE: { label: 'Atrasado', color: '#ef4444' },
+    PAID: { label: 'Pago', color: CHART_STATUS_COLORS.PAID },
+    PENDING: { label: 'Pendente', color: CHART_STATUS_COLORS.PENDING },
+    OVERDUE: { label: 'Atrasado', color: CHART_STATUS_COLORS.OVERDUE },
   };
 
   return transactions.map((t) => ({
@@ -454,7 +458,8 @@ export async function getSupplierData(start?: Date, end?: Date) {
   return Object.entries(supplierMap)
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value)
-    .slice(0, 8);
+    .slice(0, 8)
+    .map((entry, index) => ({ ...entry, color: getCategoricalColor(index) }));
 }
 
 export async function getAvailableRange() {
@@ -492,6 +497,26 @@ export async function getTransactionCountsByYear() {
   transactions.forEach((t) => {
     const year = new Date(t.date).getFullYear().toString();
     counts[year] = (counts[year] || 0) + 1;
+  });
+
+  return counts;
+}
+
+/** Transaction counts keyed by `${year}-${MM}`, used to label months with real data. */
+export async function getTransactionCountsByMonth() {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error('Unauthorized');
+
+  const transactions = await prisma.transaction.findMany({
+    where: { workspaceId: session.user.workspaceId },
+    select: { date: true },
+  });
+
+  const counts: Record<string, number> = {};
+  transactions.forEach((t) => {
+    const date = new Date(t.date);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    counts[key] = (counts[key] || 0) + 1;
   });
 
   return counts;

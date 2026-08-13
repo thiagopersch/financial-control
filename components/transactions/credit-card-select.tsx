@@ -63,15 +63,12 @@ export function CreditCardSelect({
                 <Tooltip key={card.id}>
                   <TooltipTrigger asChild>
                     <span className="pointer-events-auto block">
-                      <SelectItem value={card.id} disabled>
-                        {label}
-                      </SelectItem>
+                      <SelectItem value={card.id}>{label}</SelectItem>
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
                     Limite do cartão {card.account.name} está esgotado (
-                    {formatCurrency(card.usedAmount)} de {formatCurrency(card.limit)} usados) — não
-                    é possível selecioná-lo para novas transações.
+                    {formatCurrency(card.usedAmount)} de {formatCurrency(card.limit)} usados).
                   </TooltipContent>
                 </Tooltip>
               );

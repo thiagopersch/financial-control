@@ -10,7 +10,6 @@ import { SummaryCard } from '@/components/dashboard/summary-card';
 import { SupplierChart } from '@/components/dashboard/supplier-chart';
 import { MonthSelector } from '@/components/month-selector';
 import {
-  getAvailableRange,
   getBudgetData,
   getCategoryData,
   getChartData,
@@ -21,6 +20,7 @@ import {
   getStatusData,
   getSummaryCount,
   getSupplierData,
+  getTransactionCountsByMonth,
   getTransactionCountsByYear,
 } from '@/lib/queries/dashboard';
 import { endOfMonth, parse, startOfMonth } from 'date-fns';
@@ -71,8 +71,8 @@ export default async function DashboardPage(props: {
   const budgets = await getBudgetData(selectedMonth.getMonth() + 1, selectedMonth.getFullYear());
   const goals = await getGoalsData();
   const recentTransactions = await getRecentTransactions(startDate, endDate);
-  const availableRange = await getAvailableRange();
   const transactionCounts = await getTransactionCountsByYear();
+  const monthCounts = await getTransactionCountsByMonth();
 
   const { goalsCount, budgetsCount, debtsCount } = await getSummaryCount(
     startDate,
@@ -89,8 +89,8 @@ export default async function DashboardPage(props: {
           <p className="text-muted-foreground">Visão geral das suas finanças</p>
         </div>
         <MonthSelector
-          availableRange={availableRange}
           transactionCounts={transactionCounts}
+          monthCounts={monthCounts}
           useNextYears
         />
       </div>

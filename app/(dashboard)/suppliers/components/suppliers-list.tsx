@@ -5,13 +5,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
+import { useCrudDialogState } from '@/hooks/use-crud-dialog-state';
+import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
 import { deleteSupplier } from '@/lib/actions/suppliers';
 import type { SupplierDTO } from '@/lib/queries/suppliers';
 import { formatDocument } from '@/lib/utils/document';
-import { showError, showSuccess } from '@/lib/utils/toast';
 import { SupplierPersonType } from '@prisma/client';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, MapPin, Phone } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { SuppliersForm } from './suppliers-form';
 import { SuppliersHeader } from './suppliers-header';
@@ -19,43 +21,40 @@ import { SuppliersHeader } from './suppliers-header';
 interface SuppliersListProps {
   suppliers: SupplierDTO[];
   onRefresh: () => void;
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }
 
-export function SuppliersList({ suppliers, onRefresh }: SuppliersListProps) {
-  const [selectedSupplier, setSelectedSupplier] = useState<SupplierDTO | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [supplierToDelete, setSupplierToDelete] = useState<string | null>(null);
+export function SuppliersList({
+  suppliers,
+  onRefresh,
+  totalCount,
+  page,
+  pageSize,
+}: SuppliersListProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
-  const handleDelete = (id: string) => {
-    setSupplierToDelete(id);
-    setIsDeleteOpen(true);
-  };
+  const {
+    selected: selectedSupplier,
+    isFormOpen,
+    openCreate,
+    openEdit,
+    close,
+  } = useCrudDialogState<SupplierDTO>();
 
-  const confirmDelete = async () => {
-    if (supplierToDelete) {
-      const result = await deleteSupplier(supplierToDelete);
-      if (result.success) {
-        showSuccess('Fornecedor excluído com sucesso');
-        onRefresh();
-      } else {
-        showError(result.error || 'Erro ao excluir fornecedor');
-      }
-      setIsDeleteOpen(false);
-      setSupplierToDelete(null);
-    }
-  };
-
-  const openCreate = () => {
-    setSelectedSupplier(null);
-    setIsFormOpen(true);
-  };
-
-  const openEdit = (supplier: SupplierDTO) => {
-    setSelectedSupplier(supplier);
-    setIsFormOpen(true);
-  };
+  const {
+    isOpen: isDeleteOpen,
+    requestDelete: handleDelete,
+    confirmDelete,
+    cancel: cancelDelete,
+  } = useDeleteConfirm(deleteSupplier, {
+    successMessage: 'Fornecedor excluído com sucesso',
+    errorMessage: 'Erro ao excluir fornecedor',
+    onSuccess: onRefresh,
+  });
 
   const columns: ColumnDef<SupplierDTO>[] = [
     {
@@ -133,6 +132,12 @@ export function SuppliersList({ suppliers, onRefresh }: SuppliersListProps) {
     },
   ];
 
+  const updateParam = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set(key, value);
+    router.push(`${window.location.pathname}?${params.toString()}`);
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <SuppliersHeader onCreate={openCreate} paginationSlotRef={setPaginationSlot} />
@@ -140,16 +145,28 @@ export function SuppliersList({ suppliers, onRefresh }: SuppliersListProps) {
         columns={columns}
         data={suppliers}
         emptyMessage="Nenhum fornecedor criado."
+        manualPagination={{
+          page,
+          pageSize,
+          totalCount,
+          onPageChange: (p) => updateParam('page', String(p)),
+          onPageSizeChange: (size) => {
+            const params = new URLSearchParams(searchParams);
+            params.set('pageSize', String(size));
+            params.set('page', '1');
+            router.push(`${window.location.pathname}?${params.toString()}`);
+          },
+        }}
         paginationSlot={paginationSlot}
       />
 
       <SuppliersForm
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
+        onClose={close}
         supplier={selectedSupplier}
         onSuccess={() => {
           onRefresh();
-          setIsFormOpen(false);
+          close();
         }}
       />
 
@@ -157,7 +174,7 @@ export function SuppliersList({ suppliers, onRefresh }: SuppliersListProps) {
         title="Excluir Fornecedor"
         description="Tem certeza que deseja excluir este fornecedor? Esta ação não pode ser desfeita."
         isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
+        onClose={cancelDelete}
         onConfirm={confirmDelete}
         confirmText="Excluir"
         cancelText="Cancelar"

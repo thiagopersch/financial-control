@@ -72,11 +72,20 @@ enum NotificationType {
   INVOICE_OVERDUE
   GOAL_PROGRESS
   DEBT_ALERT
+  DEBT_DUE_SOON
+  DEBT_OVERDUE
   RECURRING_REMINDER
+  TRANSACTION_DUE_SOON
+  TRANSACTION_OVERDUE
   ANOMALY_DETECTED
   CARD_LIMIT_WARNING
   CARD_LIMIT_EXCEEDED
   SYSTEM
+}
+
+enum NotificationChannel {
+  EMAIL
+  WHATSAPP
 }
 
 enum AlertLevel {
@@ -157,6 +166,7 @@ model Workspace {
   aiConversations       AIConversation[]
   auditLogs             AuditLog[]
   paymentMethods        PaymentMethod[]
+  notificationTemplates NotificationTemplate[]
 }
 
 model User {
@@ -170,12 +180,13 @@ model User {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  profile         Profile?
-  auditLogs       AuditLog[]
-  notifications   Notification[]
-  aiConversations AIConversation[]
-  createdRules    ConditionalRule[] @relation("RuleCreator")
-  createdReports  CustomReport[]    @relation("ReportCreator")
+  profile               Profile?
+  auditLogs             AuditLog[]
+  notifications         Notification[]
+  aiConversations       AIConversation[]
+  createdRules          ConditionalRule[]      @relation("RuleCreator")
+  createdReports        CustomReport[]         @relation("ReportCreator")
+  notificationTemplates NotificationTemplate[]
 }
 
 model Profile {
@@ -311,8 +322,9 @@ model Supplier {
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
-  transactions Transaction[]
-  debts        Debt[]
+  transactions          Transaction[]
+  debts                 Debt[]
+  scheduledTransactions ScheduledTransaction[]
 }
 
 model Transaction {
@@ -322,9 +334,12 @@ model Transaction {
   date        DateTime          @default(now())
   dueDate     DateTime?
   status      TransactionStatus @default(PENDING)
+  paidAt      DateTime?
   attachment  String?
   notes       String?
   description String?
+
+  autoMoveEnabled Boolean @default(false)
 
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
@@ -423,6 +438,9 @@ model ScheduledTransaction {
 
   paymentMethodId String?
   creditCardId    String?
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -667,6 +685,26 @@ model Notification {
 
   @@index([workspaceId, userId, isRead])
   @@index([createdAt])
+}
+
+model NotificationTemplate {
+  id           String              @id @default(cuid())
+  name         String
+  type         NotificationType    @default(SYSTEM)
+  channel      NotificationChannel @default(EMAIL)
+  subject      String              @default("")
+  bodyHtml     String              @default("")
+  bodyWhatsapp String              @default("")
+  imageUrl     String?
+  isActive     Boolean             @default(true)
+  workspaceId  String
+  workspace    Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([userId, type, isActive])
 }
 
 model AuditLog {

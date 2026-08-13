@@ -96,6 +96,9 @@ export function DebtFormPage({
       ? {
           name: debt.name,
           description: debt.description || '',
+          initialValue: debt.initialValue?.toString() || '',
+          currentValue: debt.currentValue ?? 0,
+          startDate: debt.startDate,
           dueDay: debt.dueDay?.toString() || '10',
           installments: debt.installments?.toString() || '',
           calculationType: debt.calculationType || 'TOTAL_DIVIDED',

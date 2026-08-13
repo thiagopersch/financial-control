@@ -3,15 +3,19 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
+import { ListPagination } from '@/components/ui/list-pagination';
 import { Progress } from '@/components/ui/progress';
+import { useCrudDialogState } from '@/hooks/use-crud-dialog-state';
+import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
 import { deleteCreditCard } from '@/lib/actions/credit-cards';
 import type { AccountDTO } from '@/lib/queries/accounts';
 import type { CreditCardDTO } from '@/lib/queries/credit-cards';
-import { showError, showSuccess } from '@/lib/utils/toast';
 import { CreditCard, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CreditCardsForm } from './credit-cards-form';
 import { CreditCardsHeader } from './credit-cards-header';
+
+const PAGE_SIZE = 10;
 
 interface CreditCardsListProps {
   creditCards: CreditCardDTO[];
@@ -30,46 +34,83 @@ export function CreditCardsList({
     setCreditCards(initialCreditCards);
   }, [initialCreditCards]);
 
-  const [selectedCard, setSelectedCard] = useState<CreditCardDTO | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [cardToDelete, setCardToDelete] = useState<string | null>(null);
+  const {
+    selected: selectedCard,
+    isFormOpen,
+    openCreate,
+    openEdit,
+    close,
+  } = useCrudDialogState<CreditCardDTO>();
 
-  const handleDelete = (id: string) => {
-    setCardToDelete(id);
-    setIsDeleteOpen(true);
+  const {
+    isOpen: isDeleteOpen,
+    requestDelete: handleDelete,
+    confirmDelete,
+    cancel: cancelDelete,
+  } = useDeleteConfirm(deleteCreditCard, {
+    successMessage: 'Cartão excluído com sucesso',
+    errorMessage: 'Erro ao excluir cartão',
+    onSuccess: (id) => setCreditCards((prev) => prev.filter((c) => c.id !== id)),
+  });
+
+  const [search, setSearch] = useState('');
+  const [accountFilter, setAccountFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
+
+  const accountOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    creditCards.forEach((card) => map.set(card.account.id, card.account.name));
+    return Array.from(map, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [creditCards]);
+
+  const filteredCreditCards = useMemo(() => {
+    return creditCards.filter((card) => {
+      const matchesSearch = card.account.name.toLowerCase().includes(search.toLowerCase());
+      const matchesAccount = accountFilter === 'all' || card.accountId === accountFilter;
+      return matchesSearch && matchesAccount;
+    });
+  }, [creditCards, search, accountFilter]);
+
+  const totalCount = filteredCreditCards.length;
+  const paginatedCreditCards = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredCreditCards.slice(start, start + pageSize);
+  }, [filteredCreditCards, page, pageSize]);
+
+  const searchParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (search) params.set('q', search);
+    return params;
+  }, [search]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
   };
 
-  const confirmDelete = async () => {
-    if (cardToDelete) {
-      const result = await deleteCreditCard(cardToDelete);
-      if (result.success) {
-        showSuccess('Cartão excluído com sucesso');
-        setCreditCards((prev) => prev.filter((c) => c.id !== cardToDelete));
-      } else {
-        showError(result.error || 'Erro ao excluir cartão');
-      }
-      setIsDeleteOpen(false);
-      setCardToDelete(null);
-    }
-  };
-
-  const openCreate = () => {
-    setSelectedCard(null);
-    setIsFormOpen(true);
-  };
-
-  const openEdit = (card: CreditCardDTO) => {
-    setSelectedCard(card);
-    setIsFormOpen(true);
+  const handleAccountFilterChange = (value: string) => {
+    setAccountFilter(value);
+    setPage(1);
   };
 
   return (
     <div className="space-y-6">
-      <CreditCardsHeader onCreate={openCreate} />
+      <CreditCardsHeader
+        searchParams={searchParams}
+        onSearch={handleSearchChange}
+        accountFilter={accountFilter}
+        onAccountFilterChange={handleAccountFilterChange}
+        accountOptions={accountOptions}
+        onCreate={openCreate}
+        paginationSlotRef={setPaginationSlot}
+      />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {creditCards.map((card) => (
+        {paginatedCreditCards.map((card) => (
           <Card
             key={card.id}
             className="cursor-pointer overflow-hidden rounded-tl-2xl rounded-bl-2xl border-l-4 transition-all ease-in-out hover:border-l-8 hover:shadow-md"
@@ -120,28 +161,44 @@ export function CreditCardsList({
           </Card>
         ))}
 
-        {creditCards.length === 0 && (
+        {paginatedCreditCards.length === 0 && (
           <div className="bg-muted/30 col-span-full flex flex-col items-center justify-center rounded-xl border-2 border-dashed py-12">
             <div className="bg-background mb-4 rounded-full p-4 shadow-sm">
               <Plus className="text-muted-foreground h-8 w-8" />
             </div>
             <h3 className="text-lg font-medium">Nenhum cartão encontrado</h3>
             <p className="text-muted-foreground mb-4 text-center">
-              Comece adicionando seu primeiro cartão.
+              {creditCards.length === 0
+                ? 'Comece adicionando seu primeiro cartão.'
+                : 'Nenhum cartão corresponde à busca ou filtro selecionado.'}
             </p>
-            <Button onClick={openCreate}>Adicionar Cartão</Button>
+            {creditCards.length === 0 && <Button onClick={openCreate}>Adicionar Cartão</Button>}
           </div>
         )}
       </div>
 
+      {totalCount > 0 && (
+        <ListPagination
+          page={page}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          paginationSlot={paginationSlot}
+        />
+      )}
+
       <CreditCardsForm
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
+        onClose={close}
         creditCard={selectedCard}
         accounts={accounts}
         onSuccess={() => {
           onRefresh?.();
-          setIsFormOpen(false);
+          close();
         }}
       />
 
@@ -149,7 +206,7 @@ export function CreditCardsList({
         title="Excluir Cartão de Crédito"
         description="Tem certeza que deseja excluir este cartão? Esta ação não pode ser desfeita."
         isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
+        onClose={cancelDelete}
         onConfirm={confirmDelete}
         confirmText="Excluir"
         cancelText="Cancelar"

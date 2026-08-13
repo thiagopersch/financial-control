@@ -38,7 +38,11 @@ const createNotificationSchema = z.object({
     'INVOICE_OVERDUE',
     'GOAL_PROGRESS',
     'DEBT_ALERT',
+    'DEBT_DUE_SOON',
+    'DEBT_OVERDUE',
     'RECURRING_REMINDER',
+    'TRANSACTION_DUE_SOON',
+    'TRANSACTION_OVERDUE',
     'ANOMALY_DETECTED',
     'CARD_LIMIT_WARNING',
     'CARD_LIMIT_EXCEEDED',
@@ -73,8 +77,10 @@ export async function createNotification(data: z.infer<typeof createNotification
     await deliverNotification({
       userId: notification.userId,
       workspaceId: notification.workspaceId,
+      type: notification.type,
       title: notification.title,
       message: notification.message,
+      metadata: notification.metadata as Record<string, unknown> | null,
     });
 
     return { success: true, data: notification };
@@ -104,8 +110,10 @@ export async function createBulkNotifications(
         deliverNotification({
           userId: n.userId || session.user.id,
           workspaceId: session.user.workspaceId,
+          type: n.type,
           title: n.title,
           message: n.message,
+          metadata: n.metadata as Record<string, unknown> | null,
         }),
       ),
     );
@@ -755,19 +763,44 @@ export async function checkCreditCardLimitAlerts(session: Session) {
 
       if (existing) continue;
 
+      const available = Math.max(limit - used, 0);
+
+      const cardTransactions = await prisma.transaction.findMany({
+        where: { creditCardId: card.id, type: 'EXPENSE' },
+        include: { category: true },
+        orderBy: { date: 'desc' },
+        take: 30,
+      });
+      const categoryTotals = new Map<string, number>();
+      for (const t of cardTransactions) {
+        const name = t.category?.name || 'Outros';
+        categoryTotals.set(name, (categoryTotals.get(name) || 0) + Number(t.amount));
+      }
+      const topCategory = [...categoryTotals.entries()].sort((a, b) => b[1] - a[1])[0];
+
+      const detail = topCategory
+        ? ` A categoria que mais contribuiu foi "${topCategory[0]}" (R$ ${topCategory[1].toFixed(2)}).`
+        : '';
+
       notifications.push({
         type,
         title: isExceeded ? 'Limite do Cartão Estourado!' : 'Atenção: Cartão Perto do Limite!',
         message: isExceeded
-          ? `O cartão ${card.account.name} estourou o limite. Usado R$ ${used.toFixed(2)} de R$ ${limit.toFixed(2)}`
-          : `O cartão ${card.account.name} já usou ${percentage.toFixed(0)}% do limite. Disponível R$ ${(limit - used).toFixed(2)}`,
+          ? `O cartão ${card.account.name} estourou o limite. Usado R$ ${used.toFixed(2)} de R$ ${limit.toFixed(2)}.${detail}`
+          : `O cartão ${card.account.name} já usou ${percentage.toFixed(0)}% do limite. Disponível R$ ${available.toFixed(2)} de R$ ${limit.toFixed(2)}.${detail}`,
         level: isExceeded ? AlertLevel.CRITICAL : AlertLevel.WARNING,
         metadata: {
           creditCardId: card.id,
           accountId: card.accountId,
+          cardName: card.account.name,
           used,
           limit,
+          available,
           percentage,
+          topCategory: topCategory?.[0] ?? null,
+          topCategoryAmount: topCategory?.[1] ?? null,
+          closingDay: card.closingDay,
+          dueDay: card.dueDay,
         },
       });
     }
@@ -810,6 +843,7 @@ export async function notifyAutomationResult(input: {
     await deliverNotification({
       userId: notification.userId,
       workspaceId: notification.workspaceId,
+      type: notification.type,
       title: notification.title,
       message: notification.message,
     });

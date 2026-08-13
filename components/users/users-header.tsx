@@ -1,33 +1,33 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
-import { useState } from 'react';
-import { UserModal } from './user-modal';
+import { ListPageHeader } from '@/components/ui/list-page-header';
 
 interface UsersHeaderProps {
-  userRole?: string;
+  canCreate: boolean;
+  onCreate: () => void;
+  searchParams: URLSearchParams;
+  onSearch: (value: string) => void;
+  paginationSlotRef?: (node: HTMLDivElement | null) => void;
 }
 
-export function UsersHeader({ userRole }: UsersHeaderProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const canModify = userRole !== 'VIEWER';
-
+export function UsersHeader({
+  canCreate,
+  onCreate,
+  searchParams,
+  onSearch,
+  paginationSlotRef,
+}: UsersHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-          Usuários
-        </h1>
-        <p className="text-muted-foreground">Gerencie os acessos e permissões do sistema.</p>
-      </div>
-      {canModify && (
-        <Button onClick={() => setIsOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Usuário
-        </Button>
-      )}
-      <UserModal isOpen={isOpen} onClose={() => setIsOpen(false)} />
-    </div>
+    <ListPageHeader
+      title="Usuários"
+      description="Gerencie os acessos e permissões do sistema."
+      searchParams={searchParams}
+      onSearch={onSearch}
+      showFilterToggle={false}
+      canCreate={canCreate}
+      createLabel="Novo Usuário"
+      onCreate={onCreate}
+      paginationSlotRef={paginationSlotRef}
+    />
   );
 }

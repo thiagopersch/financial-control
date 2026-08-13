@@ -92,13 +92,6 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
         creditCardId: validated.creditCardId ?? null,
       });
 
-      if (validated.installments && validated.installments > 0 && validated.creditCardId) {
-        await tx.creditCard.update({
-          where: { id: validated.creditCardId },
-          data: { usedAmount: { increment: validated.initialValue } },
-        });
-      }
-
       return newDebt;
     });
 
@@ -192,30 +185,6 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
         creditCardId,
       });
 
-      if (installmentsTotal && installmentsTotal > 0) {
-        if (existingDebt.creditCardId !== creditCardId) {
-          if (existingDebt.creditCardId) {
-            await tx.creditCard.update({
-              where: { id: existingDebt.creditCardId },
-              data: { usedAmount: { decrement: Number(existingDebt.initialValue) } },
-            });
-          }
-          if (creditCardId) {
-            await tx.creditCard.update({
-              where: { id: creditCardId },
-              data: { usedAmount: { increment: initialValue } },
-            });
-          }
-        } else if (creditCardId && initialValue !== Number(existingDebt.initialValue)) {
-          await tx.creditCard.update({
-            where: { id: creditCardId },
-            data: {
-              usedAmount: { increment: initialValue - Number(existingDebt.initialValue) },
-            },
-          });
-        }
-      }
-
       return updatedDebt;
     });
 
@@ -254,6 +223,15 @@ export async function deleteDebt(id: string) {
 
     await prisma.$transaction(async (tx) => {
       if (transactions.length > 0) {
+        for (const t of transactions) {
+          if (t.creditCardId) {
+            await tx.creditCard.update({
+              where: { id: t.creditCardId },
+              data: { usedAmount: { decrement: Number(t.amount) } },
+            });
+          }
+        }
+
         await tx.transaction.deleteMany({
           where: { id: { in: transactions.map((t) => t.id) } },
         });

@@ -8,9 +8,16 @@ const ID_FIELD_TO_MODEL: Record<string, string> = {
   accountId: 'account',
   fromAccountId: 'account',
   toAccountId: 'account',
+  paymentAccountId: 'account',
   supplierId: 'supplier',
   costCenterId: 'costCenter',
   parentTransactionId: 'transaction',
+  transactionId: 'transaction',
+  paymentMethodId: 'paymentMethod',
+  creditCardId: 'creditCard',
+  goalId: 'goal',
+  budgetId: 'budget',
+  debtId: 'debt',
 };
 
 const ENTITY_TO_MODEL: Record<string, string> = {
@@ -23,9 +30,45 @@ const ENTITY_TO_MODEL: Record<string, string> = {
   User: 'user',
   ConditionalRule: 'conditionalRule',
   Transaction: 'transaction',
+  PaymentMethod: 'paymentMethod',
+  CreditCard: 'creditCard',
+  Invoice: 'invoice',
+  Budget: 'budget',
 };
 
-async function resolveNames(logs: { entity: string; entityId: string | null; oldValue: any; newValue: any }[]) {
+// Models whose display name isn't a plain `name` (or `description`) column —
+// built from a related record instead so the audit UI never falls back to a raw id.
+const CUSTOM_NAME_RESOLVERS: Record<string, (ids: string[]) => Promise<Record<string, string>>> = {
+  creditCard: async (ids) => {
+    const rows = await prisma.creditCard.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, account: { select: { name: true } } },
+    });
+    return Object.fromEntries(rows.map((r) => [r.id, `Cartão ${r.account.name}`]));
+  },
+  invoice: async (ids) => {
+    const rows = await prisma.invoice.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, month: true, year: true, creditCard: { include: { account: true } } },
+    });
+    return Object.fromEntries(
+      rows.map((r) => [r.id, `Fatura ${r.month}/${r.year} - ${r.creditCard.account.name}`]),
+    );
+  },
+  budget: async (ids) => {
+    const rows = await prisma.budget.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, month: true, year: true, category: { select: { name: true } } },
+    });
+    return Object.fromEntries(
+      rows.map((r) => [r.id, `Orçamento ${r.category.name} ${r.month}/${r.year}`]),
+    );
+  },
+};
+
+async function resolveNames(
+  logs: { entity: string; entityId: string | null; oldValue: any; newValue: any }[],
+) {
   const idsByModel: Record<string, Set<string>> = {};
 
   const addId = (model: string | undefined, id: unknown) => {
@@ -48,11 +91,24 @@ async function resolveNames(logs: { entity: string; entityId: string | null; old
 
   await Promise.all(
     Object.entries(idsByModel).map(async ([model, ids]) => {
+      if (ids.size === 0) return;
+      const idList = Array.from(ids);
+
+      const customResolver = CUSTOM_NAME_RESOLVERS[model];
+      if (customResolver) {
+        try {
+          Object.assign(names, await customResolver(idList));
+        } catch {
+          // Referenced record may have been deleted since — leave it unresolved.
+        }
+        return;
+      }
+
       const delegate = (prisma as any)[model];
-      if (!delegate || ids.size === 0) return;
+      if (!delegate) return;
       const nameField = model === 'transaction' ? 'description' : 'name';
       const rows = await delegate.findMany({
-        where: { id: { in: Array.from(ids) } },
+        where: { id: { in: idList } },
         select: { id: true, [nameField]: true },
       });
       for (const row of rows) {
@@ -97,10 +153,15 @@ export async function GET(request: NextRequest) {
     const [logs, total] = await Promise.all([
       prisma.auditLog.findMany({
         where,
-        include: {
+        select: {
+          action: true,
+          entity: true,
+          entityId: true,
+          oldValue: true,
+          newValue: true,
+          createdAt: true,
           user: {
             select: {
-              id: true,
               name: true,
               email: true,
             },

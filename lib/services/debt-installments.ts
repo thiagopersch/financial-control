@@ -150,14 +150,53 @@ export async function syncDebtInstallments(
 
     const existingRow = unpaid[i];
     if (existingRow) {
+      const oldCreditCardId = existingRow.creditCardId;
+      const oldAmount = Number(existingRow.amount);
+      const newCreditCardId = data.creditCardId;
+      const newAmount = data.amount;
+
+      if (oldCreditCardId !== newCreditCardId) {
+        if (oldCreditCardId) {
+          await tx.creditCard.update({
+            where: { id: oldCreditCardId },
+            data: { usedAmount: { decrement: oldAmount } },
+          });
+        }
+        if (newCreditCardId) {
+          await tx.creditCard.update({
+            where: { id: newCreditCardId },
+            data: { usedAmount: { increment: newAmount } },
+          });
+        }
+      } else if (newCreditCardId && oldAmount !== newAmount) {
+        await tx.creditCard.update({
+          where: { id: newCreditCardId },
+          data: { usedAmount: { increment: newAmount - oldAmount } },
+        });
+      }
+
       await tx.transaction.update({ where: { id: existingRow.id }, data });
     } else {
+      if (data.creditCardId) {
+        await tx.creditCard.update({
+          where: { id: data.creditCardId },
+          data: { usedAmount: { increment: data.amount } },
+        });
+      }
       await tx.transaction.create({ data });
     }
   }
 
   if (unpaid.length > remainingNeeded) {
-    const toDelete = unpaid.slice(remainingNeeded).map((t) => t.id);
-    await tx.transaction.deleteMany({ where: { id: { in: toDelete } } });
+    const toDelete = unpaid.slice(remainingNeeded);
+    for (const t of toDelete) {
+      if (t.creditCardId) {
+        await tx.creditCard.update({
+          where: { id: t.creditCardId },
+          data: { usedAmount: { decrement: Number(t.amount) } },
+        });
+      }
+    }
+    await tx.transaction.deleteMany({ where: { id: { in: toDelete.map((t) => t.id) } } });
   }
 }

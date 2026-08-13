@@ -108,8 +108,110 @@ async function executeAction(action: RuleAction, transaction: TransactionWithRel
       }
       break;
     }
+    case 'REMOVE_TAG': {
+      const tag = await prisma.tag.findFirst({
+        where: {
+          workspaceId: transaction.workspaceId,
+          name: { equals: action.value, mode: 'insensitive' },
+        },
+      });
+      if (tag) {
+        await prisma.transaction.update({
+          where: { id: transaction.id },
+          data: { tags: { disconnect: { id: tag.id } } },
+        });
+      }
+      break;
+    }
+    case 'SET_ACCOUNT': {
+      const account = await prisma.account.findFirst({
+        where: {
+          workspaceId: transaction.workspaceId,
+          name: { equals: action.value, mode: 'insensitive' },
+        },
+      });
+      if (account) {
+        await prisma.transaction.update({
+          where: { id: transaction.id },
+          data: { accountId: account.id },
+        });
+      }
+      break;
+    }
+    case 'SET_PAYMENT_METHOD': {
+      const paymentMethod = await prisma.paymentMethod.findFirst({
+        where: {
+          workspaceId: transaction.workspaceId,
+          name: { equals: action.value, mode: 'insensitive' },
+        },
+      });
+      if (paymentMethod) {
+        await prisma.transaction.update({
+          where: { id: transaction.id },
+          data: { paymentMethodId: paymentMethod.id },
+        });
+      }
+      break;
+    }
+    case 'SET_SUPPLIER': {
+      const supplier = await prisma.supplier.findFirst({
+        where: {
+          workspaceId: transaction.workspaceId,
+          name: { equals: action.value, mode: 'insensitive' },
+        },
+      });
+      if (supplier) {
+        await prisma.transaction.update({
+          where: { id: transaction.id },
+          data: { supplierId: supplier.id },
+        });
+      }
+      break;
+    }
     case 'NOTIFY': {
       const { createNotification } = await import('@/lib/actions/notifications');
+
+      const templateId = action.value?.startsWith('template:')
+        ? action.value.slice('template:'.length)
+        : null;
+      const template = templateId
+        ? await prisma.notificationTemplate.findFirst({
+            where: { id: templateId, workspaceId: transaction.workspaceId, isActive: true },
+          })
+        : null;
+
+      if (template) {
+        const vars: Record<string, unknown> = {
+          amount: transaction.amount.toFixed(2),
+          category: transaction.category.name,
+          description: transaction.description || '',
+        };
+        const interpolate = (text: string) =>
+          text.replace(/\{\{(\w+)\}\}/g, (_match, key) => String(vars[key] ?? ''));
+        const stripHtml = (html: string) =>
+          html
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const title =
+          template.channel === 'WHATSAPP' ? template.name : interpolate(template.subject);
+        const message =
+          template.channel === 'WHATSAPP'
+            ? stripHtml(interpolate(template.bodyWhatsapp))
+            : stripHtml(interpolate(template.bodyHtml));
+
+        await createNotification({
+          type: template.type,
+          title,
+          message,
+          level: 'INFO',
+          link: '/transactions',
+          metadata: { transactionId: transaction.id, ...vars },
+        });
+        break;
+      }
+
       await createNotification({
         type: 'SYSTEM',
         title: 'Regra de automação disparada',

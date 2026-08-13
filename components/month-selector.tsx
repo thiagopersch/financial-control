@@ -11,11 +11,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 
 interface MonthSelectorProps {
-  availableRange?: {
-    minDate: Date | string | null;
-    maxDate: Date | string | null;
-  };
   transactionCounts?: Record<string, number>;
+  monthCounts?: Record<string, number>;
   useNextYears?: boolean;
 }
 
@@ -35,8 +32,8 @@ const MONTHS = [
 ];
 
 export function MonthSelector({
-  availableRange,
   transactionCounts,
+  monthCounts,
   useNextYears = false,
 }: MonthSelectorProps) {
   const router = useRouter();
@@ -56,17 +53,13 @@ export function MonthSelector({
       return result;
     }
 
-    const minDate = availableRange?.minDate
-      ? new Date(availableRange.minDate)
-      : new Date(currentYear - 5, 0, 1);
-    const maxDate = availableRange?.maxDate ? new Date(availableRange.maxDate) : new Date();
+    const yearsWithData = Object.keys(transactionCounts || {})
+      .map(Number)
+      .filter((year) => !Number.isNaN(year))
+      .sort((a, b) => a - b);
 
-    const result: number[] = [];
-    for (let year = minDate.getFullYear(); year <= maxDate.getFullYear(); year++) {
-      result.push(year);
-    }
-    return result;
-  }, [availableRange, useNextYears, currentYear]);
+    return yearsWithData.length > 0 ? yearsWithData : [currentYear];
+  }, [transactionCounts, useNextYears, currentYear]);
 
   const yearParam = searchParams.get('year');
   const monthParam = searchParams.get('month');
@@ -157,11 +150,14 @@ export function MonthSelector({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Todos os meses</SelectItem>
-          {MONTHS.map((month) => (
-            <SelectItem key={month.value} value={month.value}>
-              {month.label}
-            </SelectItem>
-          ))}
+          {MONTHS.map((month) => {
+            const count = monthCounts?.[`${selectedYear}-${month.value}`];
+            return (
+              <SelectItem key={month.value} value={month.value}>
+                {count ? `${month.label} • ${count} transações` : month.label}
+              </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
     </div>

@@ -4,12 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
+import { useCrudDialogState } from '@/hooks/use-crud-dialog-state';
+import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
 import { deletePaymentMethod } from '@/lib/actions/payment-methods';
 import type { AccountDTO } from '@/lib/queries/accounts';
 import type { PaymentMethodDTO } from '@/lib/queries/payment-methods';
-import { showError, showSuccess } from '@/lib/utils/toast';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, Edit, Trash2, Wallet } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { PaymentMethodsForm } from './payment-methods-form';
 import { PaymentMethodsHeader } from './payment-methods-header';
@@ -17,47 +19,47 @@ import { PaymentMethodsHeader } from './payment-methods-header';
 interface PaymentMethodsListProps {
   paymentMethods: PaymentMethodDTO[];
   accounts: AccountDTO[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
   onRefresh: () => void;
 }
 
 export function PaymentMethodsList({
   paymentMethods,
   accounts,
+  totalCount,
+  page,
+  pageSize,
   onRefresh,
 }: PaymentMethodsListProps) {
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodDTO | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [paymentMethodToDelete, setPaymentMethodToDelete] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
-  const handleDelete = (id: string) => {
-    setPaymentMethodToDelete(id);
-    setIsDeleteOpen(true);
-  };
+  const {
+    selected: selectedPaymentMethod,
+    isFormOpen,
+    openCreate,
+    openEdit,
+    close,
+  } = useCrudDialogState<PaymentMethodDTO>();
 
-  const confirmDelete = async () => {
-    if (paymentMethodToDelete) {
-      const result = await deletePaymentMethod(paymentMethodToDelete);
-      if (result.success) {
-        showSuccess('Meio de pagamento excluído com sucesso');
-        onRefresh();
-      } else {
-        showError(result.error || 'Erro ao excluir meio de pagamento');
-      }
-      setIsDeleteOpen(false);
-      setPaymentMethodToDelete(null);
-    }
-  };
+  const {
+    isOpen: isDeleteOpen,
+    requestDelete: handleDelete,
+    confirmDelete,
+    cancel: cancelDelete,
+  } = useDeleteConfirm(deletePaymentMethod, {
+    successMessage: 'Meio de pagamento excluído com sucesso',
+    errorMessage: 'Erro ao excluir meio de pagamento',
+    onSuccess: onRefresh,
+  });
 
-  const openCreate = () => {
-    setSelectedPaymentMethod(null);
-    setIsFormOpen(true);
-  };
-
-  const openEdit = (paymentMethod: PaymentMethodDTO) => {
-    setSelectedPaymentMethod(paymentMethod);
-    setIsFormOpen(true);
+  const updateParam = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set(key, value);
+    router.push(`${window.location.pathname}?${params.toString()}`);
   };
 
   const columns: ColumnDef<PaymentMethodDTO>[] = [
@@ -90,11 +92,7 @@ export function PaymentMethodsList({
         row.original.accounts.length > 0 ? (
           <div className="flex flex-wrap gap-1">
             {row.original.accounts.map((account) => (
-              <Badge
-                key={account.id}
-                variant="secondary"
-                className="gap-1.5 font-normal"
-              >
+              <Badge key={account.id} variant="secondary" className="gap-1.5 font-normal">
                 <span
                   className="h-2 w-2 shrink-0 rounded-full"
                   style={{ backgroundColor: account.color || '#000000' }}
@@ -137,7 +135,7 @@ export function PaymentMethodsList({
     <div className="flex flex-col gap-4">
       <PaymentMethodsHeader onCreate={openCreate} paginationSlotRef={setPaginationSlot} />
 
-      {paymentMethods.length === 0 ? (
+      {totalCount === 0 ? (
         <div className="bg-muted/30 flex flex-col items-center justify-center rounded-xl border-2 border-dashed py-12">
           <div className="bg-background mb-4 rounded-full p-4 shadow-sm">
             <Wallet className="text-muted-foreground h-8 w-8" />
@@ -152,19 +150,31 @@ export function PaymentMethodsList({
         <DataTable
           columns={columns}
           data={paymentMethods}
-          emptyMessage="Nenhum meio de pagamento criado."
+          emptyMessage="Nenhum meio de pagamento encontrado."
+          manualPagination={{
+            page,
+            pageSize,
+            totalCount,
+            onPageChange: (p) => updateParam('page', String(p)),
+            onPageSizeChange: (size) => {
+              const params = new URLSearchParams(searchParams);
+              params.set('pageSize', String(size));
+              params.set('page', '1');
+              router.push(`${window.location.pathname}?${params.toString()}`);
+            },
+          }}
           paginationSlot={paginationSlot}
         />
       )}
 
       <PaymentMethodsForm
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
+        onClose={close}
         paymentMethod={selectedPaymentMethod}
         accounts={accounts}
         onSuccess={() => {
           onRefresh();
-          setIsFormOpen(false);
+          close();
         }}
       />
 
@@ -172,7 +182,7 @@ export function PaymentMethodsList({
         title="Excluir Meio de Pagamento"
         description="Tem certeza que deseja excluir este meio de pagamento? Esta ação não pode ser desfeita."
         isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
+        onClose={cancelDelete}
         onConfirm={confirmDelete}
         confirmText="Excluir"
         cancelText="Cancelar"

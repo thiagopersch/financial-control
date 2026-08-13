@@ -11,10 +11,23 @@ import { createAuditLog } from '@/lib/services/audit';
 import { matchCategorizationRule } from '@/lib/services/categorization';
 import { applyConditionalRules } from '@/lib/services/conditional-rules';
 import { TransactionStatus, TransactionType } from '@prisma/client';
-import { addMonths } from 'date-fns';
+import { addMonths, startOfMonth } from 'date-fns';
 import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
+
+function moveDateToCurrentMonth(original: Date, now: Date): Date {
+  const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const clampedDay = Math.min(original.getDate(), daysInCurrentMonth);
+  return new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    clampedDay,
+    original.getHours(),
+    original.getMinutes(),
+    original.getSeconds(),
+  );
+}
 
 const transactionSchema = z.object({
   description: z.string().min(1, 'Nome é obrigatório').max(100, 'Máximo de 100 caracteres'),
@@ -23,6 +36,7 @@ const transactionSchema = z.object({
   date: z.coerce.date(),
   dueDate: z.coerce.date().nullable().optional(),
   status: z.enum(TransactionStatus),
+  paidAt: z.coerce.date().nullable().optional(),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
   accountId: z.string().min(1, 'Conta é obrigatória'),
   paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
@@ -33,6 +47,7 @@ const transactionSchema = z.object({
   isRecurring: z.boolean().default(false),
   recurrenceType: z.enum(['CONTINUOUS', 'INSTALLMENTS']).nullable().optional(),
   installments: z.coerce.number().min(1).nullable().optional(),
+  autoMoveEnabled: z.boolean().default(false),
 });
 
 export async function createTransaction(data: z.infer<typeof transactionSchema>) {
@@ -70,6 +85,8 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
             date: validated.date,
             dueDate: validated.dueDate,
             status: validated.status,
+            paidAt: validated.paidAt,
+            autoMoveEnabled: validated.autoMoveEnabled,
             categoryId: validated.categoryId,
             accountId: validated.accountId,
             paymentMethodId: validated.paymentMethodId,
@@ -170,6 +187,8 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
           date: validated.date,
           dueDate: validated.dueDate,
           status: validated.status,
+          paidAt: validated.paidAt,
+          autoMoveEnabled: validated.autoMoveEnabled,
           categoryId: validated.categoryId,
           accountId: validated.accountId,
           paymentMethodId: validated.paymentMethodId,
@@ -276,6 +295,8 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
           date: validated.date,
           dueDate: validated.dueDate,
           status: validated.status,
+          paidAt: validated.paidAt,
+          autoMoveEnabled: validated.autoMoveEnabled,
           categoryId: validated.categoryId,
           accountId: validated.accountId,
           paymentMethodId: validated.paymentMethodId,
@@ -314,6 +335,24 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
           where: { id: validated.creditCardId },
           data: { usedAmount: { increment: newCardUsage - oldCardUsage } },
         });
+      }
+
+      // Debt installments charged to a credit card never go through the invoice
+      // flow, so toggling their paid status is what frees/reserves the limit.
+      if (updated.debtId && updated.creditCardId && updated.type === TransactionType.EXPENSE) {
+        const wasPaid = oldTransaction.status === TransactionStatus.PAID;
+        const isPaid = updated.status === TransactionStatus.PAID;
+        if (!wasPaid && isPaid) {
+          await tx.creditCard.update({
+            where: { id: updated.creditCardId },
+            data: { usedAmount: { decrement: Number(updated.amount) } },
+          });
+        } else if (wasPaid && !isPaid) {
+          await tx.creditCard.update({
+            where: { id: updated.creditCardId },
+            data: { usedAmount: { increment: Number(updated.amount) } },
+          });
+        }
       }
 
       if (validated.status === TransactionStatus.PAID) {
@@ -383,7 +422,174 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
   }
 }
 
-export async function deleteTransaction(id: string) {
+export async function markTransactionAsPaid(id: string) {
+  const session = await getServerSession(authOptions);
+  if (!session) return { success: false, error: 'Não autorizado' };
+
+  try {
+    const transaction = await prisma.transaction.findUnique({
+      where: { id, workspaceId: session.user.workspaceId },
+    });
+    if (!transaction) return { success: false, error: 'Transação não encontrada' };
+
+    const now = new Date();
+    const isPastMonth = transaction.date < startOfMonth(now);
+
+    const newDate = isPastMonth ? moveDateToCurrentMonth(transaction.date, now) : transaction.date;
+    const newDueDate = isPastMonth
+      ? transaction.dueDate
+        ? moveDateToCurrentMonth(transaction.dueDate, now)
+        : null
+      : transaction.dueDate;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.transaction.update({
+        where: { id },
+        data: {
+          status: TransactionStatus.PAID,
+          paidAt: now,
+          date: newDate,
+          dueDate: newDueDate,
+        },
+      });
+
+      // Debt installments charged to a credit card never go through the invoice
+      // flow (their accountId is the debt's payment account, not the card's own
+      // account, so generateInvoices/payInvoice never sees them) — settling one
+      // here is the only place that can free up the limit it reserved.
+      if (
+        u.debtId &&
+        u.creditCardId &&
+        u.type === TransactionType.EXPENSE &&
+        transaction.status !== TransactionStatus.PAID
+      ) {
+        await tx.creditCard.update({
+          where: { id: u.creditCardId },
+          data: { usedAmount: { decrement: Number(u.amount) } },
+        });
+      }
+
+      if (u.debtId) {
+        const debt = await tx.debt.findUnique({ where: { id: u.debtId } });
+        if (debt) {
+          const paidTransactions = await tx.transaction.findMany({
+            where: { debtId: u.debtId, status: TransactionStatus.PAID },
+          });
+          const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+          await tx.debt.update({
+            where: { id: u.debtId },
+            data: {
+              currentValue: Number(debt.initialValue) - totalPaid,
+              isActive: Number(debt.initialValue) - totalPaid > 0,
+            },
+          });
+        }
+      }
+
+      return u;
+    });
+
+    await createAuditLog({
+      action: isPastMonth ? 'MARK_PAID_AND_MOVE_TO_CURRENT_MONTH' : 'MARK_PAID',
+      entity: 'Transaction',
+      entityId: id,
+      oldValue: {
+        status: transaction.status,
+        date: transaction.date,
+        dueDate: transaction.dueDate,
+      },
+      newValue: {
+        status: updated.status,
+        date: updated.date,
+        dueDate: updated.dueDate,
+        paidAt: updated.paidAt,
+      },
+    });
+
+    if (transaction.status !== updated.status) {
+      const category = await prisma.category.findUnique({ where: { id: updated.categoryId } });
+      await notifyTransactionStatusChange({
+        id: updated.id,
+        description: updated.description,
+        amount: Number(updated.amount),
+        categoryName: category?.name || '',
+        oldStatus: transaction.status,
+        newStatus: updated.status,
+        dueDate: updated.dueDate || updated.date,
+        isRecurring: updated.isRecurring,
+        debtId: updated.debtId,
+      });
+    }
+
+    revalidatePath('/transactions');
+    revalidatePath('/dashboard');
+    revalidatePath('/debts');
+    return { success: true, movedToCurrentMonth: isPastMonth };
+  } catch (error) {
+    console.error('Error marking transaction as paid:', error);
+    return { success: false, error: 'Erro ao marcar transação como paga' };
+  }
+}
+
+export async function autoMoveOverdueTransactions() {
+  const session = await getServerSession(authOptions);
+  if (!session) return;
+
+  try {
+    const now = new Date();
+    const candidates = await prisma.transaction.findMany({
+      where: {
+        workspaceId: session.user.workspaceId,
+        autoMoveEnabled: true,
+        status: { in: [TransactionStatus.PENDING, TransactionStatus.OVERDUE] },
+        date: { lt: startOfMonth(now) },
+      },
+    });
+
+    for (const t of candidates) {
+      const newDate = moveDateToCurrentMonth(t.date, now);
+      const newDueDate = t.dueDate ? moveDateToCurrentMonth(t.dueDate, now) : null;
+
+      await prisma.transaction.update({
+        where: { id: t.id },
+        data: {
+          date: newDate,
+          dueDate: newDueDate,
+          status: TransactionStatus.OVERDUE,
+        },
+      });
+
+      await createAuditLog({
+        action: 'AUTO_MOVE_TO_CURRENT_MONTH',
+        entity: 'Transaction',
+        entityId: t.id,
+        oldValue: { date: t.date, dueDate: t.dueDate, status: t.status },
+        newValue: { date: newDate, dueDate: newDueDate, status: TransactionStatus.OVERDUE },
+      });
+    }
+  } catch (error) {
+    console.error('Error auto-moving overdue transactions:', error);
+  }
+}
+
+export async function toggleTransactionAutoMove(id: string, autoMoveEnabled: boolean) {
+  const session = await getServerSession(authOptions);
+  if (!session) return { success: false, error: 'Não autorizado' };
+
+  try {
+    await prisma.transaction.update({
+      where: { id, workspaceId: session.user.workspaceId },
+      data: { autoMoveEnabled },
+    });
+    revalidatePath('/transactions');
+    return { success: true };
+  } catch (error) {
+    console.error('Error toggling transaction auto-move:', error);
+    return { success: false, error: 'Erro ao atualizar transação' };
+  }
+}
+
+export async function deleteTransaction(id: string, deleteSeries = false) {
   const session = await getServerSession(authOptions);
   if (!session) return { success: false, error: 'Não autorizado' };
 
@@ -393,6 +599,61 @@ export async function deleteTransaction(id: string) {
     });
 
     if (!transaction) return { success: false, error: 'Transação não encontrada' };
+
+    if (deleteSeries && transaction.isRecurring) {
+      const seriesRootId = transaction.parentTransactionId || transaction.id;
+      const seriesTransactions = await prisma.transaction.findMany({
+        where: {
+          workspaceId: session.user.workspaceId,
+          OR: [{ id: seriesRootId }, { parentTransactionId: seriesRootId }],
+        },
+      });
+
+      // A transação pode ter sido gerada a partir de uma dívida (parcelas) — nesse caso,
+      // a dívida precisa refletir a exclusão (valor atual, status e nº de parcelas restantes).
+      const debtId = transaction.debtId;
+
+      await prisma.$transaction(async (tx) => {
+        for (const t of seriesTransactions) {
+          if (t.creditCardId && t.type === TransactionType.EXPENSE) {
+            await tx.creditCard.update({
+              where: { id: t.creditCardId },
+              data: { usedAmount: { decrement: Number(t.amount) } },
+            });
+          }
+        }
+
+        await tx.transaction.deleteMany({
+          where: { id: { in: seriesTransactions.map((t) => t.id) } },
+        });
+
+        if (debtId) {
+          const remainingInstallments = await tx.transaction.count({ where: { debtId } });
+          await tx.debt.update({
+            where: { id: debtId },
+            data: { installments: remainingInstallments },
+          });
+        }
+      });
+
+      if (debtId) {
+        const { syncDebtCurrentValue } = await import('@/lib/actions/debts');
+        await syncDebtCurrentValue(debtId);
+      }
+
+      await createAuditLog({
+        action: 'DELETE_RECURRING_SERIES',
+        entity: 'Transaction',
+        entityId: seriesRootId,
+        oldValue: { deletedCount: seriesTransactions.length, debtId },
+      });
+
+      revalidatePath('/transactions');
+      revalidatePath('/dashboard');
+      revalidatePath('/accounts');
+      revalidatePath('/debts');
+      return { success: true, deletedCount: seriesTransactions.length };
+    }
 
     await prisma.$transaction(async (tx) => {
       if (transaction.creditCardId && transaction.type === TransactionType.EXPENSE) {

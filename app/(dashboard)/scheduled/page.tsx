@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CalendarClock, Plus, MoreHorizontal, Play, Pause } from 'lucide-react';
+import { CalendarClock, MoreHorizontal, Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
@@ -32,6 +32,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CreditCardSelect } from '@/components/transactions/credit-card-select';
+import { FilterField, FilterPanel } from '@/components/ui/filter-panel';
+import { ListPageHeader } from '@/components/ui/list-page-header';
+import { ListPagination } from '@/components/ui/list-pagination';
+import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -45,10 +49,12 @@ import {
 import { useAccounts } from '@/lib/queries/accounts-client';
 import { usePaymentMethods } from '@/lib/queries/payment-methods-client';
 import { useCreditCards } from '@/lib/queries/credit-cards-client';
+import { useSuppliers } from '@/lib/queries/suppliers-client';
 import {
   createScheduledTransaction,
   deleteScheduledTransaction,
   toggleScheduledTransaction,
+  updateScheduledTransaction,
 } from '@/lib/actions/scheduled';
 
 const scheduledSchema = z.object({
@@ -61,20 +67,50 @@ const scheduledSchema = z.object({
   accountId: z.string().min(1, 'Conta é obrigatória'),
   paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
   creditCardId: z.string().nullable().optional(),
+  supplierId: z.string().nullable().optional(),
 });
+
+/** Base UI's Select can emit `null` through onValueChange when the controlled value
+ * doesn't match any item (e.g. right after form.reset() sets a field back to ''). */
+function coerceSelectChange(onChange: (value: string) => void) {
+  return (value: string | null) => onChange(value ?? '');
+}
 
 type ScheduledFormData = z.infer<typeof scheduledSchema>;
 
 export default function ScheduledPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [selectedToDelete, setSelectedToDelete] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'INCOME' | 'EXPENSE' | 'TRANSFER'>('all');
+  const [frequencyFilter, setFrequencyFilter] = useState<
+    'all' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'BUSINESS_DAYS' | 'CUSTOM'
+  >('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
   const { transactions, isLoading, refresh } = useScheduledTransactions();
   const { categories } = useCategories();
   const { accounts } = useAccounts();
   const { paymentMethods } = usePaymentMethods();
   const { creditCards } = useCreditCards();
+  const { suppliers } = useSuppliers();
+
+  const {
+    isOpen: isDeleteOpen,
+    requestDelete: handleDelete,
+    confirmDelete,
+    cancel: cancelDelete,
+  } = useDeleteConfirm(deleteScheduledTransaction, {
+    successMessage: 'Agendamento excluído com sucesso',
+    errorMessage: 'Erro ao excluir agendamento',
+    onSuccess: () => refresh(),
+  });
 
   const form = useForm<ScheduledFormData>({
     resolver: zodResolver(scheduledSchema),
@@ -88,11 +124,18 @@ export default function ScheduledPage() {
       accountId: '',
       paymentMethodId: '',
       creditCardId: null,
+      supplierId: null,
     },
   });
 
+  const selectedType = form.watch('type');
   const selectedAccountId = form.watch('accountId');
   const selectedPaymentMethodId = form.watch('paymentMethodId');
+
+  const filteredCategories = useMemo(
+    () => categories.filter((c) => c.type === selectedType),
+    [categories, selectedType],
+  );
 
   const accountPaymentMethods = useMemo(
     () => paymentMethods.filter((pm) => pm.accountIds.includes(selectedAccountId)),
@@ -120,6 +163,43 @@ export default function ScheduledPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccountId]);
 
+  const selectedCategoryId = form.watch('categoryId');
+  useEffect(() => {
+    if (selectedCategoryId && !filteredCategories.some((c) => c.id === selectedCategoryId)) {
+      form.setValue('categoryId', '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedType]);
+
+  const closeDialog = () => {
+    setIsDialogOpen(false);
+    setEditingId(null);
+    form.reset();
+  };
+
+  const openCreate = () => {
+    setEditingId(null);
+    form.reset();
+    setIsDialogOpen(true);
+  };
+
+  const openEdit = (item: ScheduledTransaction) => {
+    setEditingId(item.id);
+    form.reset({
+      name: item.name,
+      type: item.type as 'INCOME' | 'EXPENSE',
+      amount: String(item.amount),
+      frequency: item.frequency as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'BUSINESS_DAYS',
+      dayOfMonth: String(item.dayOfMonth ?? 1),
+      categoryId: item.categoryId,
+      accountId: item.accountId ?? '',
+      paymentMethodId: item.paymentMethodId ?? '',
+      creditCardId: item.creditCardId ?? null,
+      supplierId: item.supplierId ?? null,
+    });
+    setIsDialogOpen(true);
+  };
+
   const handleSubmit = async (data: ScheduledFormData) => {
     if (selectedPaymentMethod?.isCreditCard && !data.creditCardId) {
       form.setError('creditCardId', {
@@ -129,15 +209,7 @@ export default function ScheduledPage() {
     }
 
     try {
-      const nextRun = new Date();
-      if (data.frequency === 'MONTHLY') {
-        nextRun.setDate(parseInt(data.dayOfMonth));
-        if (nextRun < new Date()) {
-          nextRun.setMonth(nextRun.getMonth() + 1);
-        }
-      }
-
-      const result = await createScheduledTransaction({
+      const payload = {
         name: data.name,
         type: data.type as 'INCOME' | 'EXPENSE',
         amount: parseFloat(data.amount),
@@ -147,6 +219,34 @@ export default function ScheduledPage() {
         accountId: data.accountId,
         paymentMethodId: data.paymentMethodId,
         creditCardId: data.creditCardId,
+        supplierId: data.supplierId,
+      };
+
+      if (editingId) {
+        const result = await updateScheduledTransaction(editingId, payload);
+        if (result.success) {
+          showSuccess('Agendamento atualizado com sucesso!');
+          closeDialog();
+          refresh();
+        } else {
+          showError(
+            'Erro ao atualizar agendamento',
+            result.error || 'Não foi possível atualizar o agendamento.',
+          );
+        }
+        return;
+      }
+
+      const nextRun = new Date();
+      if (data.frequency === 'MONTHLY') {
+        nextRun.setDate(parseInt(data.dayOfMonth));
+        if (nextRun < new Date()) {
+          nextRun.setMonth(nextRun.getMonth() + 1);
+        }
+      }
+
+      const result = await createScheduledTransaction({
+        ...payload,
         nextRun: nextRun.toISOString(),
       });
 
@@ -155,8 +255,7 @@ export default function ScheduledPage() {
           'Agendamento criado com sucesso!',
           'A transação será gerada automaticamente quando a data de execução for atingida.',
         );
-        setIsDialogOpen(false);
-        form.reset();
+        closeDialog();
         refresh();
       } else {
         showError(
@@ -185,29 +284,6 @@ export default function ScheduledPage() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    setSelectedToDelete(id);
-    setIsDeleteOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (selectedToDelete) {
-      try {
-        const result = await deleteScheduledTransaction(selectedToDelete);
-        if (result.success) {
-          showSuccess('Agendamento excluído com sucesso');
-          refresh();
-        } else {
-          showError('Erro ao excluir agendamento', result.error);
-        }
-      } catch {
-        showError('Erro ao excluir agendamento');
-      }
-      setIsDeleteOpen(false);
-      setSelectedToDelete(null);
-    }
-  };
-
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', {
       style: 'currency',
@@ -216,26 +292,249 @@ export default function ScheduledPage() {
   };
 
   const frequencyLabels: Record<string, string> = {
-    DAILY: 'Diário',
+    DAILY: 'Diária',
     WEEKLY: 'Semanal',
     MONTHLY: 'Mensal',
+    YEARLY: 'Anual',
     BUSINESS_DAYS: 'Dias úteis',
+    CUSTOM: 'Personalizado',
   };
 
   const activeCount = transactions.filter((s) => s.isActive).length;
 
+  const searchParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (search) params.set('q', search);
+    return params;
+  }, [search]);
+
+  const handleSearch = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((item) => {
+      const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
+      const matchesType = typeFilter === 'all' || item.type === typeFilter;
+      const matchesFrequency = frequencyFilter === 'all' || item.frequency === frequencyFilter;
+      const matchesStatus =
+        statusFilter === 'all' || (statusFilter === 'active' ? item.isActive : !item.isActive);
+      const matchesCategory = categoryFilter === 'all' || item.categoryId === categoryFilter;
+
+      return matchesSearch && matchesType && matchesFrequency && matchesStatus && matchesCategory;
+    });
+  }, [transactions, search, typeFilter, frequencyFilter, statusFilter, categoryFilter]);
+
+  const totalCount = filteredTransactions.length;
+  const paginatedTransactions = filteredTransactions.slice((page - 1) * pageSize, page * pageSize);
+
+  const hasActiveFilters =
+    typeFilter !== 'all' ||
+    frequencyFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    categoryFilter !== 'all';
+
+  const handleClearFilters = () => {
+    setTypeFilter('all');
+    setFrequencyFilter('all');
+    setStatusFilter('all');
+    setCategoryFilter('all');
+    setPage(1);
+  };
+
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Transações Agendadas</h1>
-          <p className="text-muted-foreground">Gerencie transações recorrentes e agendadas</p>
-        </div>
-        <Button onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Agendamento
-        </Button>
-      </div>
+      <ListPageHeader
+        title="Agendamentos"
+        description="Gerencie transações recorrentes e agendadas"
+        searchParams={searchParams}
+        onSearch={handleSearch}
+        hasActiveFilters={hasActiveFilters}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((prev) => !prev)}
+        createLabel="Novo Agendamento"
+        onCreate={openCreate}
+        paginationSlotRef={setPaginationSlot}
+        filtersPanel={
+          <FilterPanel onApply={() => setPage(1)} onClear={handleClearFilters}>
+            <FilterField label="Tipo">
+              <Select
+                value={typeFilter}
+                onValueChange={(v) => {
+                  setTypeFilter(v as typeof typeFilter);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os tipos</SelectItem>
+                  <SelectItem value="INCOME">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: '#10b981' }}
+                      />
+                      Receita
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="EXPENSE">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: '#f43f5e' }}
+                      />
+                      Despesa
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="TRANSFER">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: '#3b82f6' }}
+                      />
+                      Transferência
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterField>
+            <FilterField label="Frequência">
+              <Select
+                value={frequencyFilter}
+                onValueChange={(v) => {
+                  setFrequencyFilter(v as typeof frequencyFilter);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Frequência" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as frequências</SelectItem>
+                  <SelectItem value="DAILY">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: '#94a3b8' }}
+                      />
+                      Diária
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="WEEKLY">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: '#94a3b8' }}
+                      />
+                      Semanal
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="MONTHLY">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: '#94a3b8' }}
+                      />
+                      Mensal
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="YEARLY">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: '#94a3b8' }}
+                      />
+                      Anual
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="BUSINESS_DAYS">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: '#94a3b8' }}
+                      />
+                      Dias úteis
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="CUSTOM">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: '#94a3b8' }}
+                      />
+                      Personalizado
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterField>
+            <FilterField label="Status">
+              <Select
+                value={statusFilter}
+                onValueChange={(v) => {
+                  setStatusFilter(v as typeof statusFilter);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os status</SelectItem>
+                  <SelectItem value="active">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: '#10b981' }}
+                      />
+                      Ativo
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="inactive">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: '#94a3b8' }}
+                      />
+                      Inativo
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterField>
+            <FilterField label="Categoria">
+              <Select
+                value={categoryFilter}
+                onValueChange={(v) => {
+                  setCategoryFilter(v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as categorias</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: cat.color || '#666' }}
+                        />
+                        {cat.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FilterField>
+          </FilterPanel>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -277,19 +576,21 @@ export default function ScheduledPage() {
             </Card>
           ))}
         </div>
-      ) : transactions.length === 0 ? (
+      ) : totalCount === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <CalendarClock className="text-muted-foreground mb-4 h-12 w-12" />
             <h3 className="text-lg font-semibold">Nenhum agendamento</h3>
             <p className="text-muted-foreground mt-2 text-center">
-              Crie agendamentos para transações recorrentes
+              {transactions.length === 0
+                ? 'Crie agendamentos para transações recorrentes'
+                : 'Nenhum agendamento corresponde aos filtros aplicados'}
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
-          {transactions.map((item) => (
+          {paginatedTransactions.map((item) => (
             <Card key={item.id}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex items-center gap-2">
@@ -313,6 +614,7 @@ export default function ScheduledPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEdit(item)}>Editar</DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => handleDelete(item.id)}
                         className="text-red-600"
@@ -346,16 +648,27 @@ export default function ScheduledPage() {
         </div>
       )}
 
+      {totalCount > 0 && (
+        <ListPagination
+          page={page}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          paginationSlot={paginationSlot}
+        />
+      )}
+
       <FormDialog
-        title="Novo Agendamento"
+        title={editingId ? 'Editar Agendamento' : 'Novo Agendamento'}
         description="Configure uma transação recorrente ou agendada"
         isOpen={isDialogOpen}
-        onClose={() => {
-          setIsDialogOpen(false);
-          form.reset();
-        }}
+        onClose={closeDialog}
         onSubmit={onSubmit}
-        confirmText="Agendar"
+        confirmText={editingId ? 'Salvar' : 'Agendar'}
         cancelText="Cancelar"
         isSubmitting={form.formState.isSubmitting}
       >
@@ -385,15 +698,25 @@ export default function ScheduledPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tipo</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={coerceSelectChange(field.onChange)} value={field.value}>
                       <FormControl>
                         <SelectTrigger className="w-full">
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="INCOME">Receita</SelectItem>
-                        <SelectItem value="EXPENSE">Despesa</SelectItem>
+                        <SelectItem value="INCOME">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                            Receita
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="EXPENSE">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-rose-500" />
+                            Despesa
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -403,15 +726,32 @@ export default function ScheduledPage() {
               <FormField
                 control={form.control}
                 name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Valor</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const displayValue = field.value
+                    ? Number(field.value).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : '';
+                  return (
+                    <FormItem>
+                      <FormLabel>Valor</FormLabel>
+                      <FormControl>
+                        <Input
+                          inputMode="decimal"
+                          placeholder="0,00"
+                          value={displayValue}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, '');
+                            const numeric = digits ? parseInt(digits, 10) / 100 : 0;
+                            field.onChange(String(numeric));
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
             </div>
             <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
@@ -424,7 +764,7 @@ export default function ScheduledPage() {
                       Frequência
                       <InfoTooltip text="Com que intervalo a transação deve ser gerada: diariamente, semanalmente, mensalmente (usa o 'Dia do mês' abaixo) ou apenas em dias úteis." />
                     </FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={coerceSelectChange(field.onChange)} value={field.value}>
                       <FormControl>
                         <SelectTrigger className="w-full">
                           <SelectValue />
@@ -464,14 +804,14 @@ export default function ScheduledPage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Categoria</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={coerceSelectChange(field.onChange)} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Selecione uma categoria" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {categories.map((cat) => (
+                      {filteredCategories.map((cat) => (
                         <SelectItem key={cat.id} value={cat.id}>
                           <div className="flex items-center gap-2">
                             <div
@@ -494,7 +834,7 @@ export default function ScheduledPage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel required>Conta</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={coerceSelectChange(field.onChange)} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Selecione a conta" />
@@ -518,6 +858,34 @@ export default function ScheduledPage() {
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="supplierId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fornecedor</FormLabel>
+                  <Select
+                    onValueChange={(v) => field.onChange(v === 'none' ? null : v)}
+                    value={field.value ?? 'none'}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione um fornecedor" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {suppliers.map((sup) => (
+                        <SelectItem key={sup.id} value={sup.id}>
+                          {sup.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
               <FormField
                 control={form.control}
@@ -527,7 +895,7 @@ export default function ScheduledPage() {
                     <FormLabel required>Meio de Pagamento</FormLabel>
                     <Select
                       onValueChange={(v) => {
-                        field.onChange(v);
+                        field.onChange(v ?? '');
                         form.setValue('creditCardId', null);
                       }}
                       value={field.value}
@@ -593,10 +961,7 @@ export default function ScheduledPage() {
         title="Excluir Agendamento"
         description="Tem certeza que deseja excluir este agendamento? Esta ação não pode ser desfeita."
         isOpen={isDeleteOpen}
-        onClose={() => {
-          setIsDeleteOpen(false);
-          setSelectedToDelete(null);
-        }}
+        onClose={cancelDelete}
         onConfirm={confirmDelete}
         confirmText="Excluir"
         cancelText="Cancelar"

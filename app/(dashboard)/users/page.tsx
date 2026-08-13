@@ -2,7 +2,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
 import { UserList } from '@/components/users/user-list';
-import { UsersHeader } from '@/components/users/users-header';
 
 export default async function UsersPage() {
   const session = await getServerSession(authOptions);
@@ -16,7 +15,6 @@ export default async function UsersPage() {
 
   return (
     <div className="animate-in fade-in space-y-6 duration-700">
-      <UsersHeader userRole={session.user.role} />
       <UserList users={users} currentUserId={session.user.id} userRole={session.user.role} />
     </div>
   );

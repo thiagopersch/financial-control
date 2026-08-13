@@ -1,17 +1,36 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
-import { RulesHeader } from '@/components/rules/rules-header';
-import { RulesList } from '@/components/rules/rules-list';
+import { getRulesPaginated } from '@/lib/queries/rules';
+import { RulesContent } from '@/components/rules/rules-content';
 
-export default async function RulesPage() {
+const ALLOWED_PAGE_SIZES = [10, 20, 50, 100];
+
+export default async function RulesPage({
+  searchParams: searchParamsPromise,
+}: {
+  searchParams: Promise<{
+    q?: string;
+    category?: string;
+    page?: string;
+    pageSize?: string;
+  }>;
+}) {
+  const searchParams = await searchParamsPromise;
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const [rules, categories] = await Promise.all([
-    prisma.categorizationRule.findMany({
-      where: { workspaceId: session.user.workspaceId },
-      orderBy: { createdAt: 'desc' },
+  const pageSize = ALLOWED_PAGE_SIZES.includes(Number(searchParams.pageSize))
+    ? Number(searchParams.pageSize)
+    : 10;
+  const page = Math.max(1, parseInt(searchParams.page || '1', 10) || 1);
+
+  const [{ rules, totalCount }, categories] = await Promise.all([
+    getRulesPaginated({
+      q: searchParams.q,
+      category: searchParams.category,
+      page,
+      pageSize,
     }),
     prisma.category.findMany({
       where: { workspaceId: session.user.workspaceId },
@@ -21,8 +40,14 @@ export default async function RulesPage() {
 
   return (
     <div className="animate-in fade-in space-y-6 duration-700">
-      <RulesHeader categories={categories} userRole={session.user.role} />
-      <RulesList rules={rules} categories={categories} userRole={session.user.role} />
+      <RulesContent
+        rules={rules}
+        categories={categories}
+        userRole={session.user.role}
+        totalCount={totalCount}
+        page={page}
+        pageSize={pageSize}
+      />
     </div>
   );
 }

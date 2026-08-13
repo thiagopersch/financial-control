@@ -1,24 +1,60 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { ListPageHeader } from '@/components/ui/list-page-header';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface AccountsHeaderProps {
+  showControls?: boolean;
+  searchParams: URLSearchParams;
+  onSearch: (value: string) => void;
+  typeFilter: string;
+  onTypeFilterChange: (value: string) => void;
+  typeFilterOptions: { value: string; label: string }[];
   onCreate: () => void;
+  paginationSlotRef?: (node: HTMLDivElement | null) => void;
 }
 
-export function AccountsHeader({ onCreate }: AccountsHeaderProps) {
+export function AccountsHeader({
+  showControls = true,
+  searchParams,
+  onSearch,
+  typeFilter,
+  onTypeFilterChange,
+  typeFilterOptions,
+  onCreate,
+  paginationSlotRef,
+}: AccountsHeaderProps) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4">
-      <div className="flex flex-col">
-        <h2 className="text-2xl font-bold tracking-tight">Suas Contas</h2>
-        <p className="text-muted-foreground">
-          Gerencie seus bancos, carteiras e cartões em um só lugar.
-        </p>
-      </div>
-      <Button onClick={onCreate} className="w-full md:w-auto">
-        <Plus className="mr-2 h-4 w-4" /> Nova Conta
-      </Button>
-    </div>
+    <ListPageHeader
+      title="Suas Contas"
+      description="Gerencie seus bancos, carteiras e cartões em um só lugar."
+      showControls={showControls}
+      searchParams={searchParams}
+      onSearch={onSearch}
+      showFilterToggle={false}
+      inlineFilters={
+        <Select value={typeFilter} onValueChange={onTypeFilterChange}>
+          <SelectTrigger className="h-10 w-full md:w-56">
+            <SelectValue placeholder="Tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            {typeFilterOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      }
+      createLabel="Nova Conta"
+      onCreate={onCreate}
+      paginationSlotRef={paginationSlotRef}
+    />
   );
 }

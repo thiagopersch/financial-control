@@ -16,6 +16,7 @@ const scheduledTransactionSchema = z.object({
   accountId: z.string().min(1, 'Conta é obrigatória'),
   paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
   creditCardId: z.string().nullable().optional(),
+  supplierId: z.string().nullable().optional(),
   nextRun: z.string().optional(),
 });
 
@@ -41,6 +42,7 @@ export async function createScheduledTransaction(data: z.infer<typeof scheduledT
         accountId: validated.accountId,
         paymentMethodId: validated.paymentMethodId,
         creditCardId: validated.creditCardId,
+        supplierId: validated.supplierId,
         workspaceId: session.user.workspaceId,
       },
     });
