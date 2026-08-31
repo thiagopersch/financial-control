@@ -1,8 +1,7 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -12,10 +11,8 @@ const ruleSchema = z.object({
 });
 
 export async function createRule(data: z.infer<typeof ruleSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('rules', 'CREATE');
     const validated = ruleSchema.parse(data);
 
     // Prevent duplicate keyword within workspace
@@ -40,10 +37,8 @@ export async function createRule(data: z.infer<typeof ruleSchema>) {
 }
 
 export async function updateRule(id: string, data: z.infer<typeof ruleSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('rules', 'UPDATE');
     const validated = ruleSchema.parse(data);
     const rule = await prisma.categorizationRule.update({
       where: { id, workspaceId: session.user.workspaceId },
@@ -58,10 +53,8 @@ export async function updateRule(id: string, data: z.infer<typeof ruleSchema>) {
 }
 
 export async function deleteRule(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('rules', 'DELETE');
     await prisma.categorizationRule.delete({
       where: { id, workspaceId: session.user.workspaceId },
     });

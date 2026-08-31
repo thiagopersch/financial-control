@@ -11,9 +11,10 @@ import { ListPageHeader } from '@/components/ui/list-page-header';
 import { useCrudDialogState } from '@/hooks/use-crud-dialog-state';
 import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
 import { deleteBudget } from '@/lib/actions/budgets';
+import { usePersistedFiltersStore } from '@/hooks/use-filters-store';
 import { PieChart } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const ALLOWED_PAGE_SIZES = [10, 20, 50, 100];
 
@@ -80,7 +81,10 @@ function parseMonthParams(
 
 export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const filtersStore = usePersistedFiltersStore();
+  const hydrated = useRef(false);
   const yearParam = searchParams.get('year');
   const monthParam = searchParams.get('month');
   const qParam = searchParams.get('q') || '';
@@ -161,8 +165,35 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
     fetchBudgets();
   }, [month, year, isAllPeriod, isYear, qParam, categoryParam, page, pageSize]);
 
+  useEffect(() => {
+    if (hydrated.current) return;
+    hydrated.current = true;
+    if (hasActiveFilters) return;
+
+    const saved = filtersStore.filtersByPage[pathname];
+    if (!saved) return;
+
+    const params = new URLSearchParams(searchParams);
+    for (const [key, value] of new URLSearchParams(saved)) {
+      params.set(key, value);
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const applyFilters = (params: URLSearchParams) => {
     params.delete('page');
+
+    const toPersist = new URLSearchParams(params);
+    toPersist.delete('q');
+    toPersist.delete('year');
+    toPersist.delete('month');
+    if (Array.from(toPersist.keys()).length > 0) {
+      filtersStore.setPageFilters(pathname, toPersist.toString());
+    } else {
+      filtersStore.clearPageFilters(pathname);
+    }
+
     router.push(`${window.location.pathname}?${params.toString()}`);
   };
 
@@ -177,6 +208,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
   };
 
   const handleClearFilters = () => {
+    filtersStore.clearPageFilters(pathname);
     const params = new URLSearchParams(searchParams);
     params.delete('q');
     params.delete('category');

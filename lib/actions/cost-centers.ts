@@ -1,9 +1,8 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
 import { createAuditLog } from '@/lib/services/audit';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -13,10 +12,8 @@ const costCenterSchema = z.object({
 });
 
 export async function createCostCenter(data: z.infer<typeof costCenterSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('cost-centers', 'CREATE');
     const validated = costCenterSchema.parse(data);
 
     const costCenter = await prisma.costCenter.create({
@@ -42,10 +39,8 @@ export async function createCostCenter(data: z.infer<typeof costCenterSchema>) {
 }
 
 export async function updateCostCenter(id: string, data: z.infer<typeof costCenterSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('cost-centers', 'UPDATE');
     const validated = costCenterSchema.parse(data);
 
     const costCenter = await prisma.costCenter.update({
@@ -72,10 +67,8 @@ export async function updateCostCenter(id: string, data: z.infer<typeof costCent
 }
 
 export async function deleteCostCenter(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('cost-centers', 'DELETE');
     // Check for linked transactions
     const hasTransactions = await prisma.transaction.findFirst({
       where: { costCenterId: id },

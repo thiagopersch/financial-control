@@ -1,9 +1,8 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
 import { createAuditLog } from '@/lib/services/audit';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -15,10 +14,8 @@ const paymentMethodSchema = z.object({
 });
 
 export async function createPaymentMethod(data: z.infer<typeof paymentMethodSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('payment-methods', 'CREATE');
     const validated = paymentMethodSchema.parse(data);
 
     const paymentMethod = await prisma.paymentMethod.create({
@@ -49,10 +46,8 @@ export async function createPaymentMethod(data: z.infer<typeof paymentMethodSche
 }
 
 export async function updatePaymentMethod(id: string, data: z.infer<typeof paymentMethodSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('payment-methods', 'UPDATE');
     const validated = paymentMethodSchema.parse(data);
 
     const existing = await prisma.paymentMethod.findFirst({
@@ -88,10 +83,8 @@ export async function updatePaymentMethod(id: string, data: z.infer<typeof payme
 }
 
 export async function deletePaymentMethod(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('payment-methods', 'DELETE');
     await prisma.paymentMethod.delete({
       where: {
         id,

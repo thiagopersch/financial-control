@@ -1,9 +1,8 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
 import { createAuditLog } from '@/lib/services/audit';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -24,10 +23,8 @@ function serializeBudget(budget: any) {
 }
 
 export async function upsertBudget(data: z.infer<typeof budgetSchema> & { id?: string }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('budgets', data.id ? 'UPDATE' : 'CREATE');
     const validated = budgetSchema.parse(data);
 
     let budget;
@@ -112,10 +109,8 @@ export async function upsertBudget(data: z.infer<typeof budgetSchema> & { id?: s
 }
 
 export async function deleteBudget(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('budgets', 'DELETE');
     const existing = await prisma.budget.findUnique({
       where: { id },
     });
@@ -144,10 +139,8 @@ export async function deleteBudget(id: string) {
 }
 
 export async function getBudgetsByMonth(month: number, year: number) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('budgets', 'VIEW');
     const budgets = await prisma.budget.findMany({
       where: {
         workspaceId: session.user.workspaceId,

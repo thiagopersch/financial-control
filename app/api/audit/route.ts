@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
+import { hasPermission } from '@/lib/permissions/has-permission';
 import prisma from '@/lib/prisma';
 
 const ID_FIELD_TO_MODEL: Record<string, string> = {
@@ -18,6 +19,7 @@ const ID_FIELD_TO_MODEL: Record<string, string> = {
   goalId: 'goal',
   budgetId: 'budget',
   debtId: 'debt',
+  permissionProfileId: 'permissionProfile',
 };
 
 const ENTITY_TO_MODEL: Record<string, string> = {
@@ -34,6 +36,7 @@ const ENTITY_TO_MODEL: Record<string, string> = {
   CreditCard: 'creditCard',
   Invoice: 'invoice',
   Budget: 'budget',
+  PermissionProfile: 'permissionProfile',
 };
 
 // Models whose display name isn't a plain `name` (or `description`) column —
@@ -126,7 +129,7 @@ export async function GET(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
-    if (session.user.role !== 'ADMIN') {
+    if (!hasPermission(session.user.permissions, 'audit', 'VIEW')) {
       return NextResponse.json({ error: 'Acesso restrito a administradores' }, { status: 403 });
     }
 

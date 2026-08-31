@@ -21,9 +21,15 @@ import {
   Legend,
 } from 'recharts';
 import { useState } from 'react';
+import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 
 export default function ComparisonsPage() {
   const [comparisonType, setComparisonType] = useState('month');
+
+  usePersistedPageFilters('comparisons', { comparisonType }, (saved) => {
+    if (saved.comparisonType) setComparisonType(saved.comparisonType);
+  });
+
   const { chartData, summary, isLoading } = useComparisons(comparisonType);
 
   const formatCurrency = (value: number) => {

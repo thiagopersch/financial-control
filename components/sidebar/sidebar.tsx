@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSidebar } from '@/hooks/use-sidebar';
+import { EXEMPT_RESOURCES, resourceFromHref } from '@/lib/permissions/catalog';
+import { hasPermission } from '@/lib/permissions/has-permission';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronRight, LogOut, Wallet } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
@@ -17,12 +19,19 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
   const { isCollapsed, onClose } = useSidebar();
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === 'ADMIN';
+  const permissions = session?.user?.permissions;
 
-  const visibleRouteGroups = routeGroups.map((group) => ({
-    ...group,
-    routes: group.routes.filter((route) => !route.adminOnly || isAdmin),
-  }));
+  const canViewRoute = (route: Route) => {
+    const resource = resourceFromHref(route.href);
+    return EXEMPT_RESOURCES.has(resource) || hasPermission(permissions, resource, 'VIEW');
+  };
+
+  const visibleRouteGroups = routeGroups
+    .map((group) => ({
+      ...group,
+      routes: group.routes.filter(canViewRoute),
+    }))
+    .filter((group) => group.routes.length > 0);
 
   const showFullSidebar = isMobile || !isCollapsed;
 

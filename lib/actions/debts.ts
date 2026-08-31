@@ -1,10 +1,9 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
 import { syncDebtInstallments } from '@/lib/services/debt-installments';
 import { TransactionStatus } from '@prisma/client';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -44,10 +43,8 @@ function serializeDebt(debt: any) {
 }
 
 export async function createDebt(data: z.infer<typeof debtSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('debts', 'CREATE');
     const validated = debtSchema.parse(data);
     const workspaceId = session.user.workspaceId;
 
@@ -109,10 +106,8 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
 }
 
 export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSchema>>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('debts', 'UPDATE');
     const existingDebt = await prisma.debt.findUnique({
       where: { id, workspaceId: session.user.workspaceId },
     });
@@ -202,10 +197,8 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
 }
 
 export async function deleteDebt(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('debts', 'DELETE');
     const debt = await prisma.debt.findUnique({
       where: { id, workspaceId: session.user.workspaceId },
     });
@@ -253,10 +246,8 @@ export async function deleteDebt(id: string) {
 }
 
 export async function syncDebtCurrentValue(debtId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('debts', 'UPDATE');
     const debt = await prisma.debt.findUnique({
       where: { id: debtId, workspaceId: session.user.workspaceId },
     });

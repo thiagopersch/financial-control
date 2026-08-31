@@ -6,6 +6,7 @@ import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
 import { ListPagination } from '@/components/ui/list-pagination';
 import { useCrudDialogState } from '@/hooks/use-crud-dialog-state';
 import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
+import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 import { deleteAccount } from '@/lib/actions/accounts';
 import type { AccountDTO } from '@/lib/queries/accounts';
 import { Building2, Coins, CreditCard, Landmark, TrendingUp, Wallet2 } from 'lucide-react';
@@ -75,6 +76,11 @@ export function AccountsList({ accounts, onRefresh }: AccountsListProps) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
+
+  usePersistedPageFilters('accounts', { search, typeFilter }, (saved) => {
+    if (saved.search !== undefined) setSearch(saved.search);
+    if (saved.typeFilter) setTypeFilter(saved.typeFilter);
+  });
 
   const searchParams = useMemo(() => {
     const params = new URLSearchParams();

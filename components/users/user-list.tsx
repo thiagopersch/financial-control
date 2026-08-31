@@ -4,45 +4,37 @@ import { ActionsDataTable } from '@/components/ui/actions-data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
-import { cn } from '@/lib/utils';
-import { Role, User } from '@prisma/client';
+import { hasPermission } from '@/lib/permissions/has-permission';
+import type { PermissionProfile, User } from '@prisma/client';
 import { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowUpDown, Shield, User as UserIcon } from 'lucide-react';
+import { ArrowUpDown, ShieldCheck, User as UserIcon } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import { useMemo, useState } from 'react';
 import { DeleteUserModal } from './delete-user-modal';
 import { UserModal } from './user-modal';
 import { UsersHeader } from './users-header';
 
+type UserWithPermissionProfile = User & { permissionProfile: PermissionProfile | null };
+
 interface UserListProps {
-  users: User[];
+  users: UserWithPermissionProfile[];
   currentUserId: string;
-  userRole?: string;
 }
 
-const roleConfig: Record<Role, { label: string; className: string }> = {
-  ADMIN: {
-    label: 'Administrador',
-    className: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
-  },
-  MANAGER: {
-    label: 'Gerente',
-    className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  },
-  VIEWER: {
-    label: 'Visualizador',
-    className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
-  },
-};
+export function UserList({ users, currentUserId }: UserListProps) {
+  const { data: session } = useSession();
+  const permissions = session?.user?.permissions;
+  const canCreate = hasPermission(permissions, 'users', 'CREATE');
+  const canUpdate = hasPermission(permissions, 'users', 'UPDATE');
+  const canDelete = hasPermission(permissions, 'users', 'DELETE');
 
-export function UserList({ users, currentUserId, userRole }: UserListProps) {
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<UserWithPermissionProfile | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
-  const canModify = userRole !== 'VIEWER';
 
   const searchParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -59,7 +51,7 @@ export function UserList({ users, currentUserId, userRole }: UserListProps) {
     );
   }, [users, search]);
 
-  const initialColumns: ColumnDef<User>[] = [
+  const initialColumns: ColumnDef<UserWithPermissionProfile>[] = [
     {
       accessorKey: 'name',
       header: ({ column }) => (
@@ -105,26 +97,29 @@ export function UserList({ users, currentUserId, userRole }: UserListProps) {
       ),
     },
     {
-      accessorKey: 'role',
+      accessorKey: 'permissionProfile',
       header: ({ column }) => (
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           className="h-8 p-0 font-semibold hover:bg-transparent"
         >
-          Função
+          Perfil de Permissão
           <ArrowUpDown className="ml-2 h-3 w-3" />
         </Button>
       ),
       cell: ({ row }) => {
-        const user = row.original;
+        const profile = row.original.permissionProfile;
+        if (!profile) {
+          return <span className="text-muted-foreground text-sm">—</span>;
+        }
         return (
           <Badge
             variant="secondary"
-            className={cn('gap-1 border-none', roleConfig[user.role].className)}
+            className="gap-1 border-none bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"
           >
-            {user.role === Role.ADMIN && <Shield className="h-3 w-3" />}
-            {roleConfig[user.role].label}
+            {profile.isSystem && <ShieldCheck className="h-3 w-3" />}
+            {profile.name}
           </Badge>
         );
       },
@@ -165,12 +160,12 @@ export function UserList({ users, currentUserId, userRole }: UserListProps) {
     },
   ];
 
-  const columns = initialColumns.filter((col) => col.id !== 'actions' || userRole !== 'VIEWER');
+  const columns = initialColumns.filter((col) => col.id !== 'actions' || canUpdate || canDelete);
 
   return (
     <div className="flex flex-col gap-4">
       <UsersHeader
-        canCreate={canModify}
+        canCreate={canCreate}
         onCreate={() => setIsCreateOpen(true)}
         searchParams={searchParams}
         onSearch={setSearch}

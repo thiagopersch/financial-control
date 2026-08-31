@@ -1,9 +1,8 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
 import { TransactionType } from '@prisma/client';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -14,10 +13,8 @@ const categorySchema = z.object({
 });
 
 export async function createCategory(data: z.infer<typeof categorySchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('categories', 'CREATE');
     const validated = categorySchema.parse(data);
 
     const existing = await prisma.category.findFirst({
@@ -46,10 +43,8 @@ export async function createCategory(data: z.infer<typeof categorySchema>) {
 }
 
 export async function updateCategory(id: string, data: z.infer<typeof categorySchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('categories', 'UPDATE');
     const validated = categorySchema.parse(data);
 
     const existing = await prisma.category.findFirst({
@@ -80,10 +75,8 @@ export async function updateCategory(id: string, data: z.infer<typeof categorySc
 }
 
 export async function deleteCategory(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('categories', 'DELETE');
     await prisma.category.delete({
       where: {
         id,

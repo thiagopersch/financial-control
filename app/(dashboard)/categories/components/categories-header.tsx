@@ -2,22 +2,19 @@
 
 import { ListPageHeader } from '@/components/ui/list-page-header';
 import { useUrlFilters } from '@/hooks/use-url-filters';
+import { hasPermission } from '@/lib/permissions/has-permission';
+import { useSession } from 'next-auth/react';
 import { CategoriesFilters } from './categories-filters';
 
 interface CategoriesHeaderProps {
   onCreate: () => void;
-  userRole?: string;
   paginationSlotRef?: (node: HTMLDivElement | null) => void;
   colors?: string[];
 }
 
-export function CategoriesHeader({
-  onCreate,
-  userRole,
-  paginationSlotRef,
-  colors,
-}: CategoriesHeaderProps) {
-  const canModify = userRole !== 'VIEWER';
+export function CategoriesHeader({ onCreate, paginationSlotRef, colors }: CategoriesHeaderProps) {
+  const { data: session } = useSession();
+  const canModify = hasPermission(session?.user?.permissions, 'categories', 'CREATE');
   const {
     searchParams,
     showFilters,

@@ -8,13 +8,12 @@ import { RulesFilters } from './rules-filters';
 
 interface RulesHeaderProps {
   categories: { id: string; name: string; type: string; color: string }[];
-  userRole?: string;
+  canModify?: boolean;
   paginationSlotRef?: (node: HTMLDivElement | null) => void;
 }
 
-export function RulesHeader({ categories, userRole, paginationSlotRef }: RulesHeaderProps) {
+export function RulesHeader({ categories, canModify, paginationSlotRef }: RulesHeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const canModify = userRole !== 'VIEWER';
   const {
     searchParams,
     showFilters,

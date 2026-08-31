@@ -1,11 +1,10 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
 import { createAuditLog } from '@/lib/services/audit';
 import { InvoiceStatus } from '@prisma/client';
 import { endOfMonth, startOfMonth } from 'date-fns';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -19,10 +18,8 @@ const creditCardSchema = z.object({
 });
 
 export async function createCreditCard(data: z.infer<typeof creditCardSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('credit-cards', 'CREATE');
     const validated = creditCardSchema.parse(data);
 
     const account = await prisma.account.findUnique({
@@ -86,10 +83,8 @@ export async function createCreditCard(data: z.infer<typeof creditCardSchema>) {
 }
 
 export async function updateCreditCard(id: string, data: z.infer<typeof creditCardSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('credit-cards', 'UPDATE');
     const validated = creditCardSchema.parse(data);
 
     const creditCard = await prisma.creditCard.update({
@@ -151,10 +146,8 @@ export async function updateCreditCard(id: string, data: z.infer<typeof creditCa
 }
 
 export async function deleteCreditCard(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    await requirePermission('credit-cards', 'DELETE');
     const creditCard = await prisma.creditCard.findUnique({
       where: { id },
       include: { invoices: true },
@@ -192,10 +185,8 @@ export async function deleteCreditCard(id: string) {
 }
 
 export async function getCreditCards() {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('credit-cards', 'VIEW');
     const creditCards = await prisma.creditCard.findMany({
       where: {
         account: {
@@ -236,10 +227,8 @@ export async function getCreditCards() {
 }
 
 export async function closeInvoice(invoiceId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('credit-cards', 'UPDATE');
     const invoice = await prisma.invoice.update({
       where: {
         id: invoiceId,
@@ -281,10 +270,8 @@ export async function payInvoice(
   paymentAccountId: string,
   paymentMethodId?: string,
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('credit-cards', 'UPDATE');
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: {
@@ -360,10 +347,8 @@ export async function payInvoice(
 }
 
 export async function generateInvoices(creditCardId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('credit-cards', 'UPDATE');
     const creditCard = await prisma.creditCard.findUnique({
       where: { id: creditCardId },
       include: {

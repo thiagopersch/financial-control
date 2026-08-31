@@ -12,16 +12,10 @@ export default async function ProfilePage() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    include: { profile: true },
+    include: { profile: true, permissionProfile: true },
   });
 
   if (!user) return null;
-
-  const roleLabels: Record<string, string> = {
-    ADMIN: 'Administrador',
-    MANAGER: 'Gerente',
-    VIEWER: 'Visualizador',
-  };
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
@@ -50,9 +44,9 @@ export default async function ProfilePage() {
             <div className="space-y-1">
               <p className="text-muted-foreground flex items-center gap-1 text-xs font-semibold tracking-wider uppercase">
                 <Shield className="h-3 w-3" />
-                Função
+                Perfil de Permissão
               </p>
-              <p className="font-medium">{roleLabels[user.role] || user.role}</p>
+              <p className="font-medium">{user.permissionProfile?.name || '—'}</p>
             </div>
           </div>
         </CardContent>
@@ -65,7 +59,7 @@ export default async function ProfilePage() {
         initialNotifyEmail={user.profile?.notifyEmail || false}
         initialNotifyWhatsapp={user.profile?.notifyWhatsapp || false}
         email={user.email}
-        role={user.role}
+        permissionProfileName={user.permissionProfile?.name || '—'}
       />
 
       <PasswordForm />

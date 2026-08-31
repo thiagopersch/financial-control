@@ -9,6 +9,7 @@ import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
 import { ListPagination } from '@/components/ui/list-pagination';
 import { Progress } from '@/components/ui/progress';
 import { useDebtForm } from '@/hooks/forms/use-debt-form';
+import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 import type { DebtDTO } from '@/lib/queries/debts';
 import {
   AlertTriangle,
@@ -49,6 +50,17 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
   const [showAllPaid, setShowAllPaid] = useState(false);
 
   const [activePaginationSlot, setActivePaginationSlot] = useState<HTMLDivElement | null>(null);
+
+  usePersistedPageFilters(
+    'debts',
+    { search, categoryFilter, accountFilter, supplierFilter },
+    (saved) => {
+      if (saved.search !== undefined) setSearch(saved.search);
+      if (saved.categoryFilter) setCategoryFilter(saved.categoryFilter);
+      if (saved.accountFilter) setAccountFilter(saved.accountFilter);
+      if (saved.supplierFilter) setSupplierFilter(saved.supplierFilter);
+    },
+  );
 
   const PAID_VISIBLE_LIMIT = 4;
 

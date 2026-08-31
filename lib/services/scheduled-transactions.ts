@@ -1,6 +1,14 @@
 import prisma from '@/lib/prisma';
 import { TransactionStatus, TransactionType } from '@prisma/client';
-import { addDays, addMonths, addWeeks, addYears, isWeekend } from 'date-fns';
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  addYears,
+  endOfMonth,
+  isWeekend,
+  startOfMonth,
+} from 'date-fns';
 
 function computeNextRun(
   frequency: string,
@@ -41,9 +49,21 @@ function computeNextRun(
   }
 }
 
+function isBeforeCurrentMonth(date: Date, now: Date): boolean {
+  return (
+    date.getFullYear() < now.getFullYear() ||
+    (date.getFullYear() === now.getFullYear() && date.getMonth() < now.getMonth())
+  );
+}
+
 /**
  * Creates a PENDING transaction for every active ScheduledTransaction whose
  * nextRun is due, then advances nextRun according to its frequency.
+ *
+ * Occurrences from months that have already passed are never backfilled as
+ * transactions - they are skipped so nextRun catches up to the current
+ * month. A transaction is only created for the current occurrence if one
+ * for this scheduled transaction doesn't already exist in that month.
  */
 export async function processDueScheduledTransactions() {
   try {
@@ -53,34 +73,65 @@ export async function processDueScheduledTransactions() {
 
     for (const scheduled of due) {
       try {
-        await prisma.transaction.create({
-          data: {
-            type: scheduled.type,
-            amount: scheduled.amount,
-            date: scheduled.nextRun,
-            dueDate: scheduled.nextRun,
-            status: TransactionStatus.PENDING,
-            description: scheduled.name,
-            categoryId: scheduled.categoryId,
-            accountId: scheduled.accountId,
-            paymentMethodId: scheduled.paymentMethodId,
-            creditCardId: scheduled.creditCardId,
-            costCenterId: scheduled.costCenterId,
-            workspaceId: scheduled.workspaceId,
-            notes: `Gerado automaticamente pelo agendamento "${scheduled.name}"`,
+        const now = new Date();
+        let nextRun = scheduled.nextRun;
+
+        while (isBeforeCurrentMonth(nextRun, now)) {
+          nextRun = computeNextRun(
+            scheduled.frequency,
+            nextRun,
+            scheduled.dayOfMonth,
+            scheduled.dayOfWeek,
+            scheduled.customDays,
+          );
+        }
+
+        if (nextRun > now) {
+          await prisma.scheduledTransaction.update({
+            where: { id: scheduled.id },
+            data: { nextRun },
+          });
+          continue;
+        }
+
+        const alreadyExists = await prisma.transaction.findFirst({
+          where: {
+            scheduledTransactionId: scheduled.id,
+            date: { gte: startOfMonth(nextRun), lte: endOfMonth(nextRun) },
           },
         });
 
-        if (scheduled.creditCardId && scheduled.type === TransactionType.EXPENSE) {
-          await prisma.creditCard.update({
-            where: { id: scheduled.creditCardId },
-            data: { usedAmount: { increment: scheduled.amount } },
+        if (!alreadyExists) {
+          await prisma.transaction.create({
+            data: {
+              type: scheduled.type,
+              amount: scheduled.amount,
+              date: nextRun,
+              dueDate: nextRun,
+              status: TransactionStatus.PENDING,
+              description: scheduled.name,
+              categoryId: scheduled.categoryId,
+              accountId: scheduled.accountId,
+              paymentMethodId: scheduled.paymentMethodId,
+              creditCardId: scheduled.creditCardId,
+              costCenterId: scheduled.costCenterId,
+              workspaceId: scheduled.workspaceId,
+              scheduledTransactionId: scheduled.id,
+              notes: `Gerado automaticamente pelo agendamento "${scheduled.name}"`,
+            },
           });
+
+          if (scheduled.creditCardId && scheduled.type === TransactionType.EXPENSE) {
+            await prisma.creditCard.update({
+              where: { id: scheduled.creditCardId },
+              data: { usedAmount: { increment: scheduled.amount } },
+            });
+          }
         }
 
-        const nextRun = computeNextRun(
+        const followingRun = computeNextRun(
           scheduled.frequency,
-          scheduled.nextRun,
+          nextRun,
           scheduled.dayOfMonth,
           scheduled.dayOfWeek,
           scheduled.customDays,
@@ -88,14 +139,16 @@ export async function processDueScheduledTransactions() {
 
         await prisma.scheduledTransaction.update({
           where: { id: scheduled.id },
-          data: { lastRun: new Date(), nextRun },
+          data: { lastRun: new Date(), nextRun: followingRun },
         });
 
-        await notifyScheduledResult(
-          scheduled.workspaceId,
-          true,
-          `Agendamento "${scheduled.name}" gerou uma transação de R$ ${Number(scheduled.amount).toFixed(2)} com sucesso.`,
-        );
+        if (!alreadyExists) {
+          await notifyScheduledResult(
+            scheduled.workspaceId,
+            true,
+            `Agendamento "${scheduled.name}" gerou uma transação de R$ ${Number(scheduled.amount).toFixed(2)} com sucesso.`,
+          );
+        }
       } catch (error) {
         console.error('Error processing scheduled transaction:', scheduled.id, error);
         await notifyScheduledResult(

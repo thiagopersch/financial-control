@@ -224,7 +224,7 @@ export function TransactionFormPage({
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto w-[90%] space-y-6">
       <Button
         type="button"
         variant="ghost"

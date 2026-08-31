@@ -1,9 +1,8 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
 import { TransactionStatus, TransactionType } from '@prisma/client';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -18,14 +17,12 @@ const transferSchema = z.object({
 });
 
 export async function createTransfer(data: z.infer<typeof transferSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   if (data.fromAccountId === data.toAccountId) {
     return { success: false, error: 'As contas de origem e destino devem ser diferentes' };
   }
 
   try {
+    const session = await requirePermission('transactions', 'CREATE');
     const validated = transferSchema.parse(data);
 
     // Encontrar ou criar uma categoria de sistema para transferências

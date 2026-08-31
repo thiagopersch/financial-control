@@ -7,10 +7,12 @@ import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
 import { useCrudDialogState } from '@/hooks/use-crud-dialog-state';
 import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
 import { deleteCategory } from '@/lib/actions/categories';
+import { hasPermission } from '@/lib/permissions/has-permission';
 import type { CategoryDTO } from '@/lib/queries/categories';
 import { TransactionType } from '@prisma/client';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, Edit, Trash2 } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { CategoriesForm } from './categories-form';
@@ -19,7 +21,6 @@ import { CategoriesHeader } from './categories-header';
 interface CategoriesListProps {
   categories: CategoryDTO[];
   onRefresh: () => void;
-  userRole?: string;
   totalCount: number;
   page: number;
   pageSize: number;
@@ -29,7 +30,6 @@ interface CategoriesListProps {
 export function CategoriesList({
   categories,
   onRefresh,
-  userRole,
   totalCount,
   page,
   pageSize,
@@ -37,6 +37,8 @@ export function CategoriesList({
 }: CategoriesListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const canModify = hasPermission(session?.user?.permissions, 'categories', 'UPDATE');
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
   const {
@@ -143,13 +145,12 @@ export function CategoriesList({
     },
   ];
 
-  const columns = initialColumns.filter((col) => col.id !== 'actions' || userRole !== 'VIEWER');
+  const columns = initialColumns.filter((col) => col.id !== 'actions' || canModify);
 
   return (
     <div className="flex flex-col gap-4">
       <CategoriesHeader
         onCreate={openCreate}
-        userRole={userRole}
         paginationSlotRef={setPaginationSlot}
         colors={colors}
       />

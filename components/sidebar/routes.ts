@@ -12,6 +12,7 @@ import {
   FileText,
   GitBranch,
   GitCompare,
+  KeyRound,
   Landmark,
   LayoutDashboard,
   PieChart,
@@ -34,7 +35,8 @@ export interface Route {
   icon?: any;
   href: string;
   color?: string;
-  adminOnly?: boolean;
+  /** Página somente-leitura: só gera a permissão de visualização (sem criar/editar/excluir). */
+  readOnly?: boolean;
 }
 
 export interface RouteGroup {
@@ -127,24 +129,28 @@ const financialRoutes: Route[] = [
     icon: TrendingUp,
     href: '/cash-flow',
     color: 'text-green-500',
+    readOnly: true,
   },
   {
     label: 'DRE',
     icon: FileText,
     href: '/dre',
     color: 'text-emerald-500',
+    readOnly: true,
   },
   {
     label: 'Insights',
     icon: BarChart3,
     href: '/insights',
     color: 'text-purple-500',
+    readOnly: true,
   },
   {
     label: 'Previsão',
     icon: Calculator,
     href: '/forecast',
     color: 'text-teal-500',
+    readOnly: true,
   },
 ];
 
@@ -175,12 +181,14 @@ const reportsRoutes: Route[] = [
     icon: FileBarChart,
     href: '/reports',
     color: 'text-slate-500',
+    readOnly: true,
   },
   {
     label: 'Comparativos',
     icon: GitCompare,
     href: '/comparisons',
     color: 'text-violet-600',
+    readOnly: true,
   },
   {
     label: 'Conciliação',
@@ -202,7 +210,7 @@ const aiRoutes: Route[] = [
     icon: ScrollText,
     href: '/audit',
     color: 'text-gray-500',
-    adminOnly: true,
+    readOnly: true,
   },
 ];
 
@@ -214,6 +222,12 @@ const systemRoutes: Route[] = [
     color: 'text-emerald-500',
   },
   {
+    label: 'Perfis de Permissão',
+    icon: KeyRound,
+    href: '/permission-profiles',
+    color: 'text-fuchsia-500',
+  },
+  {
     label: 'Perfil',
     icon: Settings,
     href: '/profiles',
@@ -222,7 +236,6 @@ const systemRoutes: Route[] = [
     label: 'Definições do sistema',
     icon: Cog,
     href: '/system-settings',
-    adminOnly: true,
   },
 ];
 

@@ -1,54 +1,33 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface FiltersStore {
-  period: {
-    from: string | undefined; // Use string for persistence
-    to: string | undefined;
-  };
-  accountId: string | undefined;
-  categoryId: string | undefined;
-  type: string | undefined;
-  minAmount: number | undefined;
-  maxAmount: number | undefined;
-  search: string;
-  setPeriod: (from: string | undefined, to: string | undefined) => void;
-  setAccountId: (id: string | undefined) => void;
-  setCategoryId: (id: string | undefined) => void;
-  setType: (type: string | undefined) => void;
-  setMinAmount: (amount: number | undefined) => void;
-  setMaxAmount: (amount: number | undefined) => void;
-  setSearch: (search: string) => void;
-  resetFilters: () => void;
+interface PersistedFiltersState {
+  /** pathname -> querystring de filtros de conteúdo (sem `page`/`year`/`month`) */
+  filtersByPage: Record<string, string>;
+  /** querystring global de período (`year`/`month`), compartilhada entre páginas com MonthSelector */
+  period: string;
+  setPageFilters: (pageKey: string, params: string) => void;
+  clearPageFilters: (pageKey: string) => void;
+  setPeriod: (params: string) => void;
 }
 
-export const useFilters = create<FiltersStore>()(
+export const usePersistedFiltersStore = create<PersistedFiltersState>()(
   persist(
     (set) => ({
-      period: { from: undefined, to: undefined },
-      accountId: undefined,
-      categoryId: undefined,
-      type: undefined,
-      minAmount: undefined,
-      maxAmount: undefined,
-      search: '',
-      setPeriod: (from, to) => set({ period: { from, to } }),
-      setAccountId: (id) => set({ accountId: id }),
-      setCategoryId: (id) => set({ categoryId: id }),
-      setType: (type) => set({ type }),
-      setMinAmount: (amount) => set({ minAmount: amount }),
-      setMaxAmount: (amount) => set({ maxAmount: amount }),
-      setSearch: (search) => set({ search }),
-      resetFilters: () =>
-        set({
-          period: { from: undefined, to: undefined },
-          accountId: undefined,
-          categoryId: undefined,
-          type: undefined,
-          minAmount: undefined,
-          maxAmount: undefined,
-          search: '',
+      filtersByPage: {},
+      period: '',
+      setPageFilters: (pageKey, params) =>
+        set((state) => ({
+          filtersByPage: { ...state.filtersByPage, [pageKey]: params },
+        })),
+      clearPageFilters: (pageKey) =>
+        set((state) => {
+          if (!(pageKey in state.filtersByPage)) return state;
+          const next = { ...state.filtersByPage };
+          delete next[pageKey];
+          return { filtersByPage: next };
         }),
+      setPeriod: (params) => set({ period: params }),
     }),
     {
       name: 'financial-filters',

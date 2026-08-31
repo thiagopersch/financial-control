@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { format, addMonths, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 
 interface ForecastData {
   month: string;
@@ -36,6 +37,10 @@ export default function ForecastPage() {
   const [chartData, setChartData] = useState<ForecastData[]>([]);
   const [categoryForecast, setCategoryForecast] = useState<CategoryForecast[]>([]);
   const [period, setPeriod] = useState<'3' | '6'>('3');
+
+  usePersistedPageFilters('forecast', { period }, (saved) => {
+    if (saved.period) setPeriod(saved.period as typeof period);
+  });
 
   useEffect(() => {
     fetchForecast();

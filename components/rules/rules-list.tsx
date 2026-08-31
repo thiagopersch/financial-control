@@ -13,7 +13,7 @@ import { RuleModal } from './rule-modal';
 interface RulesListProps {
   rules: any[];
   categories: { id: string; name: string; type: string; color: string }[];
-  userRole?: string;
+  canModify?: boolean;
   totalCount?: number;
   page?: number;
   pageSize?: number;
@@ -23,7 +23,7 @@ interface RulesListProps {
 export function RulesList({
   rules,
   categories,
-  userRole,
+  canModify,
   totalCount,
   page,
   pageSize,
@@ -126,7 +126,7 @@ export function RulesList({
     },
   ];
 
-  const columns = initialColumns.filter((col) => col.id !== 'actions' || userRole !== 'VIEWER');
+  const columns = initialColumns.filter((col) => col.id !== 'actions' || canModify);
 
   return (
     <div className="flex flex-col gap-4">

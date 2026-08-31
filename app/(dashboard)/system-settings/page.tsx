@@ -2,6 +2,7 @@ import { NotificationSettingsForm } from '@/components/profiles/notification-set
 import { NotificationTemplatesSection } from '@/components/profiles/notification-templates-section';
 import { TestNotificationForm } from '@/components/profiles/test-notification-form';
 import { authOptions } from '@/lib/auth-options';
+import { hasPermission } from '@/lib/permissions/has-permission';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
@@ -9,7 +10,7 @@ import { redirect } from 'next/navigation';
 export default async function SystemSettingsPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
-  if (session.user.role !== 'ADMIN') {
+  if (!hasPermission(session.user.permissions, 'system-settings', 'VIEW')) {
     redirect('/dashboard');
   }
 

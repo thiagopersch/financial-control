@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { useCrudDialogState } from '@/hooks/use-crud-dialog-state';
 import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
+import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 import { deleteGoal } from '@/lib/actions/goals';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import type { GoalData } from '@/types/goal';
@@ -76,6 +77,32 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
   const [deadlineFrom, setDeadlineFrom] = useState<Date | undefined>(undefined);
   const [deadlineTo, setDeadlineTo] = useState<Date | undefined>(undefined);
   const [colorFilter, setColorFilter] = useState('all');
+
+  usePersistedPageFilters(
+    'goals',
+    {
+      search,
+      statusFilter,
+      currentMin,
+      currentMax,
+      targetMin,
+      targetMax,
+      deadlineFrom: deadlineFrom ? deadlineFrom.toISOString() : '',
+      deadlineTo: deadlineTo ? deadlineTo.toISOString() : '',
+      colorFilter,
+    },
+    (saved) => {
+      if (saved.search !== undefined) setSearch(saved.search);
+      if (saved.statusFilter) setStatusFilter(saved.statusFilter as StatusFilter);
+      if (saved.currentMin) setCurrentMin(saved.currentMin);
+      if (saved.currentMax) setCurrentMax(saved.currentMax);
+      if (saved.targetMin) setTargetMin(saved.targetMin);
+      if (saved.targetMax) setTargetMax(saved.targetMax);
+      if (saved.deadlineFrom) setDeadlineFrom(new Date(saved.deadlineFrom));
+      if (saved.deadlineTo) setDeadlineTo(new Date(saved.deadlineTo));
+      if (saved.colorFilter) setColorFilter(saved.colorFilter);
+    },
+  );
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZE_DEFAULT);

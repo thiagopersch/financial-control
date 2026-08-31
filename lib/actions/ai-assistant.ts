@@ -1,9 +1,8 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
 import { type AIMessage, type ChatResponse, type FinancialContext } from '@/types/ai';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 
 function buildSystemPrompt(context: FinancialContext): string {
@@ -210,8 +209,7 @@ async function callGemini(prompt: string, apiKey: string, model: string): Promis
 
 export async function chatWithAI(message: string, conversationId?: string): Promise<ChatResponse> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return { success: false, error: 'Não autorizado' };
+    const session = await requirePermission('ai-assistant', 'CREATE');
 
     const apiKey = process.env.GEMINI_API_KEY;
     const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
@@ -312,8 +310,7 @@ export async function createConversation(
   title?: string,
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return { success: false, error: 'Não autorizado' };
+    const session = await requirePermission('ai-assistant', 'CREATE');
 
     const conversation = await prisma.aIConversation.create({
       data: {
@@ -335,8 +332,7 @@ export async function getConversations(): Promise<
   { id: string; title: string; createdAt: Date; updatedAt: Date; messageCount: number }[]
 > {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return [];
+    const session = await requirePermission('ai-assistant', 'VIEW');
 
     const conversations = await prisma.aIConversation.findMany({
       where: { workspaceId: session.user.workspaceId, userId: session.user.id },
@@ -361,8 +357,7 @@ export async function getConversations(): Promise<
 
 export async function getConversation(id: string): Promise<AIMessage[] | null> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return null;
+    const session = await requirePermission('ai-assistant', 'VIEW');
 
     const conversation = await prisma.aIConversation.findFirst({
       where: { id, workspaceId: session.user.workspaceId, userId: session.user.id },
@@ -381,8 +376,7 @@ export async function deleteConversation(
   id: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return { success: false, error: 'Não autorizado' };
+    const session = await requirePermission('ai-assistant', 'DELETE');
 
     await prisma.aIConversation.delete({
       where: { id, workspaceId: session.user.workspaceId, userId: session.user.id },

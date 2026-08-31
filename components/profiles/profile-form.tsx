@@ -19,7 +19,6 @@ import { updateProfile } from '@/lib/actions/profiles';
 import { maskPhone } from '@/lib/utils/phone';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Role } from '@prisma/client';
 import { Loader2, Save, User } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -40,18 +39,6 @@ const profileSchema = z
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
-const roleLabels: Record<Role, string> = {
-  ADMIN: 'Administrador',
-  MANAGER: 'Gerente',
-  VIEWER: 'Visualizador',
-};
-
-const roleColors: Record<Role, string> = {
-  ADMIN: 'bg-purple-500 hover:bg-purple-500',
-  MANAGER: 'bg-blue-500 hover:bg-blue-500',
-  VIEWER: 'bg-slate-500 hover:bg-slate-500',
-};
-
 interface ProfileFormProps {
   initialName: string;
   initialBio: string;
@@ -59,7 +46,7 @@ interface ProfileFormProps {
   initialNotifyEmail: boolean;
   initialNotifyWhatsapp: boolean;
   email: string;
-  role: Role;
+  permissionProfileName: string;
 }
 
 export function ProfileForm({
@@ -69,7 +56,7 @@ export function ProfileForm({
   initialNotifyEmail,
   initialNotifyWhatsapp,
   email,
-  role,
+  permissionProfileName,
 }: ProfileFormProps) {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -113,7 +100,7 @@ export function ProfileForm({
               </CardDescription>
             </div>
           </div>
-          <Badge className={roleColors[role]}>{roleLabels[role]}</Badge>
+          <Badge className="bg-indigo-500 hover:bg-indigo-500">{permissionProfileName}</Badge>
         </div>
       </CardHeader>
       <CardContent>

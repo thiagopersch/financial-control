@@ -1,6 +1,7 @@
 'use server';
 
 import { authOptions } from '@/lib/auth-options';
+import { hasPermission } from '@/lib/permissions/has-permission';
 import prisma from '@/lib/prisma';
 import { deliverNotification } from '@/lib/services/notification-delivery';
 import { getServerSession } from 'next-auth';
@@ -42,7 +43,7 @@ export async function updateWorkspaceNotificationSettings(
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return { success: false, error: 'Não autorizado' };
-  if (session.user.role !== 'ADMIN') {
+  if (!hasPermission(session.user.permissions, 'system-settings', 'UPDATE')) {
     return { success: false, error: 'Apenas administradores podem alterar estas configurações' };
   }
 
@@ -66,7 +67,7 @@ export async function updateWorkspaceNotificationSettings(
 export async function sendTestNotification(userId: string) {
   const session = await getServerSession(authOptions);
   if (!session) return { success: false, error: 'Não autorizado' };
-  if (session.user.role !== 'ADMIN') {
+  if (!hasPermission(session.user.permissions, 'system-settings', 'UPDATE')) {
     return { success: false, error: 'Apenas administradores podem enviar notificações de teste' };
   }
 

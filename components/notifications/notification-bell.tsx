@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -214,19 +215,23 @@ export function NotificationBell() {
                   })}
                 </DialogDescription>
               </DialogHeader>
-              <p className="text-sm">{selected.message}</p>
-              {selected.metadata && (
-                <div className="bg-muted/50 space-y-1 rounded-lg border p-3 text-xs">
-                  {Object.entries(selected.metadata)
-                    .filter(([key]) => !/Id$/i.test(key))
-                    .map(([key, value]) => (
-                      <div key={key} className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">{metadataLabels[key] || key}</span>
-                        <span className="font-medium">{formatMetadataValue(key, value)}</span>
-                      </div>
-                    ))}
-                </div>
-              )}
+              <DialogBody className="flex flex-col gap-4">
+                <p className="text-sm">{selected.message}</p>
+                {selected.metadata && (
+                  <div className="bg-muted/50 space-y-1 rounded-lg border p-3 text-xs">
+                    {Object.entries(selected.metadata)
+                      .filter(([key]) => !/Id$/i.test(key))
+                      .map(([key, value]) => (
+                        <div key={key} className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">
+                            {metadataLabels[key] || key}
+                          </span>
+                          <span className="font-medium">{formatMetadataValue(key, value)}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </DialogBody>
               {selected.link && (
                 <Button onClick={handleGoToLink} className="w-full">
                   Ver detalhes

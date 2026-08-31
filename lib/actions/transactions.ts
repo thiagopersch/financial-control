@@ -1,18 +1,17 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
-import prisma from '@/lib/prisma';
 import {
   checkBudgetAlerts,
   notifyNewTransaction,
   notifyTransactionStatusChange,
 } from '@/lib/actions/notifications';
+import { requirePermission } from '@/lib/permissions/require-permission';
+import prisma from '@/lib/prisma';
 import { createAuditLog } from '@/lib/services/audit';
 import { matchCategorizationRule } from '@/lib/services/categorization';
 import { applyConditionalRules } from '@/lib/services/conditional-rules';
 import { TransactionStatus, TransactionType } from '@prisma/client';
 import { addMonths, startOfMonth } from 'date-fns';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -51,10 +50,8 @@ const transactionSchema = z.object({
 });
 
 export async function createTransaction(data: z.infer<typeof transactionSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('transactions', 'CREATE');
     const validated = transactionSchema.parse(data);
 
     const matchedCategoryId = await matchCategorizationRule(
@@ -250,10 +247,8 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
 }
 
 export async function updateTransaction(id: string, data: z.infer<typeof transactionSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('transactions', 'UPDATE');
     const validated = transactionSchema.parse(data);
 
     const oldTransaction = await prisma.transaction.findUnique({
@@ -423,10 +418,8 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
 }
 
 export async function markTransactionAsPaid(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('transactions', 'UPDATE');
     const transaction = await prisma.transaction.findUnique({
       where: { id, workspaceId: session.user.workspaceId },
     });
@@ -532,10 +525,8 @@ export async function markTransactionAsPaid(id: string) {
 }
 
 export async function autoMoveOverdueTransactions() {
-  const session = await getServerSession(authOptions);
-  if (!session) return;
-
   try {
+    const session = await requirePermission('transactions', 'VIEW');
     const now = new Date();
     const candidates = await prisma.transaction.findMany({
       where: {
@@ -573,10 +564,8 @@ export async function autoMoveOverdueTransactions() {
 }
 
 export async function toggleTransactionAutoMove(id: string, autoMoveEnabled: boolean) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('transactions', 'UPDATE');
     await prisma.transaction.update({
       where: { id, workspaceId: session.user.workspaceId },
       data: { autoMoveEnabled },
@@ -590,10 +579,8 @@ export async function toggleTransactionAutoMove(id: string, autoMoveEnabled: boo
 }
 
 export async function deleteTransaction(id: string, deleteSeries = false) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('transactions', 'DELETE');
     const transaction = await prisma.transaction.findUnique({
       where: { id, workspaceId: session.user.workspaceId },
     });

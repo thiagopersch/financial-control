@@ -14,7 +14,7 @@ interface TransactionsContentProps {
   creditCards?: any[];
   transactionCounts?: Record<string, number>;
   monthCounts?: Record<string, number>;
-  userRole?: string;
+  canModify?: boolean;
   transactions: any[];
   totalCount: number;
   totalAmount: number;
@@ -36,7 +36,7 @@ export function TransactionsContent({
   creditCards,
   transactionCounts,
   monthCounts,
-  userRole,
+  canModify,
   transactions,
   totalCount,
   totalAmount,
@@ -61,7 +61,7 @@ export function TransactionsContent({
         creditCards={creditCards}
         transactionCounts={transactionCounts}
         monthCounts={monthCounts}
-        userRole={userRole}
+        canModify={canModify}
         paginationSlotRef={setPaginationSlot}
       />
       <TransactionsTable
@@ -70,7 +70,7 @@ export function TransactionsContent({
         suppliers={suppliers}
         accounts={accounts}
         costCenters={costCenters}
-        userRole={userRole}
+        canModify={canModify}
         totalCount={totalCount}
         totalAmount={totalAmount}
         totalExpenseAmount={totalExpenseAmount}

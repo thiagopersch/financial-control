@@ -1,9 +1,10 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, Role, TransactionStatus, TransactionType } from '@prisma/client';
+import { PrismaClient, TransactionStatus, TransactionType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import { Pool } from 'pg';
+import { ensureDefaultPermissionProfiles } from '../lib/services/permission-profiles';
 
 // Ensure .env is loaded when running seed directly via ts-node
 config({ path: resolve(__dirname, '../.env') });
@@ -31,24 +32,20 @@ async function main() {
 
   // Create workspace
   const workspace = await prisma.workspace.create({
+    data: { name: 'Main Workspace' },
+  });
+
+  const adminProfile = await ensureDefaultPermissionProfiles(prisma, workspace.id);
+
+  const admin = await prisma.user.create({
     data: {
-      name: 'Main Workspace',
-      users: {
-        create: {
-          name: process.env.ADMIN_NAME,
-          email: process.env.ADMIN_EMAIL,
-          password: hashedPassword,
-          role: Role.ADMIN,
-        },
-      },
+      name: process.env.ADMIN_NAME,
+      email: process.env.ADMIN_EMAIL,
+      password: hashedPassword,
+      permissionProfileId: adminProfile.id,
+      workspaceId: workspace.id,
     },
   });
-
-  const admin = await prisma.user.findFirst({
-    where: { email: process.env.ADMIN_EMAIL },
-  });
-
-  if (!admin) return;
 
   // Create Profile
   await prisma.profile.create({

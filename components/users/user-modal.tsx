@@ -12,21 +12,11 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  useUserForm,
-  type CreateUserFormValues,
-  type UpdateUserFormValues,
-} from '@/hooks/forms/use-user-form';
+import { SelectSearch } from '@/components/ui/select-search';
+import { usePermissionProfiles } from '@/hooks/use-permission-profiles';
+import { useUserForm } from '@/hooks/forms/use-user-form';
 import { maskPhone } from '@/lib/utils/phone';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Role } from '@prisma/client';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -36,14 +26,14 @@ interface UserModalProps {
   initialData?: any;
 }
 
-const roleLabels: Record<Role, string> = {
-  [Role.ADMIN]: 'Administrador',
-  [Role.MANAGER]: 'Gerente',
-  [Role.VIEWER]: 'Visualizador',
-};
-
 export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { profiles } = usePermissionProfiles();
+
+  const profileOptions = useMemo(
+    () => profiles.map((profile) => ({ value: profile.id, label: profile.name })),
+    [profiles],
+  );
 
   const { handleSubmit, isEditing, schema } = useUserForm({
     user: initialData || null,
@@ -56,13 +46,13 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
     if (initialData) {
       return {
         name: initialData.name,
-        role: initialData.role,
+        permissionProfileId: initialData.permissionProfileId || '',
         phone: initialData.profile?.phone || '',
         notifyEmail: initialData.profile?.notifyEmail || false,
         notifyWhatsapp: initialData.profile?.notifyWhatsapp || false,
       };
     }
-    return { name: '', email: '', password: '', role: Role.VIEWER };
+    return { name: '', email: '', password: '', permissionProfileId: '' };
   }, [initialData]);
 
   const form = useForm({
@@ -87,7 +77,7 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
       title={isEditing ? 'Editar Usuário' : 'Convidar Usuário'}
       description={
         isEditing
-          ? 'Altere o nome ou a função do usuário no workspace.'
+          ? 'Altere o nome ou o perfil de permissão do usuário no workspace.'
           : 'Crie um novo acesso para um membro da equipe.'
       }
       isOpen={isOpen}
@@ -143,24 +133,19 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
           )}
           <FormField
             control={form.control}
-            name="role"
+            name="permissionProfileId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Função</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecione a função" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {Object.values(Role).map((r) => (
-                      <SelectItem key={r} value={r}>
-                        {roleLabels[r]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormLabel>Perfil de Permissão</FormLabel>
+                <FormControl>
+                  <SelectSearch
+                    options={profileOptions}
+                    value={field.value}
+                    onValueChange={(value) => field.onChange(value ?? '')}
+                    placeholder="Selecione um perfil de permissão"
+                    emptyText="Nenhum perfil encontrado."
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

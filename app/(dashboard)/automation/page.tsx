@@ -49,6 +49,7 @@ import {
   useAutomationForm,
   type AutomationFormValues,
 } from '@/hooks/forms/use-automation-form';
+import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 import type { ConditionalRule } from '@/lib/queries/automation';
 
 const conditionOptions = [
@@ -100,6 +101,11 @@ export default function AutomationPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  usePersistedPageFilters('automation', { search, statusFilter }, (saved) => {
+    if (saved.search !== undefined) setSearch(saved.search);
+    if (saved.statusFilter) setStatusFilter(saved.statusFilter as typeof statusFilter);
+  });
 
   const { handleSubmit: handleFormSubmit, isEditing } = useAutomationForm({
     rule: selectedRule,

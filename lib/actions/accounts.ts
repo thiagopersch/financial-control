@@ -1,10 +1,9 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
+import { requirePermission } from '@/lib/permissions/require-permission';
 import { createAuditLog } from '@/lib/services/audit';
 import { AccountType } from '@prisma/client';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -15,10 +14,8 @@ const accountSchema = z.object({
 });
 
 export async function createAccount(data: z.infer<typeof accountSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('accounts', 'CREATE');
     const validated = accountSchema.parse(data);
 
     const account = await prisma.account.create({
@@ -54,10 +51,8 @@ export async function createAccount(data: z.infer<typeof accountSchema>) {
 }
 
 export async function updateAccount(id: string, data: z.infer<typeof accountSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('accounts', 'UPDATE');
     const validated = accountSchema.parse(data);
 
     const account = await prisma.account.update({
@@ -96,10 +91,8 @@ export async function updateAccount(id: string, data: z.infer<typeof accountSche
 }
 
 export async function deleteAccount(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('accounts', 'DELETE');
     // Check if account has transactions
     const hasTransactions = await prisma.transaction.findFirst({
       where: { accountId: id },

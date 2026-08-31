@@ -1,10 +1,9 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
 import { isValidDocument, onlyDigits } from '@/lib/utils/document';
 import { SupplierPersonType } from '@prisma/client';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -23,10 +22,8 @@ const supplierSchema = z
   });
 
 export async function createSupplier(data: z.infer<typeof supplierSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('suppliers', 'CREATE');
     const validated = supplierSchema.parse(data);
     const documentDigits = validated.document ? onlyDigits(validated.document) : null;
 
@@ -74,10 +71,8 @@ export async function createSupplier(data: z.infer<typeof supplierSchema>) {
 }
 
 export async function updateSupplier(id: string, data: z.infer<typeof supplierSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('suppliers', 'UPDATE');
     const validated = supplierSchema.parse(data);
     const documentDigits = validated.document ? onlyDigits(validated.document) : null;
 
@@ -127,10 +122,8 @@ export async function updateSupplier(id: string, data: z.infer<typeof supplierSc
 }
 
 export async function deleteSupplier(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('suppliers', 'DELETE');
     await prisma.supplier.delete({
       where: {
         id,

@@ -1,8 +1,7 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -16,16 +15,28 @@ const scheduledTransactionSchema = z.object({
   accountId: z.string().min(1, 'Conta é obrigatória'),
   paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
   creditCardId: z.string().nullable().optional(),
-  supplierId: z.string().nullable().optional(),
+  supplierId: z.string().min(1, 'Fornecedor é obrigatório'),
   nextRun: z.string().optional(),
 });
 
-export async function createScheduledTransaction(data: z.infer<typeof scheduledTransactionSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
+async function assertCreditCardWhenRequired(paymentMethodId: string, creditCardId?: string | null) {
+  const paymentMethod = await prisma.paymentMethod.findUnique({ where: { id: paymentMethodId } });
+  if (paymentMethod?.isCreditCard && !creditCardId) {
+    return 'Cartão de crédito é obrigatório para este meio de pagamento';
+  }
+  return null;
+}
 
+export async function createScheduledTransaction(data: z.infer<typeof scheduledTransactionSchema>) {
   try {
+    const session = await requirePermission('scheduled', 'CREATE');
     const validated = scheduledTransactionSchema.parse(data);
+
+    const creditCardError = await assertCreditCardWhenRequired(
+      validated.paymentMethodId,
+      validated.creditCardId,
+    );
+    if (creditCardError) return { success: false, error: creditCardError };
 
     const nextRun = validated.nextRun ? new Date(validated.nextRun) : new Date();
 
@@ -59,10 +70,16 @@ export async function updateScheduledTransaction(
   id: string,
   data: Partial<z.infer<typeof scheduledTransactionSchema>>,
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('scheduled', 'UPDATE');
+    if (data.paymentMethodId) {
+      const creditCardError = await assertCreditCardWhenRequired(
+        data.paymentMethodId,
+        data.creditCardId,
+      );
+      if (creditCardError) return { success: false, error: creditCardError };
+    }
+
     const transaction = await prisma.scheduledTransaction.update({
       where: { id, workspaceId: session.user.workspaceId },
       data: {
@@ -80,10 +97,8 @@ export async function updateScheduledTransaction(
 }
 
 export async function deleteScheduledTransaction(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('scheduled', 'DELETE');
     await prisma.scheduledTransaction.delete({
       where: { id, workspaceId: session.user.workspaceId },
     });
@@ -97,10 +112,8 @@ export async function deleteScheduledTransaction(id: string) {
 }
 
 export async function toggleScheduledTransaction(id: string, isActive: boolean) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('scheduled', 'UPDATE');
     await prisma.scheduledTransaction.update({
       where: { id, workspaceId: session.user.workspaceId },
       data: { isActive },

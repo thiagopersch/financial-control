@@ -4,13 +4,13 @@ import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/ui/data-table';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 import { useAuditLogs, type AuditLog } from '@/lib/queries/audit';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
@@ -58,6 +59,7 @@ const entityLabels: Record<string, string> = {
   Supplier: 'Fornecedor',
   Goal: 'Meta',
   ConditionalRule: 'Regra de Automação',
+  PermissionProfile: 'Perfil de Permissão',
 };
 
 const fieldLabels: Record<string, string> = {
@@ -94,7 +96,7 @@ const fieldLabels: Record<string, string> = {
   targetAmount: 'Valor Alvo',
   currentAmount: 'Valor Atual',
   deadline: 'Prazo',
-  role: 'Função',
+  permissionProfileId: 'Perfil de Permissão',
   password: 'Senha',
   keyword: 'Palavra-chave',
   bio: 'Bio',
@@ -116,6 +118,7 @@ const ID_FIELDS = new Set([
   'supplierId',
   'costCenterId',
   'parentTransactionId',
+  'permissionProfileId',
 ]);
 
 function formatLabel(key: string): string {
@@ -191,11 +194,6 @@ function formatFieldValue(key: string, val: unknown, names: Record<string, strin
     if (val === 'CONTINUOUS') return 'Contínua';
     if (val === 'INSTALLMENTS') return 'Parcelada';
   }
-  if (key === 'role') {
-    if (val === 'ADMIN') return 'Administrador';
-    if (val === 'MANAGER') return 'Gerente';
-    if (val === 'VIEWER') return 'Visualizador';
-  }
   return String(val);
 }
 
@@ -204,6 +202,12 @@ export function AuditView() {
   const [filterEntity, setFilterEntity] = useState('all');
   const [filterAction, setFilterAction] = useState('all');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+
+  usePersistedPageFilters('audit', { search, filterEntity, filterAction }, (saved) => {
+    if (saved.search !== undefined) setSearch(saved.search);
+    if (saved.filterEntity) setFilterEntity(saved.filterEntity);
+    if (saved.filterAction) setFilterAction(saved.filterAction);
+  });
 
   const { logs, names, isLoading } = useAuditLogs({
     entity: filterEntity,
@@ -339,13 +343,13 @@ export function AuditView() {
       )}
 
       <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Detalhes da Auditoria</DialogTitle>
             <DialogDescription>Informações completas do registro de auditoria</DialogDescription>
           </DialogHeader>
           {selectedLog && (
-            <ScrollArea className="pr-4">
+            <DialogBody className="pr-4">
               <div className="space-y-6">
                 {selectedLog.action === 'DELETE' && (
                   <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950/20">
@@ -441,7 +445,7 @@ export function AuditView() {
                   </div>
                 )}
               </div>
-            </ScrollArea>
+            </DialogBody>
           )}
         </DialogContent>
       </Dialog>

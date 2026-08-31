@@ -1,7 +1,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import { Role } from '@prisma/client';
+import { ensureDefaultPermissionProfiles } from '@/lib/services/permission-profiles';
 import bcrypt from 'bcryptjs';
 import * as z from 'zod';
 
@@ -39,12 +39,14 @@ export async function register(data: RegisterData) {
         },
       });
 
+      const adminProfile = await ensureDefaultPermissionProfiles(tx, workspace.id);
+
       const user = await tx.user.create({
         data: {
           name: validatedData.name,
           email: validatedData.email,
           password: hashedPassword,
-          role: Role.ADMIN,
+          permissionProfileId: adminProfile.id,
           workspaceId: workspace.id,
         },
       });

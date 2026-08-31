@@ -7,6 +7,7 @@ import { ListPagination } from '@/components/ui/list-pagination';
 import { Progress } from '@/components/ui/progress';
 import { useCrudDialogState } from '@/hooks/use-crud-dialog-state';
 import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
+import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 import { deleteCreditCard } from '@/lib/actions/credit-cards';
 import type { AccountDTO } from '@/lib/queries/accounts';
 import type { CreditCardDTO } from '@/lib/queries/credit-cards';
@@ -58,6 +59,11 @@ export function CreditCardsList({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
+
+  usePersistedPageFilters('credit-cards', { search, accountFilter }, (saved) => {
+    if (saved.search !== undefined) setSearch(saved.search);
+    if (saved.accountFilter) setAccountFilter(saved.accountFilter);
+  });
 
   const accountOptions = useMemo(() => {
     const map = new Map<string, string>();

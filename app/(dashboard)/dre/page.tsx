@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { format, startOfMonth, endOfMonth, subMonths, eachMonthOfInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 
 interface DREData {
   period: string;
@@ -41,6 +42,10 @@ export default function DREPage() {
   } | null>(null);
   const [chartData, setChartData] = useState<DREData[]>([]);
   const [expensesByCategory, setExpensesByCategory] = useState<CategoryData[]>([]);
+
+  usePersistedPageFilters('dre', { period }, (saved) => {
+    if (saved.period) setPeriod(saved.period as typeof period);
+  });
 
   useEffect(() => {
     fetchDRE();

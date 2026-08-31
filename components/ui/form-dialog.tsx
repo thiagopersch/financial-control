@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -43,13 +44,13 @@ export function FormDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          {children}
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col gap-4">
+          <DialogBody className="flex flex-col gap-4">{children}</DialogBody>
           {showFooter && (
             <DialogFooter>
               <Button

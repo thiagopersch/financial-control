@@ -5,7 +5,7 @@ import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { XIcon } from 'lucide-react';
+import { Minimize2Icon, Maximize2Icon, XIcon } from 'lucide-react';
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
@@ -43,29 +43,49 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  showExpandButton = true,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
+  showExpandButton?: boolean;
 }) {
+  const [isExpanded, setIsExpanded] = React.useState(false);
+
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          'bg-popover text-popover-foreground ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-50 grid max-h-[85vh] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl p-6 text-sm ring-1 duration-100 outline-none sm:w-full sm:max-w-lg',
+          'bg-popover text-popover-foreground ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-50 flex max-h-[90vh] w-full max-w-[90vw] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-x-hidden rounded-xl p-6 text-sm ring-1 duration-100 outline-none sm:max-h-[70vh] sm:max-w-[70vw]',
+          isExpanded && 'sm:max-h-[90vh] sm:max-w-[90vw]',
           className,
         )}
         {...props}
       >
         {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close data-slot="dialog-close" asChild>
-            <Button variant="ghost" className="absolute top-2 right-2" size="icon-sm">
-              <XIcon />
-              <span className="sr-only">Close</span>
-            </Button>
-          </DialogPrimitive.Close>
+        {(showExpandButton || showCloseButton) && (
+          <div className="absolute top-2 right-2 flex items-center gap-1">
+            {showExpandButton && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setIsExpanded((prev) => !prev)}
+              >
+                {isExpanded ? <Minimize2Icon /> : <Maximize2Icon />}
+                <span className="sr-only">{isExpanded ? 'Reduzir' : 'Expandir'}</span>
+              </Button>
+            )}
+            {showCloseButton && (
+              <DialogPrimitive.Close data-slot="dialog-close" asChild>
+                <Button type="button" variant="ghost" size="icon-sm">
+                  <XIcon />
+                  <span className="sr-only">Close</span>
+                </Button>
+              </DialogPrimitive.Close>
+            )}
+          </div>
         )}
       </DialogPrimitive.Content>
     </DialogPortal>
@@ -74,7 +94,21 @@ function DialogContent({
 
 function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
-    <div data-slot="dialog-header" className={cn('flex flex-col gap-2', className)} {...props} />
+    <div
+      data-slot="dialog-header"
+      className={cn('flex shrink-0 flex-col gap-2 pr-14', className)}
+      {...props}
+    />
+  );
+}
+
+function DialogBody({ className, ...props }: React.ComponentProps<'div'>) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn('min-h-0 flex-1 overflow-x-hidden overflow-y-auto', className)}
+      {...props}
+    />
   );
 }
 
@@ -90,7 +124,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        'flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end',
+        'flex shrink-0 flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end',
         className,
       )}
       {...props}
@@ -133,6 +167,7 @@ function DialogDescription({
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,

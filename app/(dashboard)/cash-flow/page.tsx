@@ -19,6 +19,7 @@ import {
 } from 'recharts';
 import { format, addDays, startOfDay, eachDayOfInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 
 interface ProjectedTransaction {
   date: string;
@@ -44,6 +45,10 @@ export default function CashFlowPage() {
   const [chartData, setChartData] = useState<ProjectedTransaction[]>([]);
   const [summary, setSummary] = useState<CashFlowSummary | null>(null);
   const [period, setPeriod] = useState<'30' | '60' | '90'>('30');
+
+  usePersistedPageFilters('cash-flow', { period }, (saved) => {
+    if (saved.period) setPeriod(saved.period as typeof period);
+  });
 
   useEffect(() => {
     fetchCashFlow();

@@ -7,7 +7,7 @@ import { RulesList } from './rules-list';
 interface RulesContentProps {
   rules: any[];
   categories: { id: string; name: string; type: string; color: string }[];
-  userRole?: string;
+  canModify?: boolean;
   totalCount: number;
   page: number;
   pageSize: number;
@@ -16,7 +16,7 @@ interface RulesContentProps {
 export function RulesContent({
   rules,
   categories,
-  userRole,
+  canModify,
   totalCount,
   page,
   pageSize,
@@ -27,13 +27,13 @@ export function RulesContent({
     <>
       <RulesHeader
         categories={categories}
-        userRole={userRole}
+        canModify={canModify}
         paginationSlotRef={setPaginationSlot}
       />
       <RulesList
         rules={rules}
         categories={categories}
-        userRole={userRole}
+        canModify={canModify}
         totalCount={totalCount}
         page={page}
         pageSize={pageSize}

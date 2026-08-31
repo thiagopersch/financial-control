@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { usePersistedFiltersStore } from '@/hooks/use-filters-store';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 
@@ -39,6 +40,7 @@ export function MonthSelector({
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const store = usePersistedFiltersStore();
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -68,13 +70,29 @@ export function MonthSelector({
   const selectedMonth = !yearParam ? currentMonth.toString().padStart(2, '0') : monthParam || '';
 
   useEffect(() => {
-    if (!yearParam && !monthParam) {
-      const params = new URLSearchParams();
+    if (yearParam || monthParam) return;
+
+    const params = new URLSearchParams(searchParams);
+    if (store.period) {
+      for (const [key, value] of new URLSearchParams(store.period)) {
+        params.set(key, value);
+      }
+    } else {
       params.set('year', currentYear.toString());
       params.set('month', currentMonth.toString().padStart(2, '0'));
-      router.replace(`${pathname}?${params.toString()}`);
     }
+    router.replace(`${pathname}?${params.toString()}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yearParam, monthParam, currentYear, currentMonth, pathname, router]);
+
+  const persistPeriod = (params: URLSearchParams) => {
+    const period = new URLSearchParams();
+    const y = params.get('year');
+    const m = params.get('month');
+    if (y) period.set('year', y);
+    if (m) period.set('month', m);
+    store.setPeriod(period.toString());
+  };
 
   const isMonthDisabled = !selectedYear || selectedYear === 'all' || selectedYear === 'year';
 
@@ -88,18 +106,17 @@ export function MonthSelector({
     if (value === 'all') {
       // Todos os Períodos - usar year=all para manter na URL
       params.set('year', 'all');
-      router.push(`${pathname}?${params.toString()}`);
     } else if (value === 'year') {
       // Ano Completo
       params.set('year', currentYear.toString());
       params.set('month', 'all');
-      router.push(`${pathname}?${params.toString()}`);
     } else {
       // Ano específico selecionado
       params.set('year', value);
       // Não limpar month ao trocar ano - manter referência
-      router.push(`${pathname}?${params.toString()}`);
     }
+    persistPeriod(params);
+    router.push(`${pathname}?${params.toString()}`);
   };
 
   const onMonthChange = (value: string | null) => {
@@ -116,6 +133,7 @@ export function MonthSelector({
       params.set('month', value);
     }
 
+    persistPeriod(params);
     router.push(`${pathname}?${params.toString()}`);
   };
 

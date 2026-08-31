@@ -199,7 +199,7 @@ export function DebtFormPage({
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto w-[90%] space-y-6">
       <Button type="button" variant="ghost" className="gap-2" onClick={() => router.push('/debts')}>
         <ArrowLeft className="h-4 w-4" />
         Voltar

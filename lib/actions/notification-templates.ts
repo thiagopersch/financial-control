@@ -1,9 +1,8 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
 import { NotificationChannel, NotificationType } from '@prisma/client';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -32,10 +31,8 @@ const notificationTemplateSchema = z
   });
 
 export async function createNotificationTemplate(data: z.infer<typeof notificationTemplateSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('system-settings', 'CREATE');
     const validated = notificationTemplateSchema.parse(data);
 
     const template = await prisma.notificationTemplate.create({
@@ -58,10 +55,8 @@ export async function updateNotificationTemplate(
   id: string,
   data: Partial<z.infer<typeof notificationTemplateSchema>>,
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('system-settings', 'UPDATE');
     const template = await prisma.notificationTemplate.update({
       where: { id, userId: session.user.id, workspaceId: session.user.workspaceId },
       data,
@@ -76,10 +71,8 @@ export async function updateNotificationTemplate(
 }
 
 export async function deleteNotificationTemplate(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('system-settings', 'DELETE');
     await prisma.notificationTemplate.delete({
       where: { id, userId: session.user.id, workspaceId: session.user.workspaceId },
     });
@@ -93,10 +86,8 @@ export async function deleteNotificationTemplate(id: string) {
 }
 
 export async function toggleNotificationTemplate(id: string, isActive: boolean) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('system-settings', 'UPDATE');
     await prisma.notificationTemplate.update({
       where: { id, userId: session.user.id, workspaceId: session.user.workspaceId },
       data: { isActive },

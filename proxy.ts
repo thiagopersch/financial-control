@@ -1,46 +1,51 @@
-import { withAuth } from 'next-auth/middleware';
+import { EXEMPT_RESOURCES, resourceFromHref } from '@/lib/permissions/catalog';
+import { hasPermission } from '@/lib/permissions/has-permission';
+import { getToken } from 'next-auth/jwt';
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export default withAuth(
-  function middleware(req) {
-    const token = req.nextauth.token;
-    const isAuth = !!token;
-    const isAuthPage =
-      req.nextUrl.pathname.startsWith('/login') || req.nextUrl.pathname.startsWith('/register');
+const PUBLIC_PATHS = ['/login', '/register'];
 
-    if (isAuthPage) {
-      if (isAuth) {
-        return NextResponse.redirect(new URL('/dashboard', req.url));
-      }
-      return null;
-    }
+/**
+ * Checagem otimista de autenticação/permissão nas rotas do dashboard. A
+ * checagem autoritativa (a que realmente protege dados) acontece em cada
+ * Server Action/Server Component via `requirePermission`, que sempre lê a
+ * sessão fresca — o Proxy só evita a navegação/flash de uma página que o
+ * usuário não pode ver.
+ */
+export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-    if (!isAuth) {
-      let from = req.nextUrl.pathname;
-      if (req.nextUrl.search) {
-        from += req.nextUrl.search;
-      }
+  if (
+    PUBLIC_PATHS.includes(pathname) ||
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/_next/') ||
+    pathname === '/favicon.ico'
+  ) {
+    return NextResponse.next();
+  }
 
-      return NextResponse.redirect(new URL(`/login?from=${encodeURIComponent(from)}`, req.url));
-    }
-  },
-  {
-    callbacks: {
-      authorized: ({ token }) => true, // middleware function handles logic
-    },
-  },
-);
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+
+  if (!token) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('callbackUrl', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  const resource = resourceFromHref(pathname);
+  if (EXEMPT_RESOURCES.has(resource)) {
+    return NextResponse.next();
+  }
+
+  const permissions = (token.permissions as string[]) ?? [];
+  if (!hasPermission(permissions, resource, 'VIEW')) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
-  matcher: [
-    '/dashboard/:path*',
-    '/users/:path*',
-    '/categories/:path*',
-    '/transactions/:path*',
-    '/suppliers/:path*',
-    '/profiles/:path*',
-    '/rules/:path*',
-    '/login',
-    '/register',
-  ],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)'],
 };

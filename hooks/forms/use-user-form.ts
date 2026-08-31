@@ -2,20 +2,19 @@
 
 import { createUser, updateUser } from '@/lib/actions/users';
 import { showError, showSuccess } from '@/lib/utils/toast';
-import { Role } from '@prisma/client';
 import * as z from 'zod';
 
 export const createUserSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   email: z.string().email('E-mail inválido'),
   password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
-  role: z.enum(Role),
+  permissionProfileId: z.string().min(1, 'Selecione um perfil de permissão'),
 });
 
 export const updateUserSchema = z
   .object({
     name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-    role: z.enum(Role),
+    permissionProfileId: z.string().min(1, 'Selecione um perfil de permissão'),
     phone: z.string().optional().nullable(),
     notifyEmail: z.boolean().default(false),
     notifyWhatsapp: z.boolean().default(false),
@@ -40,7 +39,7 @@ export function useUserForm({ user, onSuccess, onError }: UseUserFormOptions = {
   const defaultValues = isEditing
     ? {
         name: user.name,
-        role: user.role as Role,
+        permissionProfileId: user.permissionProfileId || '',
         phone: user.profile?.phone || '',
         notifyEmail: user.profile?.notifyEmail || false,
         notifyWhatsapp: user.profile?.notifyWhatsapp || false,
@@ -49,7 +48,7 @@ export function useUserForm({ user, onSuccess, onError }: UseUserFormOptions = {
         name: '',
         email: '',
         password: '',
-        role: Role.VIEWER as Role,
+        permissionProfileId: '',
       };
 
   async function handleSubmit(values: any) {
@@ -57,7 +56,7 @@ export function useUserForm({ user, onSuccess, onError }: UseUserFormOptions = {
       if (isEditing) {
         const result = await updateUser(user.id, {
           name: values.name,
-          role: values.role,
+          permissionProfileId: values.permissionProfileId,
           phone: values.phone,
           notifyEmail: values.notifyEmail,
           notifyWhatsapp: values.notifyWhatsapp,

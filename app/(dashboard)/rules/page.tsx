@@ -1,5 +1,6 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
+import { hasPermission } from '@/lib/permissions/has-permission';
 import prisma from '@/lib/prisma';
 import { getRulesPaginated } from '@/lib/queries/rules';
 import { RulesContent } from '@/components/rules/rules-content';
@@ -43,7 +44,7 @@ export default async function RulesPage({
       <RulesContent
         rules={rules}
         categories={categories}
-        userRole={session.user.role}
+        canModify={hasPermission(session.user.permissions, 'rules', 'CREATE')}
         totalCount={totalCount}
         page={page}
         pageSize={pageSize}

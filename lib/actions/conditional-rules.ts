@@ -1,8 +1,7 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -26,10 +25,8 @@ const conditionalRuleSchema = z.object({
 });
 
 export async function createConditionalRule(data: z.infer<typeof conditionalRuleSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('automation', 'CREATE');
     const validated = conditionalRuleSchema.parse(data);
 
     const rule = await prisma.conditionalRule.create({
@@ -57,10 +54,8 @@ export async function updateConditionalRule(
   id: string,
   data: Partial<z.infer<typeof conditionalRuleSchema>>,
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('automation', 'UPDATE');
     const rule = await prisma.conditionalRule.update({
       where: { id, workspaceId: session.user.workspaceId },
       data,
@@ -75,10 +70,8 @@ export async function updateConditionalRule(
 }
 
 export async function deleteConditionalRule(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('automation', 'DELETE');
     await prisma.conditionalRule.delete({
       where: { id, workspaceId: session.user.workspaceId },
     });
@@ -92,10 +85,8 @@ export async function deleteConditionalRule(id: string) {
 }
 
 export async function toggleConditionalRule(id: string, isActive: boolean) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('automation', 'UPDATE');
     await prisma.conditionalRule.update({
       where: { id, workspaceId: session.user.workspaceId },
       data: { isActive },

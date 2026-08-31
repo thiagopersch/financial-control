@@ -6,10 +6,11 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Role {
-  ADMIN
-  MANAGER
-  VIEWER
+enum PermissionAction {
+  VIEW
+  CREATE
+  UPDATE
+  DELETE
 }
 
 enum TransactionType {
@@ -167,18 +168,20 @@ model Workspace {
   auditLogs             AuditLog[]
   paymentMethods        PaymentMethod[]
   notificationTemplates NotificationTemplate[]
+  permissionProfiles    PermissionProfile[]
 }
 
 model User {
-  id          String    @id @default(cuid())
-  name        String?
-  email       String    @unique
-  password    String
-  role        Role      @default(VIEWER)
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                  String            @id @default(cuid())
+  name                String?
+  email               String            @unique
+  password            String
+  permissionProfileId String
+  permissionProfile   PermissionProfile @relation(fields: [permissionProfileId], references: [id])
+  workspaceId         String
+  workspace           Workspace         @relation(fields: [workspaceId], references: [id])
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   profile               Profile?
   auditLogs             AuditLog[]
@@ -198,6 +201,44 @@ model Profile {
   phone          String?
   notifyEmail    Boolean @default(false)
   notifyWhatsapp Boolean @default(false)
+}
+
+model Permission {
+  id        String           @id @default(cuid())
+  resource  String
+  action    PermissionAction
+  module    String
+  label     String
+  createdAt DateTime         @default(now())
+
+  profiles PermissionProfilePermission[]
+
+  @@unique([resource, action])
+}
+
+model PermissionProfile {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  isSystem    Boolean   @default(false)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  permissions PermissionProfilePermission[]
+  users       User[]
+
+  @@unique([workspaceId, name])
+}
+
+model PermissionProfilePermission {
+  permissionProfileId String
+  permissionProfile   PermissionProfile @relation(fields: [permissionProfileId], references: [id], onDelete: Cascade)
+  permissionId        String
+  permission          Permission        @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([permissionProfileId, permissionId])
 }
 
 model Account {
@@ -377,6 +418,9 @@ model Transaction {
   recurringTransactionId String?
   recurringTransaction   RecurringTransaction? @relation(fields: [recurringTransactionId], references: [id])
 
+  scheduledTransactionId String?
+  scheduledTransaction   ScheduledTransaction? @relation(fields: [scheduledTransactionId], references: [id])
+
   debtId String?
   debt   Debt?   @relation(fields: [debtId], references: [id])
 
@@ -444,6 +488,8 @@ model ScheduledTransaction {
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  transactions Transaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

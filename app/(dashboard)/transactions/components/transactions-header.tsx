@@ -18,7 +18,7 @@ interface TransactionsHeaderProps {
   creditCards?: any[];
   transactionCounts?: Record<string, number>;
   monthCounts?: Record<string, number>;
-  userRole?: string;
+  canModify?: boolean;
   paginationSlotRef?: (node: HTMLDivElement | null) => void;
 }
 
@@ -32,11 +32,11 @@ export function TransactionsHeader({
   creditCards = [],
   transactionCounts,
   monthCounts,
-  userRole,
+  canModify,
   paginationSlotRef,
 }: TransactionsHeaderProps) {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
-  const isEditing = userRole && userRole !== 'VIEWER';
+  const isEditing = !!canModify;
   const {
     searchParams,
     showFilters,

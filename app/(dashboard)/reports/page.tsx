@@ -29,6 +29,7 @@ import { DataTable } from '@/components/ui/data-table';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 
 const metrics = [
   { id: 'total_income', label: 'Receita Total', type: 'income' },
@@ -64,6 +65,11 @@ export default function ReportsPage() {
   const [selectedMetric, setSelectedMetric] = useState('total_expense');
   const [selectedPeriod, setSelectedPeriod] = useState('current_month');
   const [exportFormat, setExportFormat] = useState<'csv' | 'pdf' | 'xlsx'>('xlsx');
+
+  usePersistedPageFilters('reports', { selectedMetric, selectedPeriod }, (saved) => {
+    if (saved.selectedMetric) setSelectedMetric(saved.selectedMetric);
+    if (saved.selectedPeriod) setSelectedPeriod(saved.selectedPeriod);
+  });
 
   const { chartData, tableData, summary, isLoading } = useReports(selectedMetric, selectedPeriod);
 

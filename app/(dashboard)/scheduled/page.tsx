@@ -32,10 +32,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CreditCardSelect } from '@/components/transactions/credit-card-select';
+import { SelectSearch } from '@/components/ui/select-search';
 import { FilterField, FilterPanel } from '@/components/ui/filter-panel';
 import { ListPageHeader } from '@/components/ui/list-page-header';
 import { ListPagination } from '@/components/ui/list-pagination';
 import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
+import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -67,7 +69,7 @@ const scheduledSchema = z.object({
   accountId: z.string().min(1, 'Conta é obrigatória'),
   paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
   creditCardId: z.string().nullable().optional(),
-  supplierId: z.string().nullable().optional(),
+  supplierId: z.string().min(1, 'Fornecedor é obrigatório'),
 });
 
 /** Base UI's Select can emit `null` through onValueChange when the controlled value
@@ -93,6 +95,19 @@ export default function ScheduledPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
+
+  usePersistedPageFilters(
+    'scheduled',
+    { search, typeFilter, frequencyFilter, statusFilter, categoryFilter },
+    (saved) => {
+      if (saved.search !== undefined) setSearch(saved.search);
+      if (saved.typeFilter) setTypeFilter(saved.typeFilter as typeof typeFilter);
+      if (saved.frequencyFilter)
+        setFrequencyFilter(saved.frequencyFilter as typeof frequencyFilter);
+      if (saved.statusFilter) setStatusFilter(saved.statusFilter as typeof statusFilter);
+      if (saved.categoryFilter) setCategoryFilter(saved.categoryFilter);
+    },
+  );
 
   const { transactions, isLoading, refresh } = useScheduledTransactions();
   const { categories } = useCategories();
@@ -124,7 +139,7 @@ export default function ScheduledPage() {
       accountId: '',
       paymentMethodId: '',
       creditCardId: null,
-      supplierId: null,
+      supplierId: '',
     },
   });
 
@@ -195,7 +210,7 @@ export default function ScheduledPage() {
       accountId: item.accountId ?? '',
       paymentMethodId: item.paymentMethodId ?? '',
       creditCardId: item.creditCardId ?? null,
-      supplierId: item.supplierId ?? null,
+      supplierId: item.supplierId ?? '',
     });
     setIsDialogOpen(true);
   };
@@ -697,7 +712,7 @@ export default function ScheduledPage() {
                 name="type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tipo</FormLabel>
+                    <FormLabel required>Tipo</FormLabel>
                     <Select onValueChange={coerceSelectChange(field.onChange)} value={field.value}>
                       <FormControl>
                         <SelectTrigger className="w-full">
@@ -803,27 +818,44 @@ export default function ScheduledPage() {
               name="categoryId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Categoria</FormLabel>
-                  <Select onValueChange={coerceSelectChange(field.onChange)} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecione uma categoria" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {filteredCategories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: cat.color || '#666' }}
-                            />
-                            {cat.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel required>Categoria</FormLabel>
+                  <FormControl>
+                    <SelectSearch
+                      options={filteredCategories.map((cat) => ({
+                        value: cat.id,
+                        label: cat.name,
+                        icon: (
+                          <div
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: cat.color || '#666' }}
+                          />
+                        ),
+                      }))}
+                      value={field.value}
+                      onValueChange={(v) => field.onChange(v ?? '')}
+                      placeholder="Selecione uma categoria"
+                      emptyText="Nenhuma categoria encontrada."
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="supplierId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel required>Fornecedor</FormLabel>
+                  <FormControl>
+                    <SelectSearch
+                      options={suppliers.map((sup) => ({ value: sup.id, label: sup.name }))}
+                      value={field.value}
+                      onValueChange={(v) => field.onChange(v ?? '')}
+                      placeholder="Selecione um fornecedor"
+                      emptyText="Nenhum fornecedor encontrado."
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -834,54 +866,24 @@ export default function ScheduledPage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel required>Conta</FormLabel>
-                  <Select onValueChange={coerceSelectChange(field.onChange)} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecione a conta" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {accounts.map((acc) => (
-                        <SelectItem key={acc.id} value={acc.id}>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: acc.color || '#94a3b8' }}
-                            />
-                            {acc.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="supplierId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fornecedor</FormLabel>
-                  <Select
-                    onValueChange={(v) => field.onChange(v === 'none' ? null : v)}
-                    value={field.value ?? 'none'}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecione um fornecedor" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhum</SelectItem>
-                      {suppliers.map((sup) => (
-                        <SelectItem key={sup.id} value={sup.id}>
-                          {sup.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <SelectSearch
+                      options={accounts.map((acc) => ({
+                        value: acc.id,
+                        label: acc.name,
+                        icon: (
+                          <div
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: acc.color || '#94a3b8' }}
+                          />
+                        ),
+                      }))}
+                      value={field.value}
+                      onValueChange={(v) => field.onChange(v ?? '')}
+                      placeholder="Selecione a conta"
+                      emptyText="Nenhuma conta encontrada."
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

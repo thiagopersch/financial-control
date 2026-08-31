@@ -1,6 +1,7 @@
 import { TransactionsContent } from '@/app/(dashboard)/transactions/components/transactions-content';
 import { authOptions } from '@/lib/auth-options';
 import { autoMoveOverdueTransactions } from '@/lib/actions/transactions';
+import { hasPermission } from '@/lib/permissions/has-permission';
 import prisma from '@/lib/prisma';
 import { getTransactionCountsByMonth, getTransactionCountsByYear } from '@/lib/queries/dashboard';
 import { getCostCenters } from '@/lib/queries/cost-centers';
@@ -201,7 +202,7 @@ export default async function TransactionsPage({
         creditCards={creditCards}
         transactionCounts={transactionCounts}
         monthCounts={monthCounts}
-        userRole={session.user.role}
+        canModify={hasPermission(session.user.permissions, 'transactions', 'CREATE')}
         transactions={transactions}
         totalCount={totalCount}
         totalAmount={totalAmount}

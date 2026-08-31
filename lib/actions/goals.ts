@@ -1,10 +1,9 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
-import prisma from '@/lib/prisma';
 import { checkGoalAlerts } from '@/lib/actions/notifications';
+import { requirePermission } from '@/lib/permissions/require-permission';
+import prisma from '@/lib/prisma';
 import { createAuditLog } from '@/lib/services/audit';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -25,10 +24,8 @@ function serializeGoal(goal: any) {
 }
 
 export async function createGoal(data: z.infer<typeof goalSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('goals', 'CREATE');
     const validated = goalSchema.parse(data);
 
     const existing = await prisma.goal.findFirst({
@@ -65,10 +62,8 @@ export async function createGoal(data: z.infer<typeof goalSchema>) {
 }
 
 export async function updateGoal(id: string, data: z.infer<typeof goalSchema>) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('goals', 'UPDATE');
     const validated = goalSchema.parse(data);
 
     const existing = await prisma.goal.findFirst({
@@ -107,10 +102,8 @@ export async function updateGoal(id: string, data: z.infer<typeof goalSchema>) {
 }
 
 export async function deleteGoal(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   try {
+    const session = await requirePermission('goals', 'DELETE');
     await prisma.goal.delete({
       where: {
         id,
@@ -134,14 +127,12 @@ export async function deleteGoal(id: string) {
 }
 
 export async function depositToGoal(id: string, amount: number) {
-  const session = await getServerSession(authOptions);
-  if (!session) return { success: false, error: 'Não autorizado' };
-
   if (amount <= 0) {
     return { success: false, error: 'Valor deve ser maior que zero' };
   }
 
   try {
+    const session = await requirePermission('goals', 'UPDATE');
     const goal = await prisma.goal.findUnique({
       where: {
         id,

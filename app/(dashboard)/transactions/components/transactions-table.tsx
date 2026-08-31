@@ -50,7 +50,7 @@ interface TransactionsTableProps {
   suppliers: Supplier[];
   accounts: any[];
   costCenters?: { id: string; name: string }[];
-  userRole?: string;
+  canModify?: boolean;
   totalCount: number;
   totalAmount: number;
   totalExpenseAmount: number;
@@ -136,7 +136,7 @@ export function TransactionsTable({
   suppliers,
   accounts,
   costCenters = [],
-  userRole,
+  canModify,
   totalCount,
   totalExpenseAmount,
   totalIncomeAmount,
@@ -438,7 +438,7 @@ export function TransactionsTable({
     },
   ];
 
-  const columns = initialColumns.filter((col) => col.id !== 'actions' || userRole !== 'VIEWER');
+  const columns = initialColumns.filter((col) => col.id !== 'actions' || canModify);
 
   return (
     <div className="flex flex-col gap-4">
@@ -464,10 +464,10 @@ export function TransactionsTable({
         paginationSlot={paginationSlot}
         footer={
           <TableRow className="dark:bg-accent bg-slate-50/50 font-semibold hover:bg-transparent">
-            <TableCell colSpan={columns.length - (userRole !== 'VIEWER' ? 2 : 1)}>
+            <TableCell colSpan={columns.length - (canModify ? 2 : 1)}>
               Total: {totalCount} transaç{totalCount === 1 ? 'ão' : 'ões'}
             </TableCell>
-            <TableCell colSpan={userRole !== 'VIEWER' ? 2 : 1} className="text-right">
+            <TableCell colSpan={canModify ? 2 : 1} className="text-right">
               <div className="flex flex-col items-end gap-0.5">
                 <span className="text-rose-600 dark:text-rose-400">
                   {expenseCount} Despesa{expenseCount === 1 ? '' : 's'}:{' '}
