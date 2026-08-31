@@ -50,6 +50,7 @@ export function PermissionProfilesList({ profiles, onRefresh }: PermissionProfil
   });
 
   const [search, setSearch] = useState('');
+  const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
   const searchParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -145,12 +146,14 @@ export function PermissionProfilesList({ profiles, onRefresh }: PermissionProfil
         canCreate={canCreate}
         createLabel="Novo Perfil"
         onCreate={openCreate}
+        paginationSlotRef={setPaginationSlot}
       />
 
       <DataTable
         columns={visibleColumns}
         data={filteredProfiles}
         emptyMessage="Nenhum perfil de permissão encontrado."
+        paginationSlot={paginationSlot}
       />
 
       <PermissionProfileForm

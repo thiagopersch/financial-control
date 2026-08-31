@@ -6,6 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { PermissionTreeNode } from '@/lib/services/permission-profiles';
+import { normalizeSearchText } from '@/lib/utils/text';
 import {
   ChevronDown,
   ChevronRight,
@@ -30,7 +31,7 @@ export function PermissionTree({ catalog, selectedIds, onChange, disabled }: Per
   const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
 
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const term = search.trim().toLowerCase();
+  const term = normalizeSearchText(search);
   const isSearching = term.length > 0;
 
   const visibleCatalog = useMemo(() => {
@@ -38,14 +39,16 @@ export function PermissionTree({ catalog, selectedIds, onChange, disabled }: Per
 
     return catalog
       .map((module) => {
-        const moduleMatches = module.module.toLowerCase().includes(term);
+        const moduleMatches = normalizeSearchText(module.module).includes(term);
         const resources = module.resources
           .map((resource) => {
-            const resourceMatches = resource.resourceLabel.toLowerCase().includes(term);
+            const resourceMatches = normalizeSearchText(resource.resourceLabel).includes(term);
             const permissions =
               moduleMatches || resourceMatches
                 ? resource.permissions
-                : resource.permissions.filter((p) => p.actionLabel.toLowerCase().includes(term));
+                : resource.permissions.filter((p) =>
+                    normalizeSearchText(p.actionLabel).includes(term),
+                  );
             if (permissions.length === 0) return null;
             return { ...resource, permissions };
           })
@@ -116,7 +119,7 @@ export function PermissionTree({ catalog, selectedIds, onChange, disabled }: Per
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="bg-popover sticky top-0 z-10 flex flex-col gap-2 pb-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-xs">
           <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
@@ -155,7 +158,7 @@ export function PermissionTree({ catalog, selectedIds, onChange, disabled }: Per
         </div>
       </div>
 
-      <div className="max-h-[420px] overflow-y-auto rounded-lg border">
+      <div className="rounded-lg border">
         {visibleCatalog.length === 0 && (
           <p className="text-muted-foreground p-4 text-sm">Nenhuma permissão encontrada.</p>
         )}
