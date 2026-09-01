@@ -9,6 +9,7 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "prisma:seed": "ts-node -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seed.ts",
+    "prisma:backfill-permissions": "ts-node -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/backfill-permission-profiles.ts",
     "docker:dev": "docker compose -f docker-compose.yml up --build",
     "docker:dev:down": "docker compose -f docker-compose.yml down"
   },
