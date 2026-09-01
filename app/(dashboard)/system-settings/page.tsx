@@ -1,9 +1,9 @@
 import { NotificationSettingsForm } from '@/components/profiles/notification-settings-form';
-import { NotificationTemplatesSection } from '@/components/profiles/notification-templates-section';
 import { TestNotificationForm } from '@/components/profiles/test-notification-form';
 import { authOptions } from '@/lib/auth-options';
 import { hasPermission } from '@/lib/permissions/has-permission';
 import prisma from '@/lib/prisma';
+import { getWorkspaceUsers } from '@/lib/queries/users';
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 
@@ -16,11 +16,7 @@ export default async function SystemSettingsPage() {
 
   const [workspace, users] = await Promise.all([
     prisma.workspace.findUnique({ where: { id: session.user.workspaceId } }),
-    prisma.user.findMany({
-      where: { workspaceId: session.user.workspaceId },
-      orderBy: { name: 'asc' },
-      select: { id: true, name: true, email: true },
-    }),
+    getWorkspaceUsers(),
   ]);
 
   return (
@@ -45,8 +41,6 @@ export default async function SystemSettingsPage() {
       />
 
       <TestNotificationForm users={users} />
-
-      <NotificationTemplatesSection />
     </div>
   );
 }

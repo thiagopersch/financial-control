@@ -2,6 +2,13 @@
 
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
+import {
+  buildBudgetVars,
+  buildCreditCardVars,
+  buildGoalVars,
+  buildTransactionVars,
+  TRANSACTION_VARS_INCLUDE,
+} from '@/lib/notification-templates/vars-builder';
 import { deliverNotification } from '@/lib/services/notification-delivery';
 import { getServerSession, type Session } from 'next-auth';
 import { revalidatePath } from 'next/cache';
@@ -14,6 +21,8 @@ const NotificationType = {
   INVOICE_OVERDUE: 'INVOICE_OVERDUE',
   GOAL_PROGRESS: 'GOAL_PROGRESS',
   DEBT_ALERT: 'DEBT_ALERT',
+  TRANSACTION_DUE_SOON: 'TRANSACTION_DUE_SOON',
+  TRANSACTION_OVERDUE: 'TRANSACTION_OVERDUE',
   RECURRING_REMINDER: 'RECURRING_REMINDER',
   ANOMALY_DETECTED: 'ANOMALY_DETECTED',
   CARD_LIMIT_WARNING: 'CARD_LIMIT_WARNING',
@@ -295,6 +304,7 @@ export async function checkBudgetAlerts(session: Session) {
               spentAmount,
               budgetAmount,
               percentage,
+              ...buildBudgetVars(budget),
             },
           });
         }
@@ -326,6 +336,7 @@ export async function checkBudgetAlerts(session: Session) {
               spentAmount,
               budgetAmount,
               percentage,
+              ...buildBudgetVars(budget),
             },
           });
         }
@@ -525,7 +536,7 @@ export async function checkGoalAlerts(session: Session) {
           ? `Você atingiu a meta "${goal.name}"! Total: R$ ${current.toFixed(2)}`
           : `Você já alcançou ${percentage.toFixed(0)}% da meta "${goal.name}". Faltam R$ ${(target - current).toFixed(2)}`,
         level: isReached ? AlertLevel.INFO : AlertLevel.WARNING,
-        metadata: { goalId: goal.id, current, target, percentage },
+        metadata: buildGoalVars(goal),
       });
     }
 
@@ -555,7 +566,7 @@ export async function checkTransactionDueAlerts(session: Session) {
         status: { in: ['PENDING', 'OVERDUE'] },
         dueDate: { lte: dueInThreeDays },
       },
-      include: { category: true, debt: { select: { name: true } } },
+      include: TRANSACTION_VARS_INCLUDE,
       take: 50,
     });
 
@@ -570,7 +581,9 @@ export async function checkTransactionDueAlerts(session: Session) {
     for (const transaction of transactions) {
       const dueDate = transaction.dueDate || transaction.date;
       const isOverdue = dueDate < now;
-      const type = isOverdue ? NotificationType.INVOICE_OVERDUE : NotificationType.INVOICE_DUE;
+      const type = isOverdue
+        ? NotificationType.TRANSACTION_OVERDUE
+        : NotificationType.TRANSACTION_DUE_SOON;
 
       const existing = await prisma.notification.findFirst({
         where: {
@@ -594,14 +607,7 @@ export async function checkTransactionDueAlerts(session: Session) {
         title: isOverdue ? 'Transação Vencida!' : 'Transação Próxima do Vencimento',
         message: `${transaction.description || transaction.category.name}: R$ ${Number(transaction.amount).toFixed(2)} ${isOverdue ? 'venceu' : 'vence'} em ${dueDate.toLocaleDateString('pt-BR')}`,
         level: isOverdue ? AlertLevel.CRITICAL : AlertLevel.WARNING,
-        metadata: {
-          transactionId: transaction.id,
-          name: transaction.description || transaction.category.name,
-          amount: Number(transaction.amount),
-          dueDate: dueDate.toISOString(),
-          isRecurring: transaction.isRecurring,
-          debtName: transaction.debt?.name ?? null,
-        },
+        metadata: buildTransactionVars(transaction),
       });
     }
 
@@ -616,82 +622,66 @@ export async function checkTransactionDueAlerts(session: Session) {
   }
 }
 
-async function getDebtName(debtId?: string | null): Promise<string | null> {
-  if (!debtId) return null;
-  const debt = await prisma.debt.findUnique({ where: { id: debtId }, select: { name: true } });
-  return debt?.name ?? null;
-}
-
-export async function notifyNewTransaction(transaction: {
-  id: string;
-  description?: string | null;
-  amount: number;
-  type: string;
-  categoryName: string;
-  dueDate?: Date | string | null;
-  isRecurring?: boolean;
-  debtId?: string | null;
-}) {
+export async function notifyNewTransaction(input: { id: string }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return;
 
-    const debtName = await getDebtName(transaction.debtId);
+    const transaction = await prisma.transaction.findUnique({
+      where: { id: input.id, workspaceId: session.user.workspaceId },
+      include: TRANSACTION_VARS_INCLUDE,
+    });
+    if (!transaction) return;
+
+    const label = transaction.description || transaction.category.name;
+    const amount = Number(transaction.amount);
 
     await createNotification({
       type: 'SYSTEM',
       title: 'Nova Transação',
-      message: `${transaction.type === 'INCOME' ? 'Receita' : 'Despesa'} adicionada: ${transaction.description || transaction.categoryName} - R$ ${transaction.amount.toFixed(2)}`,
+      message: `${transaction.type === 'INCOME' ? 'Receita' : 'Despesa'} adicionada: ${label} - R$ ${amount.toFixed(2)}`,
       level: 'INFO',
       link: '/transactions',
-      metadata: {
-        transactionId: transaction.id,
-        name: transaction.description || transaction.categoryName,
-        amount: transaction.amount,
-        dueDate: transaction.dueDate ? new Date(transaction.dueDate).toISOString() : null,
-        isRecurring: !!transaction.isRecurring,
-        debtName,
-      },
+      metadata: buildTransactionVars(transaction),
     });
   } catch (error) {
     console.error('Error notifying new transaction:', error);
   }
 }
 
-export async function notifyTransactionStatusChange(transaction: {
+export async function notifyTransactionStatusChange(input: {
   id: string;
-  description?: string | null;
-  amount: number;
-  categoryName: string;
   oldStatus: string;
   newStatus: string;
-  dueDate?: Date | string | null;
-  isRecurring?: boolean;
-  debtId?: string | null;
 }) {
   try {
-    if (transaction.oldStatus === transaction.newStatus) return;
+    if (input.oldStatus === input.newStatus) return;
 
     const session = await getServerSession(authOptions);
     if (!session) return;
 
-    const label = transaction.description || transaction.categoryName;
-    const amount = transaction.amount.toFixed(2);
-    const debtName = await getDebtName(transaction.debtId);
+    const transaction = await prisma.transaction.findUnique({
+      where: { id: input.id, workspaceId: session.user.workspaceId },
+      include: TRANSACTION_VARS_INCLUDE,
+    });
+    if (!transaction) return;
+
+    const label = transaction.description || transaction.category.name;
+    const amount = Number(transaction.amount).toFixed(2);
 
     let title = 'Status da transação atualizado';
     let message = `${label} mudou de status: R$ ${amount}`;
     let level: AlertLevel = AlertLevel.INFO;
 
-    if (transaction.newStatus === 'PAID') {
+    if (input.newStatus === 'PAID') {
       title = 'Transação paga';
       message = `${label} foi marcada como paga: R$ ${amount}`;
       level = AlertLevel.INFO;
-    } else if (transaction.newStatus === 'OVERDUE') {
-      title = 'Transação em atraso';
-      message = `${label} está atrasada: R$ ${amount}`;
-      level = AlertLevel.CRITICAL;
-    } else if (transaction.newStatus === 'PENDING') {
+    } else if (input.newStatus === 'OVERDUE') {
+      // checkTransactionDueAlerts (executado a cada navegação via app/(dashboard)/layout.tsx)
+      // já cria a notificação TRANSACTION_OVERDUE templável para este evento — não duplicar aqui.
+      return;
+    } else if (input.newStatus === 'PENDING') {
       title = 'Transação pendente';
       message = `${label} voltou a ficar pendente: R$ ${amount}`;
       level = AlertLevel.WARNING;
@@ -703,14 +693,7 @@ export async function notifyTransactionStatusChange(transaction: {
       message,
       level,
       link: '/transactions',
-      metadata: {
-        transactionId: transaction.id,
-        name: label,
-        amount: transaction.amount,
-        dueDate: transaction.dueDate ? new Date(transaction.dueDate).toISOString() : null,
-        isRecurring: !!transaction.isRecurring,
-        debtName,
-      },
+      metadata: buildTransactionVars(transaction),
     });
   } catch (error) {
     console.error('Error notifying transaction status change:', error);
@@ -790,13 +773,7 @@ export async function checkCreditCardLimitAlerts(session: Session) {
           : `O cartão ${card.account.name} já usou ${percentage.toFixed(0)}% do limite. Disponível R$ ${available.toFixed(2)} de R$ ${limit.toFixed(2)}.${detail}`,
         level: isExceeded ? AlertLevel.CRITICAL : AlertLevel.WARNING,
         metadata: {
-          creditCardId: card.id,
-          accountId: card.accountId,
-          cardName: card.account.name,
-          used,
-          limit,
-          available,
-          percentage,
+          ...buildCreditCardVars(card),
           topCategory: topCategory?.[0] ?? null,
           topCategoryAmount: topCategory?.[1] ?? null,
           closingDay: card.closingDay,

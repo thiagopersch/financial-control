@@ -8,6 +8,7 @@ export interface NotificationTemplateDTO {
   subject: string;
   bodyHtml: string;
   bodyWhatsapp: string;
+  content: unknown;
   imageUrl: string | null;
   isActive: boolean;
   workspaceId: string;

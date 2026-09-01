@@ -1,3 +1,8 @@
+import {
+  applyConditionals,
+  interpolate,
+  stripHtml,
+} from '@/lib/notification-templates/interpolate';
 import prisma from '@/lib/prisma';
 import { TransactionStatus } from '@prisma/client';
 
@@ -186,20 +191,12 @@ async function executeAction(action: RuleAction, transaction: TransactionWithRel
           category: transaction.category.name,
           description: transaction.description || '',
         };
-        const interpolate = (text: string) =>
-          text.replace(/\{\{(\w+)\}\}/g, (_match, key) => String(vars[key] ?? ''));
-        const stripHtml = (html: string) =>
-          html
-            .replace(/<[^>]*>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-
         const title =
-          template.channel === 'WHATSAPP' ? template.name : interpolate(template.subject);
+          template.channel === 'WHATSAPP' ? template.name : interpolate(template.subject, vars);
         const message =
           template.channel === 'WHATSAPP'
-            ? stripHtml(interpolate(template.bodyWhatsapp))
-            : stripHtml(interpolate(template.bodyHtml));
+            ? stripHtml(interpolate(template.bodyWhatsapp, vars))
+            : stripHtml(interpolate(applyConditionals(template.bodyHtml, vars), vars));
 
         await createNotification({
           type: template.type,

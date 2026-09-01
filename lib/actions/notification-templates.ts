@@ -2,9 +2,11 @@
 
 import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
+import { createAuditLog } from '@/lib/services/audit';
 import { NotificationChannel, NotificationType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
+import { blockTreeSchema } from '@/lib/notification-templates/block-schema';
 
 const notificationTemplateSchema = z
   .object({
@@ -14,6 +16,7 @@ const notificationTemplateSchema = z
     subject: z.string().optional().default(''),
     bodyHtml: z.string().optional().default(''),
     bodyWhatsapp: z.string().optional().default(''),
+    content: blockTreeSchema.nullable().optional().default(null),
     imageUrl: z.string().nullable().optional(),
     isActive: z.boolean().optional().default(true),
   })
@@ -30,22 +33,35 @@ const notificationTemplateSchema = z
     path: ['bodyWhatsapp'],
   });
 
-export async function createNotificationTemplate(data: z.infer<typeof notificationTemplateSchema>) {
+export type NotificationTemplateFormValues = z.infer<typeof notificationTemplateSchema>;
+
+export async function createNotificationTemplate(data: NotificationTemplateFormValues) {
   try {
-    const session = await requirePermission('system-settings', 'CREATE');
+    const session = await requirePermission('notification-templates', 'CREATE');
     const validated = notificationTemplateSchema.parse(data);
 
     const template = await prisma.notificationTemplate.create({
       data: {
         ...validated,
+        content: validated.content ?? undefined,
         workspaceId: session.user.workspaceId,
         userId: session.user.id,
       },
     });
 
-    revalidatePath('/system-settings');
+    await createAuditLog({
+      action: 'CREATE_NOTIFICATION_TEMPLATE',
+      entity: 'NotificationTemplate',
+      entityId: template.id,
+      newValue: { name: template.name, channel: template.channel, type: template.type },
+    });
+
+    revalidatePath('/notification-templates');
     return { success: true, data: template };
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0]?.message || 'Dados inválidos' };
+    }
     console.error('Error creating notification template:', error);
     return { success: false, error: 'Erro ao criar template de notificação' };
   }
@@ -53,16 +69,33 @@ export async function createNotificationTemplate(data: z.infer<typeof notificati
 
 export async function updateNotificationTemplate(
   id: string,
-  data: Partial<z.infer<typeof notificationTemplateSchema>>,
+  data: Partial<NotificationTemplateFormValues>,
 ) {
   try {
-    const session = await requirePermission('system-settings', 'UPDATE');
+    const session = await requirePermission('notification-templates', 'UPDATE');
+
+    const current = await prisma.notificationTemplate.findFirst({
+      where: { id, userId: session.user.id, workspaceId: session.user.workspaceId },
+    });
+    if (!current) return { success: false, error: 'Template não encontrado' };
+
     const template = await prisma.notificationTemplate.update({
       where: { id, userId: session.user.id, workspaceId: session.user.workspaceId },
-      data,
+      data: {
+        ...data,
+        content: data.content === undefined ? undefined : (data.content ?? undefined),
+      },
     });
 
-    revalidatePath('/system-settings');
+    await createAuditLog({
+      action: 'UPDATE_NOTIFICATION_TEMPLATE',
+      entity: 'NotificationTemplate',
+      entityId: template.id,
+      oldValue: { name: current.name, channel: current.channel, type: current.type },
+      newValue: { name: template.name, channel: template.channel, type: template.type },
+    });
+
+    revalidatePath('/notification-templates');
     return { success: true, data: template };
   } catch (error) {
     console.error('Error updating notification template:', error);
@@ -72,12 +105,25 @@ export async function updateNotificationTemplate(
 
 export async function deleteNotificationTemplate(id: string) {
   try {
-    const session = await requirePermission('system-settings', 'DELETE');
+    const session = await requirePermission('notification-templates', 'DELETE');
+
+    const template = await prisma.notificationTemplate.findFirst({
+      where: { id, userId: session.user.id, workspaceId: session.user.workspaceId },
+    });
+    if (!template) return { success: false, error: 'Template não encontrado' };
+
     await prisma.notificationTemplate.delete({
       where: { id, userId: session.user.id, workspaceId: session.user.workspaceId },
     });
 
-    revalidatePath('/system-settings');
+    await createAuditLog({
+      action: 'DELETE_NOTIFICATION_TEMPLATE',
+      entity: 'NotificationTemplate',
+      entityId: id,
+      oldValue: { name: template.name },
+    });
+
+    revalidatePath('/notification-templates');
     return { success: true };
   } catch (error) {
     console.error('Error deleting notification template:', error);
@@ -87,13 +133,20 @@ export async function deleteNotificationTemplate(id: string) {
 
 export async function toggleNotificationTemplate(id: string, isActive: boolean) {
   try {
-    const session = await requirePermission('system-settings', 'UPDATE');
-    await prisma.notificationTemplate.update({
+    const session = await requirePermission('notification-templates', 'UPDATE');
+    const template = await prisma.notificationTemplate.update({
       where: { id, userId: session.user.id, workspaceId: session.user.workspaceId },
       data: { isActive },
     });
 
-    revalidatePath('/system-settings');
+    await createAuditLog({
+      action: 'TOGGLE_NOTIFICATION_TEMPLATE',
+      entity: 'NotificationTemplate',
+      entityId: id,
+      newValue: { isActive: template.isActive },
+    });
+
+    revalidatePath('/notification-templates');
     return { success: true };
   } catch (error) {
     console.error('Error toggling notification template:', error);

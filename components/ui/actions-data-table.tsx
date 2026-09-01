@@ -9,6 +9,8 @@ interface ActionsDataTableProps<T> {
   onEdit: (row: T) => void;
   onDelete: (id: string) => void;
   disabledDelete?: boolean;
+  /** Rendered between the edit and delete buttons, e.g. a module-specific action. */
+  extraActions?: React.ReactNode;
 }
 
 export function ActionsDataTable<T extends { id: string }>({
@@ -16,6 +18,7 @@ export function ActionsDataTable<T extends { id: string }>({
   onEdit,
   onDelete,
   disabledDelete,
+  extraActions,
 }: ActionsDataTableProps<T>) {
   return (
     <div className="space-x-2 text-right whitespace-nowrap">
@@ -27,6 +30,7 @@ export function ActionsDataTable<T extends { id: string }>({
       >
         <Edit className="h-4 w-4" />
       </Button>
+      {extraActions}
       <Button
         variant="ghost"
         size="icon"

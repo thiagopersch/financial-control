@@ -741,6 +741,7 @@ model NotificationTemplate {
   subject      String              @default("")
   bodyHtml     String              @default("")
   bodyWhatsapp String              @default("")
+  content      Json?
   imageUrl     String?
   isActive     Boolean             @default(true)
   workspaceId  String

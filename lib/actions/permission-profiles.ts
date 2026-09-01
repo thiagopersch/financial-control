@@ -7,13 +7,13 @@ import { assertPermissionProfileDeletable } from '@/lib/services/permission-prof
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
-export const permissionProfileSchema = z.object({
+const permissionProfileSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   description: z.string().optional(),
   permissionIds: z.array(z.string()).min(1, 'Selecione pelo menos uma permissão'),
 });
 
-export type PermissionProfileFormValues = z.infer<typeof permissionProfileSchema>;
+type PermissionProfileFormValues = z.infer<typeof permissionProfileSchema>;
 
 export async function createPermissionProfile(data: PermissionProfileFormValues) {
   try {

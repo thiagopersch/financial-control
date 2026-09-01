@@ -15,6 +15,7 @@ import {
   KeyRound,
   Landmark,
   LayoutDashboard,
+  Mail,
   PieChart,
   RefreshCw,
   ScrollText,
@@ -175,6 +176,15 @@ const automationRoutes: Route[] = [
   },
 ];
 
+const strategyRoutes: Route[] = [
+  {
+    label: 'Templates de Notificação',
+    icon: Mail,
+    href: '/notification-templates',
+    color: 'text-fuchsia-600',
+  },
+];
+
 const reportsRoutes: Route[] = [
   {
     label: 'Relatórios',
@@ -268,6 +278,11 @@ export const routeGroups: RouteGroup[] = [
     routes: automationRoutes,
   },
   {
+    title: 'Estratégia',
+    icon: Mail,
+    routes: strategyRoutes,
+  },
+  {
     title: 'Relatórios',
     icon: FileBarChart,
     routes: reportsRoutes,
@@ -291,6 +306,7 @@ export const flatRoutes = [
   ...categoriesRoutes,
   ...financialRoutes,
   ...automationRoutes,
+  ...strategyRoutes,
   ...reportsRoutes,
   ...aiRoutes,
   ...systemRoutes,

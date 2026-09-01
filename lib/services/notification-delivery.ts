@@ -1,3 +1,9 @@
+import {
+  applyConditionals,
+  interpolate,
+  stripHtml,
+} from '@/lib/notification-templates/interpolate';
+import { resolveEmailBodyHtml } from '@/lib/notification-templates/render';
 import prisma from '@/lib/prisma';
 import nodemailer from 'nodemailer';
 import path from 'path';
@@ -11,22 +17,11 @@ interface DeliveryTarget {
   metadata?: Record<string, unknown> | null;
 }
 
-function interpolate(text: string, vars: Record<string, unknown>): string {
-  return text.replace(/\{\{(\w+)\}\}/g, (_match, key) => {
-    const value = vars[key];
-    return value === undefined || value === null ? '' : String(value);
-  });
-}
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 function absoluteImageUrl(imageUrl: string) {
-  const base = process.env.NEXT_PUBLIC_APP_URL;
+  // NEXTAUTH_URL is already required for NextAuth to work, so it's guaranteed
+  // to be set per-environment — used as a fallback in case NEXT_PUBLIC_APP_URL
+  // (an explicit override) isn't configured.
+  const base = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL;
   return base ? `${base.replace(/\/$/, '')}${imageUrl}` : null;
 }
 
@@ -64,7 +59,10 @@ export async function deliverNotification({
     if (profile.notifyEmail && user.email) {
       if (emailTemplate) {
         const subject = interpolate(emailTemplate.subject, vars);
-        const htmlBody = interpolate(emailTemplate.bodyHtml, vars);
+        const htmlBody = interpolate(
+          applyConditionals(resolveEmailBodyHtml(emailTemplate), vars),
+          vars,
+        );
         await sendEmail(
           workspace,
           user.email,
@@ -89,7 +87,7 @@ export async function deliverNotification({
   }
 }
 
-async function sendEmail(
+export async function sendEmail(
   workspace: {
     smtpHost: string | null;
     smtpPort: number | null;
@@ -147,7 +145,7 @@ async function sendEmail(
   }
 }
 
-async function sendWhatsApp(
+export async function sendWhatsApp(
   workspace: { whatsappApiUrl: string | null; whatsappApiToken: string | null } | null,
   phone: string,
   message: string,

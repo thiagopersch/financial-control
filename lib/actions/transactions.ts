@@ -152,17 +152,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
         newValue: validated,
       });
 
-      const category = await prisma.category.findUnique({ where: { id: validated.categoryId } });
-      await notifyNewTransaction({
-        id: result.id,
-        description: validated.description,
-        amount: validated.amount,
-        type: validated.type,
-        categoryName: category?.name || '',
-        dueDate: result.dueDate || result.date,
-        isRecurring: result.isRecurring,
-        debtId: result.debtId,
-      });
+      await notifyNewTransaction({ id: result.id });
       await applyConditionalRules(session.user.workspaceId, result.id);
       if (validated.type === TransactionType.EXPENSE) {
         await checkBudgetAlerts(session);
@@ -215,16 +205,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
       newValue: validated,
     });
 
-    await notifyNewTransaction({
-      id: transaction.id,
-      description: transaction.description,
-      amount: Number(transaction.amount),
-      type: transaction.type,
-      categoryName: transaction.category.name,
-      dueDate: transaction.dueDate || transaction.date,
-      isRecurring: transaction.isRecurring,
-      debtId: transaction.debtId,
-    });
+    await notifyNewTransaction({ id: transaction.id });
     await applyConditionalRules(session.user.workspaceId, transaction.id);
     if (transaction.type === TransactionType.EXPENSE) {
       await checkBudgetAlerts(session);
@@ -382,17 +363,10 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
     });
 
     if (oldTransaction.status !== transaction.status) {
-      const category = await prisma.category.findUnique({ where: { id: transaction.categoryId } });
       await notifyTransactionStatusChange({
         id: transaction.id,
-        description: transaction.description,
-        amount: Number(transaction.amount),
-        categoryName: category?.name || '',
         oldStatus: oldTransaction.status,
         newStatus: transaction.status,
-        dueDate: transaction.dueDate || transaction.date,
-        isRecurring: transaction.isRecurring,
-        debtId: transaction.debtId,
       });
     }
 
@@ -500,17 +474,10 @@ export async function markTransactionAsPaid(id: string) {
     });
 
     if (transaction.status !== updated.status) {
-      const category = await prisma.category.findUnique({ where: { id: updated.categoryId } });
       await notifyTransactionStatusChange({
         id: updated.id,
-        description: updated.description,
-        amount: Number(updated.amount),
-        categoryName: category?.name || '',
         oldStatus: transaction.status,
         newStatus: updated.status,
-        dueDate: updated.dueDate || updated.date,
-        isRecurring: updated.isRecurring,
-        debtId: updated.debtId,
       });
     }
 
