@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
 
     const offset = (page - 1) * limit;
 
-    const [logs, total] = await Promise.all([
+    const [logs, total, actionGroups] = await Promise.all([
       prisma.auditLog.findMany({
         where,
         select: {
@@ -175,9 +175,14 @@ export async function GET(request: NextRequest) {
         take: limit,
       }),
       prisma.auditLog.count({ where }),
+      prisma.auditLog.groupBy({
+        by: ['action'],
+        where: { workspaceId: session.user.workspaceId },
+      }),
     ]);
 
     const names = await resolveNames(logs);
+    const availableActions = actionGroups.map((g) => g.action).sort();
 
     return NextResponse.json({
       logs,
@@ -185,6 +190,7 @@ export async function GET(request: NextRequest) {
       total,
       page,
       totalPages: Math.ceil(total / limit),
+      availableActions,
     });
   } catch (error) {
     console.error('Error fetching audit logs:', error);

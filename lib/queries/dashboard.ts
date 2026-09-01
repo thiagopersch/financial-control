@@ -2,6 +2,7 @@ import { authOptions } from '@/lib/auth-options';
 import { CHART_STATUS_COLORS, getCategoricalColor } from '@/lib/chart-colors';
 import { DEBT_OPEN_STATUSES } from '@/lib/constants/debt-status';
 import prisma from '@/lib/prisma';
+import { getCreditCardsCurrentUsage } from '@/lib/queries/credit-card-usage';
 import { Prisma, TransactionType } from '@prisma/client';
 import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -114,13 +115,10 @@ export async function getCashFlowProjection(days: number = 30) {
     include: { creditCardDetails: true },
   });
 
-  const creditCardAvailableLimit = accounts.reduce(
-    (acc, a) =>
-      acc +
-      a.creditCardDetails.reduce(
-        (sum, card) => sum + (Number(card.limit) - Number(card.usedAmount)),
-        0,
-      ),
+  const allCards = accounts.flatMap((a) => a.creditCardDetails);
+  const usageByCard = await getCreditCardsCurrentUsage(allCards.map((c) => c.id));
+  const creditCardAvailableLimit = allCards.reduce(
+    (sum, card) => sum + (Number(card.limit) - (usageByCard[card.id] || 0)),
     0,
   );
 

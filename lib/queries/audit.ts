@@ -26,6 +26,7 @@ export function useAuditLogs(params?: { entity?: string; action?: string; search
   const { data, error, isLoading, mutate } = useSWR<{
     logs: AuditLog[];
     names?: Record<string, string>;
+    availableActions?: string[];
   }>(key, fetcher, {
     revalidateOnFocus: false,
   });
@@ -33,6 +34,7 @@ export function useAuditLogs(params?: { entity?: string; action?: string; search
   return {
     logs: data?.logs || [],
     names: data?.names || {},
+    availableActions: data?.availableActions || [],
     isLoading,
     isError: error,
     refresh: mutate,

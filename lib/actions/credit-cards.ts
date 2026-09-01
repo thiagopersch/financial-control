@@ -2,6 +2,10 @@
 
 import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
+import {
+  getCreditCardCurrentUsage,
+  getCreditCardsCurrentUsage,
+} from '@/lib/queries/credit-card-usage';
 import { createAuditLog } from '@/lib/services/audit';
 import { InvoiceStatus } from '@prisma/client';
 import { endOfMonth, startOfMonth } from 'date-fns';
@@ -87,6 +91,11 @@ export async function updateCreditCard(id: string, data: z.infer<typeof creditCa
     const session = await requirePermission('credit-cards', 'UPDATE');
     const validated = creditCardSchema.parse(data);
 
+    const existing = await prisma.creditCard.findUnique({
+      where: { id, account: { workspaceId: session.user.workspaceId } },
+    });
+    if (!existing) return { success: false, error: 'Cartão não encontrado' };
+
     const creditCard = await prisma.creditCard.update({
       where: {
         id,
@@ -107,12 +116,14 @@ export async function updateCreditCard(id: string, data: z.infer<typeof creditCa
       },
     });
 
+    const usedAmount = await getCreditCardCurrentUsage(creditCard.id);
+
     const updatedCard = {
       id: creditCard.id,
       accountId: creditCard.accountId,
       limit: Number(creditCard.limit),
       initialBalance: Number(creditCard.initialBalance),
-      usedAmount: Number(creditCard.usedAmount),
+      usedAmount,
       closingDay: creditCard.closingDay,
       dueDay: creditCard.dueDay,
       color: creditCard.color,
@@ -133,6 +144,7 @@ export async function updateCreditCard(id: string, data: z.infer<typeof creditCa
       action: 'UPDATE_CREDIT_CARD',
       entity: 'CreditCard',
       entityId: creditCard.id,
+      oldValue: existing,
       newValue: validated,
     });
 
@@ -205,17 +217,19 @@ export async function getCreditCards() {
       },
     });
 
+    const usageByCard = await getCreditCardsCurrentUsage(creditCards.map((c) => c.id));
+
     const creditCardsWithStats = creditCards.map((card) => {
-      const availableLimit = Number(card.limit) - Number(card.usedAmount);
-      const usagePercentage =
-        Number(card.limit) > 0 ? (Number(card.usedAmount) / Number(card.limit)) * 100 : 0;
+      const usedAmount = usageByCard[card.id] || 0;
+      const availableLimit = Number(card.limit) - usedAmount;
+      const usagePercentage = Number(card.limit) > 0 ? (usedAmount / Number(card.limit)) * 100 : 0;
 
       return {
         ...card,
         availableLimit,
         usagePercentage,
         limit: Number(card.limit),
-        usedAmount: Number(card.usedAmount),
+        usedAmount,
       };
     });
 
@@ -312,13 +326,6 @@ export async function payInvoice(
         where: { id: invoiceId },
         data: {
           status: InvoiceStatus.PAID,
-        },
-      });
-
-      await tx.creditCard.update({
-        where: { id: invoice.creditCardId },
-        data: {
-          usedAmount: { decrement: invoice.amount },
         },
       });
 

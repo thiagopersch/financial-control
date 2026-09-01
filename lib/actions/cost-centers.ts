@@ -43,6 +43,11 @@ export async function updateCostCenter(id: string, data: z.infer<typeof costCent
     const session = await requirePermission('cost-centers', 'UPDATE');
     const validated = costCenterSchema.parse(data);
 
+    const existing = await prisma.costCenter.findUnique({
+      where: { id, workspaceId: session.user.workspaceId },
+    });
+    if (!existing) return { success: false, error: 'Centro de custo não encontrado' };
+
     const costCenter = await prisma.costCenter.update({
       where: {
         id,
@@ -55,6 +60,7 @@ export async function updateCostCenter(id: string, data: z.infer<typeof costCent
       action: 'UPDATE_COST_CENTER',
       entity: 'CostCenter',
       entityId: costCenter.id,
+      oldValue: existing,
       newValue: validated,
     });
 
@@ -81,7 +87,7 @@ export async function deleteCostCenter(id: string) {
       };
     }
 
-    await prisma.costCenter.delete({
+    const costCenter = await prisma.costCenter.delete({
       where: {
         id,
         workspaceId: session.user.workspaceId,
@@ -92,6 +98,7 @@ export async function deleteCostCenter(id: string) {
       action: 'DELETE_COST_CENTER',
       entity: 'CostCenter',
       entityId: id,
+      oldValue: costCenter,
     });
 
     revalidatePath('/cost-centers');

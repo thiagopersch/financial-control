@@ -71,6 +71,7 @@ export async function updatePaymentMethod(id: string, data: z.infer<typeof payme
       action: 'UPDATE_PAYMENT_METHOD',
       entity: 'PaymentMethod',
       entityId: paymentMethod.id,
+      oldValue: existing,
       newValue: validated,
     });
 
@@ -85,7 +86,7 @@ export async function updatePaymentMethod(id: string, data: z.infer<typeof payme
 export async function deletePaymentMethod(id: string) {
   try {
     const session = await requirePermission('payment-methods', 'DELETE');
-    await prisma.paymentMethod.delete({
+    const paymentMethod = await prisma.paymentMethod.delete({
       where: {
         id,
         workspaceId: session.user.workspaceId,
@@ -96,6 +97,7 @@ export async function deletePaymentMethod(id: string) {
       action: 'DELETE_PAYMENT_METHOD',
       entity: 'PaymentMethod',
       entityId: id,
+      oldValue: paymentMethod,
     });
 
     revalidatePath('/payment-methods');

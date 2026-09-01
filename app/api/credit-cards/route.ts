@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
+import { getCreditCardsCurrentUsage } from '@/lib/queries/credit-card-usage';
 
 export async function GET() {
   try {
@@ -28,16 +29,18 @@ export async function GET() {
       },
     });
 
+    const usageByCard = await getCreditCardsCurrentUsage(creditCards.map((c) => c.id));
+
     const creditCardsWithStats = creditCards.map((card) => {
-      const availableLimit = Number(card.limit) - Number(card.usedAmount);
-      const usagePercentage =
-        Number(card.limit) > 0 ? (Number(card.usedAmount) / Number(card.limit)) * 100 : 0;
+      const usedAmount = usageByCard[card.id] || 0;
+      const availableLimit = Number(card.limit) - usedAmount;
+      const usagePercentage = Number(card.limit) > 0 ? (usedAmount / Number(card.limit)) * 100 : 0;
 
       return {
         ...card,
         limit: Number(card.limit),
         initialBalance: Number(card.initialBalance),
-        usedAmount: Number(card.usedAmount),
+        usedAmount,
         availableLimit,
         usagePercentage,
         account: {

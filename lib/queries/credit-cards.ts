@@ -1,5 +1,9 @@
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
+import {
+  getCreditCardCurrentUsage,
+  getCreditCardsCurrentUsage,
+} from '@/lib/queries/credit-card-usage';
 import { getServerSession } from 'next-auth';
 
 export type CreditCardDTO = {
@@ -42,17 +46,19 @@ export async function getCreditCards(): Promise<CreditCardDTO[]> {
       },
     });
 
+    const usageByCard = await getCreditCardsCurrentUsage(creditCards.map((c) => c.id));
+
     return creditCards.map((card) => {
-      const availableLimit = Number(card.limit) - Number(card.usedAmount);
-      const usagePercentage =
-        Number(card.limit) > 0 ? (Number(card.usedAmount) / Number(card.limit)) * 100 : 0;
+      const usedAmount = usageByCard[card.id] || 0;
+      const availableLimit = Number(card.limit) - usedAmount;
+      const usagePercentage = Number(card.limit) > 0 ? (usedAmount / Number(card.limit)) * 100 : 0;
 
       return {
         id: card.id,
         accountId: card.accountId,
         limit: Number(card.limit),
         initialBalance: Number(card.initialBalance),
-        usedAmount: Number(card.usedAmount),
+        usedAmount,
         closingDay: card.closingDay,
         dueDay: card.dueDay,
         color: card.color || '#6366f1',
@@ -93,18 +99,17 @@ export async function getCreditCardById(id: string): Promise<CreditCardDTO | nul
 
     if (!creditCard) return null;
 
-    const availableLimit = Number(creditCard.limit) - Number(creditCard.usedAmount);
+    const usedAmount = await getCreditCardCurrentUsage(creditCard.id);
+    const availableLimit = Number(creditCard.limit) - usedAmount;
     const usagePercentage =
-      Number(creditCard.limit) > 0
-        ? (Number(creditCard.usedAmount) / Number(creditCard.limit)) * 100
-        : 0;
+      Number(creditCard.limit) > 0 ? (usedAmount / Number(creditCard.limit)) * 100 : 0;
 
     return {
       id: creditCard.id,
       accountId: creditCard.accountId,
       limit: Number(creditCard.limit),
       initialBalance: Number(creditCard.initialBalance),
-      usedAmount: Number(creditCard.usedAmount),
+      usedAmount,
       closingDay: creditCard.closingDay,
       dueDay: creditCard.dueDay,
       color: creditCard.color || '#6366f1',

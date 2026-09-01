@@ -23,6 +23,7 @@ import {
 import { resolveEmailBodyHtml } from '@/lib/notification-templates/render';
 import { detectTemplateEntityPages } from '@/lib/notification-templates/variable-catalog';
 import { requirePermission } from '@/lib/permissions/require-permission';
+import { getCreditCardCurrentUsage } from '@/lib/queries/credit-card-usage';
 import prisma from '@/lib/prisma';
 import { createAuditLog } from '@/lib/services/audit';
 import { sendEmail, sendWhatsApp } from '@/lib/services/notification-delivery';
@@ -146,7 +147,8 @@ export async function sendTestNotificationTemplate(input: {
             include: CREDIT_CARD_VARS_INCLUDE,
           });
           if (!card) return { success: false, error: 'Cartão selecionado não encontrado' };
-          vars = { ...vars, ...buildCreditCardVars(card) };
+          const cardUsedAmount = await getCreditCardCurrentUsage(card.id);
+          vars = { ...vars, ...buildCreditCardVars(card, cardUsedAmount) };
           break;
         }
         case 'debt': {

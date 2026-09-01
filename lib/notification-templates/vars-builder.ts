@@ -124,9 +124,12 @@ type CreditCardWithVarsRelations = Prisma.CreditCardGetPayload<{
   include: typeof CREDIT_CARD_VARS_INCLUDE;
 }>;
 
-export function buildCreditCardVars(card: CreditCardWithVarsRelations): Record<string, unknown> {
+export function buildCreditCardVars(
+  card: CreditCardWithVarsRelations,
+  usedAmount: number,
+): Record<string, unknown> {
   const limit = Number(card.limit);
-  const used = Number(card.usedAmount);
+  const used = usedAmount;
   const available = Math.max(limit - used, 0);
   return {
     // legacy

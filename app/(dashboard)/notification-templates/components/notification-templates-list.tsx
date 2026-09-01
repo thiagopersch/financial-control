@@ -1,6 +1,7 @@
 'use client';
 
 import { TestSendDialog } from '@/components/notification-templates/test-send-dialog';
+import { NotificationTemplatesFilters } from './notification-templates-filters';
 import { ActionsDataTable } from '@/components/ui/actions-data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -61,7 +62,14 @@ export function NotificationTemplatesList({
   });
 
   const [search, setSearch] = useState('');
+  const [channelFilter, setChannelFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
+
+  const hasActiveFilters =
+    channelFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'all';
 
   const searchParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -71,9 +79,36 @@ export function NotificationTemplatesList({
 
   const filteredTemplates = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return templates;
-    return templates.filter((template) => template.name.toLowerCase().includes(term));
-  }, [templates, search]);
+    return templates.filter((template) => {
+      const matchesSearch = term ? template.name.toLowerCase().includes(term) : true;
+      const matchesChannel = channelFilter === 'all' || template.channel === channelFilter;
+      const matchesType = typeFilter === 'all' || template.type === typeFilter;
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' ? template.isActive : !template.isActive);
+      return matchesSearch && matchesChannel && matchesType && matchesStatus;
+    });
+  }, [templates, search, channelFilter, typeFilter, statusFilter]);
+
+  const handleApplyFilters = ({
+    channel,
+    type,
+    status,
+  }: {
+    channel: string;
+    type: string;
+    status: string;
+  }) => {
+    setChannelFilter(channel);
+    setTypeFilter(type);
+    setStatusFilter(status);
+  };
+
+  const clearFilters = () => {
+    setChannelFilter('all');
+    setTypeFilter('all');
+    setStatusFilter('all');
+  };
 
   const handleToggle = async (template: NotificationTemplateDTO) => {
     const result = await toggleNotificationTemplate(template.id, !template.isActive);
@@ -171,13 +206,24 @@ export function NotificationTemplatesList({
       <ListPageHeader
         title="Templates de Notificação"
         description="Crie templates de e-mail e WhatsApp para disparo automático de notificações."
-        showFilterToggle={false}
         searchParams={searchParams}
         onSearch={setSearch}
         canCreate={canCreate}
         createLabel="Novo template"
         onCreate={() => router.push('/notification-templates/new')}
         paginationSlotRef={setPaginationSlot}
+        hasActiveFilters={hasActiveFilters}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((v) => !v)}
+        filtersPanel={
+          <NotificationTemplatesFilters
+            channelFilter={channelFilter}
+            typeFilter={typeFilter}
+            statusFilter={statusFilter}
+            onApply={handleApplyFilters}
+            onClear={clearFilters}
+          />
+        }
       />
 
       <DataTable

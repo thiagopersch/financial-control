@@ -2,14 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { NotificationDetailDialog } from '@/components/notifications/notification-detail-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { markAllNotificationsAsRead, markNotificationAsRead } from '@/lib/actions/notifications';
 import { type Notification, useNotifications } from '@/lib/queries/notifications';
@@ -17,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AlertCircle, AlertTriangle, Bell, CheckCheck, Info } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useState } from 'react';
 
 const levelConfig = {
@@ -28,60 +21,11 @@ const levelConfig = {
 
 const PAGE_SIZE = 30;
 
-const CURRENCY_KEYS = new Set([
-  'amount',
-  'budgetAmount',
-  'spentAmount',
-  'current',
-  'target',
-  'used',
-  'limit',
-  'available',
-  'topCategoryAmount',
-]);
-
-const metadataLabels: Record<string, string> = {
-  name: 'Nome da transação',
-  amount: 'Valor',
-  dueDate: 'Data de vencimento',
-  isRecurring: 'Recorrente',
-  debtName: 'Vinculada à dívida',
-  budgetAmount: 'Orçamento',
-  spentAmount: 'Gasto',
-  percentage: 'Percentual',
-  current: 'Atual',
-  target: 'Meta',
-  used: 'Usado',
-  limit: 'Limite',
-  available: 'Disponível',
-  cardName: 'Cartão',
-  topCategory: 'Categoria que mais contribuiu',
-  topCategoryAmount: 'Valor na categoria',
-  closingDay: 'Dia de fechamento',
-  dueDay: 'Dia de vencimento',
-};
-
-function formatMetadataValue(key: string, value: unknown): string {
-  if (key === 'isRecurring') return value ? 'Sim' : 'Não';
-  if (key === 'debtName') return typeof value === 'string' && value ? value : 'Não';
-  if (value === null || value === undefined) return '—';
-  if (key === 'dueDate' || key === 'date') {
-    const date = new Date(value as string);
-    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('pt-BR');
-  }
-  if (CURRENCY_KEYS.has(key)) {
-    return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  }
-  if (key === 'percentage') return `${Number(value).toFixed(0)}%`;
-  return String(value);
-}
-
 export function NotificationBell() {
   const [limit, setLimit] = useState(PAGE_SIZE);
   const { notifications, unreadCount, total, refresh, isLoading } = useNotifications(limit);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Notification | null>(null);
-  const router = useRouter();
 
   const hasMore = notifications.length < total;
 
@@ -101,13 +45,6 @@ export function NotificationBell() {
   const handleMarkAllRead = async () => {
     await markAllNotificationsAsRead();
     refresh();
-  };
-
-  const handleGoToLink = () => {
-    if (selected?.link) {
-      router.push(selected.link);
-      setSelected(null);
-    }
   };
 
   return (
@@ -132,7 +69,13 @@ export function NotificationBell() {
           className="w-80 p-0 max-[768px]:w-[calc(100vw-2rem)] max-[768px]:max-w-[calc(100vw-2rem)]"
         >
           <div className="flex items-center justify-between border-b p-3">
-            <span className="text-sm font-semibold">Notificações</span>
+            <Link
+              href="/notifications"
+              className="text-sm font-semibold hover:underline"
+              onClick={() => setOpen(false)}
+            >
+              Notificações
+            </Link>
             {unreadCount > 0 && (
               <Button
                 variant="ghost"
@@ -202,45 +145,10 @@ export function NotificationBell() {
         </PopoverContent>
       </Popover>
 
-      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent>
-          {selected && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{selected.title}</DialogTitle>
-                <DialogDescription>
-                  {formatDistanceToNow(new Date(selected.createdAt), {
-                    addSuffix: true,
-                    locale: ptBR,
-                  })}
-                </DialogDescription>
-              </DialogHeader>
-              <DialogBody className="flex flex-col gap-4">
-                <p className="text-sm">{selected.message}</p>
-                {selected.metadata && (
-                  <div className="bg-muted/50 space-y-1 rounded-lg border p-3 text-xs">
-                    {Object.entries(selected.metadata)
-                      .filter(([key]) => !/Id$/i.test(key))
-                      .map(([key, value]) => (
-                        <div key={key} className="flex justify-between gap-4">
-                          <span className="text-muted-foreground">
-                            {metadataLabels[key] || key}
-                          </span>
-                          <span className="font-medium">{formatMetadataValue(key, value)}</span>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </DialogBody>
-              {selected.link && (
-                <Button onClick={handleGoToLink} className="w-full">
-                  Ver detalhes
-                </Button>
-              )}
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <NotificationDetailDialog
+        notification={selected}
+        onOpenChange={(open) => !open && setSelected(null)}
+      />
     </>
   );
 }

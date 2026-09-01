@@ -53,7 +53,7 @@ export async function createNotificationTemplate(data: NotificationTemplateFormV
       action: 'CREATE_NOTIFICATION_TEMPLATE',
       entity: 'NotificationTemplate',
       entityId: template.id,
-      newValue: { name: template.name, channel: template.channel, type: template.type },
+      newValue: template,
     });
 
     revalidatePath('/notification-templates');
@@ -91,8 +91,8 @@ export async function updateNotificationTemplate(
       action: 'UPDATE_NOTIFICATION_TEMPLATE',
       entity: 'NotificationTemplate',
       entityId: template.id,
-      oldValue: { name: current.name, channel: current.channel, type: current.type },
-      newValue: { name: template.name, channel: template.channel, type: template.type },
+      oldValue: current,
+      newValue: template,
     });
 
     revalidatePath('/notification-templates');
@@ -120,7 +120,7 @@ export async function deleteNotificationTemplate(id: string) {
       action: 'DELETE_NOTIFICATION_TEMPLATE',
       entity: 'NotificationTemplate',
       entityId: id,
-      oldValue: { name: template.name },
+      oldValue: template,
     });
 
     revalidatePath('/notification-templates');
@@ -143,6 +143,7 @@ export async function toggleNotificationTemplate(id: string, isActive: boolean) 
       action: 'TOGGLE_NOTIFICATION_TEMPLATE',
       entity: 'NotificationTemplate',
       entityId: id,
+      oldValue: { isActive: !isActive },
       newValue: { isActive: template.isActive },
     });
 

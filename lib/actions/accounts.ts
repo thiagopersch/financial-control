@@ -55,6 +55,11 @@ export async function updateAccount(id: string, data: z.infer<typeof accountSche
     const session = await requirePermission('accounts', 'UPDATE');
     const validated = accountSchema.parse(data);
 
+    const existing = await prisma.account.findUnique({
+      where: { id, workspaceId: session.user.workspaceId },
+    });
+    if (!existing) return { success: false, error: 'Conta não encontrada' };
+
     const account = await prisma.account.update({
       where: {
         id,
@@ -71,6 +76,7 @@ export async function updateAccount(id: string, data: z.infer<typeof accountSche
       action: 'UPDATE_ACCOUNT',
       entity: 'Account',
       entityId: account.id,
+      oldValue: existing,
       newValue: validated,
     });
 
@@ -105,7 +111,7 @@ export async function deleteAccount(id: string) {
       };
     }
 
-    await prisma.account.delete({
+    const account = await prisma.account.delete({
       where: {
         id,
         workspaceId: session.user.workspaceId,
@@ -116,6 +122,7 @@ export async function deleteAccount(id: string) {
       action: 'DELETE_ACCOUNT',
       entity: 'Account',
       entityId: id,
+      oldValue: account,
     });
 
     revalidatePath('/accounts');

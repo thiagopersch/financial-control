@@ -77,6 +77,11 @@ export async function updateGoal(id: string, data: z.infer<typeof goalSchema>) {
       return { success: false, error: 'Já existe uma meta com este nome' };
     }
 
+    const previousGoal = await prisma.goal.findUnique({
+      where: { id, workspaceId: session.user.workspaceId },
+    });
+    if (!previousGoal) return { success: false, error: 'Meta não encontrada' };
+
     const goal = await prisma.goal.update({
       where: {
         id,
@@ -89,6 +94,7 @@ export async function updateGoal(id: string, data: z.infer<typeof goalSchema>) {
       action: 'UPDATE_GOAL',
       entity: 'Goal',
       entityId: goal.id,
+      oldValue: previousGoal,
       newValue: validated,
     });
 
@@ -104,7 +110,7 @@ export async function updateGoal(id: string, data: z.infer<typeof goalSchema>) {
 export async function deleteGoal(id: string) {
   try {
     const session = await requirePermission('goals', 'DELETE');
-    await prisma.goal.delete({
+    const goal = await prisma.goal.delete({
       where: {
         id,
         workspaceId: session.user.workspaceId,
@@ -115,6 +121,7 @@ export async function deleteGoal(id: string) {
       action: 'DELETE_GOAL',
       entity: 'Goal',
       entityId: id,
+      oldValue: goal,
     });
 
     revalidatePath('/goals');

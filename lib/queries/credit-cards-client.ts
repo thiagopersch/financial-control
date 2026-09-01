@@ -60,3 +60,29 @@ export function useCreditCardById(id: string | null, options?: SWRConfiguration)
     refresh: mutate,
   };
 }
+
+export interface CreditCardUsageItem {
+  id: string;
+  description: string;
+  debtName: string | null;
+  amount: number;
+  dueDate: string;
+  status: 'PENDING' | 'PAID' | 'OVERDUE';
+}
+
+export function useCreditCardUsage(id: string | null, options?: SWRConfiguration) {
+  const { data, error, isLoading } = useSWR<{ items: CreditCardUsageItem[] }>(
+    id ? `/api/credit-cards/${id}/usage` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      ...options,
+    },
+  );
+
+  return {
+    items: data?.items || [],
+    isLoading,
+    isError: error,
+  };
+}

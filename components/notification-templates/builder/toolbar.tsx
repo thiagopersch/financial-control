@@ -1,5 +1,14 @@
 'use client';
 
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxGroup,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxLabel,
+  ComboboxList,
+} from '@/components/ui/combobox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -10,11 +19,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  getSortedNotificationTypeGroups,
   NOTIFICATION_CHANNEL_LABELS,
   NOTIFICATION_TYPE_LABELS,
 } from '@/lib/notification-templates/labels';
+import { normalizeSearchText } from '@/lib/utils/text';
 import { NotificationChannel, NotificationType } from '@prisma/client';
 import { Eye, Loader2, Save, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 interface ToolbarProps {
   name: string;
@@ -41,6 +53,22 @@ export function Toolbar({
   onSave,
   isSaving,
 }: ToolbarProps) {
+  const typeGroups = useMemo(() => getSortedNotificationTypeGroups(), []);
+  const [typeQuery, setTypeQuery] = useState('');
+
+  const filteredTypeGroups = useMemo(() => {
+    const query = normalizeSearchText(typeQuery);
+    if (!query) return typeGroups;
+    return typeGroups
+      .map((group) => ({
+        ...group,
+        types: group.types.filter((t) =>
+          normalizeSearchText(NOTIFICATION_TYPE_LABELS[t] || t).includes(query),
+        ),
+      }))
+      .filter((group) => group.types.length > 0);
+  }, [typeGroups, typeQuery]);
+
   return (
     <div className="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b py-3">
       <Input
@@ -63,18 +91,37 @@ export function Toolbar({
         </SelectContent>
       </Select>
 
-      <Select value={type} onValueChange={(v) => onTypeChange(v as NotificationType)}>
-        <SelectTrigger className="w-56">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {Object.values(NotificationType).map((t) => (
-            <SelectItem key={t} value={t}>
-              {NOTIFICATION_TYPE_LABELS[t] || t}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Combobox
+        value={type}
+        onValueChange={(v) => v && onTypeChange(v as NotificationType)}
+        onInputValueChange={setTypeQuery}
+        onOpenChange={(open) => {
+          if (open) setTypeQuery('');
+        }}
+        itemToStringLabel={(v) => NOTIFICATION_TYPE_LABELS[v as string] || (v as string)}
+      >
+        <ComboboxInput placeholder="Buscar gatilho..." className="w-56" />
+        <ComboboxContent>
+          <ComboboxList>
+            {filteredTypeGroups.length === 0 ? (
+              <div className="text-muted-foreground p-3 text-center text-sm">
+                Nenhum gatilho encontrado.
+              </div>
+            ) : (
+              filteredTypeGroups.map((group) => (
+                <ComboboxGroup key={group.label}>
+                  <ComboboxLabel>{group.label}</ComboboxLabel>
+                  {group.types.map((t) => (
+                    <ComboboxItem key={t} value={t}>
+                      {NOTIFICATION_TYPE_LABELS[t] || t}
+                    </ComboboxItem>
+                  ))}
+                </ComboboxGroup>
+              ))
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
 
       <div className="ml-auto flex items-center gap-2">
         <Button

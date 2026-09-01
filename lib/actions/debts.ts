@@ -261,15 +261,6 @@ export async function deleteDebt(id: string) {
 
     await prisma.$transaction(async (tx) => {
       if (transactions.length > 0) {
-        for (const t of transactions) {
-          if (t.creditCardId) {
-            await tx.creditCard.update({
-              where: { id: t.creditCardId },
-              data: { usedAmount: { decrement: Number(t.amount) } },
-            });
-          }
-        }
-
         await tx.transaction.deleteMany({
           where: { id: { in: transactions.map((t) => t.id) } },
         });

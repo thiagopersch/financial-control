@@ -3,6 +3,13 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ListPagination } from '@/components/ui/list-pagination';
 import { Progress } from '@/components/ui/progress';
 import { useCrudDialogState } from '@/hooks/use-crud-dialog-state';
@@ -11,8 +18,9 @@ import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 import { deleteCreditCard } from '@/lib/actions/credit-cards';
 import type { AccountDTO } from '@/lib/queries/accounts';
 import type { CreditCardDTO } from '@/lib/queries/credit-cards';
-import { CreditCard, Plus, Trash2 } from 'lucide-react';
+import { CreditCard, Eye, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { CreditCardUsageDialog } from './credit-card-usage-dialog';
 import { CreditCardsForm } from './credit-cards-form';
 import { CreditCardsHeader } from './credit-cards-header';
 
@@ -54,6 +62,7 @@ export function CreditCardsList({
     onSuccess: (id) => setCreditCards((prev) => prev.filter((c) => c.id !== id)),
   });
 
+  const [usageCard, setUsageCard] = useState<CreditCardDTO | null>(null);
   const [search, setSearch] = useState('');
   const [accountFilter, setAccountFilter] = useState('all');
   const [page, setPage] = useState(1);
@@ -128,17 +137,36 @@ export function CreditCardsList({
                 <CreditCard className="h-5 w-5" style={{ color: card.color || '#6366f1' }} />
                 <CardTitle className="text-base font-semibold">{card.account.name}</CardTitle>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-destructive hover:bg-destructive/20 h-8 w-8"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete(card.id);
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuItem onClick={() => setUsageCard(card)}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    Ver consumo do cartão
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openEdit(card)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => handleDelete(card.id)}
+                    className="text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Excluir
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -206,6 +234,12 @@ export function CreditCardsList({
           onRefresh?.();
           close();
         }}
+      />
+
+      <CreditCardUsageDialog
+        creditCardId={usageCard?.id ?? null}
+        cardName={usageCard?.account.name}
+        onOpenChange={(open) => !open && setUsageCard(null)}
       />
 
       <DeleteConfirmModal

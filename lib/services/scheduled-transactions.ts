@@ -1,5 +1,5 @@
 import prisma from '@/lib/prisma';
-import { TransactionStatus, TransactionType } from '@prisma/client';
+import { TransactionStatus } from '@prisma/client';
 import {
   addDays,
   addMonths,
@@ -120,13 +120,6 @@ export async function processDueScheduledTransactions() {
               notes: `Gerado automaticamente pelo agendamento "${scheduled.name}"`,
             },
           });
-
-          if (scheduled.creditCardId && scheduled.type === TransactionType.EXPENSE) {
-            await prisma.creditCard.update({
-              where: { id: scheduled.creditCardId },
-              data: { usedAmount: { increment: scheduled.amount } },
-            });
-          }
         }
 
         const followingRun = computeNextRun(

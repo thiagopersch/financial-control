@@ -9,6 +9,7 @@ import {
   buildTransactionVars,
   TRANSACTION_VARS_INCLUDE,
 } from '@/lib/notification-templates/vars-builder';
+import { getCreditCardsCurrentUsage } from '@/lib/queries/credit-card-usage';
 import { deliverNotification } from '@/lib/services/notification-delivery';
 import { getServerSession, type Session } from 'next-auth';
 import { revalidatePath } from 'next/cache';
@@ -21,7 +22,10 @@ const NotificationType = {
   INVOICE_OVERDUE: 'INVOICE_OVERDUE',
   GOAL_PROGRESS: 'GOAL_PROGRESS',
   DEBT_ALERT: 'DEBT_ALERT',
+  TRANSACTION_CREATED: 'TRANSACTION_CREATED',
+  TRANSACTION_PENDING: 'TRANSACTION_PENDING',
   TRANSACTION_DUE_SOON: 'TRANSACTION_DUE_SOON',
+  TRANSACTION_PAID: 'TRANSACTION_PAID',
   TRANSACTION_OVERDUE: 'TRANSACTION_OVERDUE',
   RECURRING_REMINDER: 'RECURRING_REMINDER',
   ANOMALY_DETECTED: 'ANOMALY_DETECTED',
@@ -50,7 +54,10 @@ const createNotificationSchema = z.object({
     'DEBT_DUE_SOON',
     'DEBT_OVERDUE',
     'RECURRING_REMINDER',
+    'TRANSACTION_CREATED',
+    'TRANSACTION_PENDING',
     'TRANSACTION_DUE_SOON',
+    'TRANSACTION_PAID',
     'TRANSACTION_OVERDUE',
     'ANOMALY_DETECTED',
     'CARD_LIMIT_WARNING',
@@ -637,7 +644,7 @@ export async function notifyNewTransaction(input: { id: string }) {
     const amount = Number(transaction.amount);
 
     await createNotification({
-      type: 'SYSTEM',
+      type: 'TRANSACTION_CREATED',
       title: 'Nova Transação',
       message: `${transaction.type === 'INCOME' ? 'Receita' : 'Despesa'} adicionada: ${label} - R$ ${amount.toFixed(2)}`,
       level: 'INFO',
@@ -672,11 +679,13 @@ export async function notifyTransactionStatusChange(input: {
     let title = 'Status da transação atualizado';
     let message = `${label} mudou de status: R$ ${amount}`;
     let level: AlertLevel = AlertLevel.INFO;
+    let type: NotificationType = NotificationType.SYSTEM;
 
     if (input.newStatus === 'PAID') {
       title = 'Transação paga';
       message = `${label} foi marcada como paga: R$ ${amount}`;
       level = AlertLevel.INFO;
+      type = NotificationType.TRANSACTION_PAID;
     } else if (input.newStatus === 'OVERDUE') {
       // checkTransactionDueAlerts (executado a cada navegação via app/(dashboard)/layout.tsx)
       // já cria a notificação TRANSACTION_OVERDUE templável para este evento — não duplicar aqui.
@@ -685,10 +694,11 @@ export async function notifyTransactionStatusChange(input: {
       title = 'Transação pendente';
       message = `${label} voltou a ficar pendente: R$ ${amount}`;
       level = AlertLevel.WARNING;
+      type = NotificationType.TRANSACTION_PENDING;
     }
 
     await createNotification({
-      type: NotificationType.SYSTEM,
+      type,
       title,
       message,
       level,
@@ -717,9 +727,11 @@ export async function checkCreditCardLimitAlerts(session: Session) {
       metadata: any;
     }> = [];
 
+    const usageByCard = await getCreditCardsCurrentUsage(creditCards.map((c) => c.id));
+
     for (const card of creditCards) {
       const limit = Number(card.limit);
-      const used = Number(card.usedAmount);
+      const used = usageByCard[card.id] || 0;
       if (limit <= 0) continue;
       const percentage = (used / limit) * 100;
       if (percentage < 80) continue;
@@ -773,7 +785,7 @@ export async function checkCreditCardLimitAlerts(session: Session) {
           : `O cartão ${card.account.name} já usou ${percentage.toFixed(0)}% do limite. Disponível R$ ${available.toFixed(2)} de R$ ${limit.toFixed(2)}.${detail}`,
         level: isExceeded ? AlertLevel.CRITICAL : AlertLevel.WARNING,
         metadata: {
-          ...buildCreditCardVars(card),
+          ...buildCreditCardVars(card, used),
           topCategory: topCategory?.[0] ?? null,
           topCategoryAmount: topCategory?.[1] ?? null,
           closingDay: card.closingDay,

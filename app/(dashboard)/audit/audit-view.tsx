@@ -27,7 +27,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
+import {
+  NOTIFICATION_CHANNEL_LABELS,
+  NOTIFICATION_TYPE_LABELS,
+} from '@/lib/notification-templates/labels';
 import { useAuditLogs, type AuditLog } from '@/lib/queries/audit';
+import { formatFieldLabel } from '@/lib/utils/field-labels';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   Calendar,
@@ -60,54 +65,9 @@ const entityLabels: Record<string, string> = {
   Goal: 'Meta',
   ConditionalRule: 'Regra de Automação',
   PermissionProfile: 'Perfil de Permissão',
-};
-
-const fieldLabels: Record<string, string> = {
-  id: 'ID',
-  name: 'Nome',
-  email: 'E-mail',
-  amount: 'Valor',
-  type: 'Tipo',
-  status: 'Status',
-  description: 'Descrição',
-  categoryId: 'Categoria',
-  accountId: 'Conta',
-  costCenterId: 'Centro de Custo',
-  supplierId: 'Fornecedor',
-  notes: 'Observações',
-  color: 'Cor',
-  limit: 'Limite',
-  closingDay: 'Dia Fechamento',
-  dueDay: 'Dia Vencimento',
-  initialBalance: 'Saldo Inicial',
-  initialValue: 'Valor Inicial',
-  currentValue: 'Valor Atual',
-  interestRate: 'Taxa de Juros',
-  minimumPayment: 'Pagamento Mínimo',
-  installments: 'Parcelas',
-  calculationType: 'Tipo de Cálculo',
-  installmentValue: 'Valor Parcela',
-  firstInstallmentMonth: 'Primeira Parcela',
-  dueDate: 'Data Vencimento',
-  date: 'Data',
-  isActive: 'Ativo',
-  isRecurring: 'Recorrente',
-  recurrenceType: 'Tipo Recorrência',
-  targetAmount: 'Valor Alvo',
-  currentAmount: 'Valor Atual',
-  deadline: 'Prazo',
-  permissionProfileId: 'Perfil de Permissão',
-  password: 'Senha',
-  keyword: 'Palavra-chave',
-  bio: 'Bio',
-  fromAccountId: 'Conta Origem',
-  toAccountId: 'Conta Destino',
-  isPaid: 'Pago',
-  paidAt: 'Data Pagamento',
-  createdAt: 'Criado em',
-  updatedAt: 'Atualizado em',
-  workspaceId: 'Workspace',
-  parentTransactionId: 'Transação Pai',
+  NotificationTemplate: 'Template de Notificação',
+  PaymentMethod: 'Meio de Pagamento',
+  Invoice: 'Fatura',
 };
 
 const ID_FIELDS = new Set([
@@ -119,16 +79,13 @@ const ID_FIELDS = new Set([
   'costCenterId',
   'parentTransactionId',
   'permissionProfileId',
+  'creditCardId',
+  'debtId',
+  'paymentMethodId',
 ]);
 
 function formatLabel(key: string): string {
-  return (
-    fieldLabels[key] ||
-    key
-      .replace(/([A-Z])/g, ' $1')
-      .replace(/^./, (s) => s.toUpperCase())
-      .trim()
-  );
+  return formatFieldLabel(key);
 }
 
 function formatFieldValue(key: string, val: unknown, names: Record<string, string>): string {
@@ -136,6 +93,15 @@ function formatFieldValue(key: string, val: unknown, names: Record<string, strin
   if (typeof val === 'boolean') return val ? 'Sim' : 'Não';
   if (ID_FIELDS.has(key) && typeof val === 'string') {
     return names[val] || val;
+  }
+  if (Array.isArray(val)) {
+    if (val.length === 0) return '-';
+    return val
+      .map((item) => (typeof item === 'string' ? names[item] || item : String(item)))
+      .join(', ');
+  }
+  if (key === 'channel') {
+    return NOTIFICATION_CHANNEL_LABELS[val as string] || String(val);
   }
   if (
     key === 'amount' ||
@@ -170,6 +136,8 @@ function formatFieldValue(key: string, val: unknown, names: Record<string, strin
   if (key === 'type') {
     if (val === 'INCOME') return 'Receita';
     if (val === 'EXPENSE') return 'Despesa';
+    if (typeof val === 'string' && NOTIFICATION_TYPE_LABELS[val])
+      return NOTIFICATION_TYPE_LABELS[val];
   }
   if (key === 'status') {
     if (val === 'PAID') return 'Pago';
@@ -209,13 +177,19 @@ export function AuditView() {
     if (saved.filterAction) setFilterAction(saved.filterAction);
   });
 
-  const { logs, names, isLoading } = useAuditLogs({
+  const { logs, names, availableActions, isLoading } = useAuditLogs({
     entity: filterEntity,
     action: filterAction,
   });
 
-  const entities = useMemo(() => [...new Set(logs.map((l) => l.entity))], [logs]);
-  const actions = useMemo(() => [...new Set(logs.map((l) => l.action))], [logs]);
+  const entities = useMemo(
+    () =>
+      Object.keys(entityLabels).sort((a, b) =>
+        entityLabels[a].localeCompare(entityLabels[b], 'pt-BR'),
+      ),
+    [],
+  );
+  const actions = useMemo(() => availableActions, [availableActions]);
 
   const filteredLogs = logs.filter((log) =>
     search
@@ -490,9 +464,7 @@ function DiffView({
   if (changedEntries.length === 0) {
     return (
       <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-800 dark:bg-emerald-950/10">
-        <div className="space-y-1.5">
-          {formatDetailedEntries(newValue || oldValue, names)}
-        </div>
+        <div className="space-y-1.5">{formatDetailedEntries(newValue || oldValue, names)}</div>
       </div>
     );
   }

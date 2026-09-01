@@ -40,7 +40,7 @@ export async function createPermissionProfile(data: PermissionProfileFormValues)
       action: 'CREATE_PERMISSION_PROFILE',
       entity: 'PermissionProfile',
       entityId: profile.id,
-      newValue: { name: validated.name, description: validated.description },
+      newValue: validated,
     });
 
     revalidatePath('/permission-profiles');
@@ -64,6 +64,7 @@ export async function updatePermissionProfile(id: string, data: PermissionProfil
 
     const current = await prisma.permissionProfile.findFirst({
       where: { id, workspaceId: session.user.workspaceId },
+      include: { permissions: { select: { permissionId: true } } },
     });
     if (!current) return { success: false, error: 'Perfil de permissão não encontrado' };
 
@@ -78,6 +79,7 @@ export async function updatePermissionProfile(id: string, data: PermissionProfil
             create: validated.permissionIds.map((permissionId) => ({ permissionId })),
           },
         },
+        include: { permissions: { select: { permissionId: true } } },
       });
     });
 
@@ -85,8 +87,16 @@ export async function updatePermissionProfile(id: string, data: PermissionProfil
       action: 'UPDATE_PERMISSION_PROFILE',
       entity: 'PermissionProfile',
       entityId: profile.id,
-      oldValue: { name: current.name, description: current.description },
-      newValue: { name: profile.name, description: profile.description },
+      oldValue: {
+        name: current.name,
+        description: current.description,
+        permissionIds: current.permissions.map((p) => p.permissionId),
+      },
+      newValue: {
+        name: profile.name,
+        description: profile.description,
+        permissionIds: profile.permissions.map((p) => p.permissionId),
+      },
     });
 
     revalidatePath('/permission-profiles');
@@ -109,6 +119,7 @@ export async function deletePermissionProfile(id: string) {
 
     const profile = await prisma.permissionProfile.findFirst({
       where: { id, workspaceId: session.user.workspaceId },
+      include: { permissions: { select: { permissionId: true } } },
     });
     if (!profile) return { success: false, error: 'Perfil de permissão não encontrado' };
 
@@ -120,7 +131,11 @@ export async function deletePermissionProfile(id: string) {
       action: 'DELETE_PERMISSION_PROFILE',
       entity: 'PermissionProfile',
       entityId: id,
-      oldValue: { name: profile.name },
+      oldValue: {
+        name: profile.name,
+        description: profile.description,
+        permissionIds: profile.permissions.map((p) => p.permissionId),
+      },
     });
 
     revalidatePath('/permission-profiles');

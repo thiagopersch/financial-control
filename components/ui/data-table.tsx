@@ -131,7 +131,7 @@ export function DataTable<TData, TValue>({
                     data-state={row.getIsSelected() && 'selected'}
                     onClick={onRowClick ? () => onRowClick(row.original) : undefined}
                     className={cn(
-                      'transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-50/50',
+                      'hover:bg-muted/50 dark:hover:bg-muted/40 transition-colors',
                       onRowClick && 'cursor-pointer',
                       getRowClassName?.(row.original),
                     )}

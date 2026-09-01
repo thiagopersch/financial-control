@@ -52,7 +52,7 @@ export async function upsertBudget(data: z.infer<typeof budgetSchema> & { id?: s
         action: 'UPDATE_BUDGET',
         entity: 'Budget',
         entityId: budget.id,
-        oldValue: { amount: existing.amount },
+        oldValue: existing,
         newValue: validated,
       });
     } else {
@@ -79,7 +79,7 @@ export async function upsertBudget(data: z.infer<typeof budgetSchema> & { id?: s
           action: 'UPDATE_BUDGET',
           entity: 'Budget',
           entityId: budget.id,
-          oldValue: { amount: existing.amount },
+          oldValue: existing,
           newValue: validated,
         });
       } else {

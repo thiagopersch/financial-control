@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
+import { getCreditCardCurrentUsage } from '@/lib/queries/credit-card-usage';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -31,17 +32,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Cartão de crédito não encontrado' }, { status: 404 });
     }
 
-    const availableLimit = Number(creditCard.limit) - Number(creditCard.usedAmount);
+    const usedAmount = await getCreditCardCurrentUsage(creditCard.id);
+    const availableLimit = Number(creditCard.limit) - usedAmount;
     const usagePercentage =
-      Number(creditCard.limit) > 0
-        ? (Number(creditCard.usedAmount) / Number(creditCard.limit)) * 100
-        : 0;
+      Number(creditCard.limit) > 0 ? (usedAmount / Number(creditCard.limit)) * 100 : 0;
 
     const formattedCreditCard = {
       ...creditCard,
       limit: Number(creditCard.limit),
       initialBalance: Number(creditCard.initialBalance),
-      usedAmount: Number(creditCard.usedAmount),
+      usedAmount,
       availableLimit,
       usagePercentage,
       account: {

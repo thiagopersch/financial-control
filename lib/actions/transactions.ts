@@ -158,13 +158,6 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
           });
         }
 
-        if (validated.creditCardId && validated.type === TransactionType.EXPENSE) {
-          await tx.creditCard.update({
-            where: { id: validated.creditCardId },
-            data: { usedAmount: { increment: validated.amount } },
-          });
-        }
-
         if (validated.debtId) {
           await tx.debt.update({
             where: { id: validated.debtId },
@@ -221,13 +214,6 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
         },
         include: { category: true },
       });
-
-      if (validated.creditCardId && validated.type === TransactionType.EXPENSE) {
-        await tx.creditCard.update({
-          where: { id: validated.creditCardId },
-          data: { usedAmount: { increment: validated.amount } },
-        });
-      }
 
       if (validated.debtId) {
         await tx.debt.update({
@@ -308,50 +294,8 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
         },
       });
 
-      const oldCardUsage =
-        oldTransaction.creditCardId && oldTransaction.type === TransactionType.EXPENSE
-          ? Number(oldTransaction.amount)
-          : 0;
-      const newCardUsage =
-        validated.creditCardId && validated.type === TransactionType.EXPENSE ? validated.amount : 0;
-
-      if (oldTransaction.creditCardId !== validated.creditCardId) {
-        if (oldTransaction.creditCardId && oldCardUsage > 0) {
-          await tx.creditCard.update({
-            where: { id: oldTransaction.creditCardId },
-            data: { usedAmount: { decrement: oldCardUsage } },
-          });
-        }
-        if (validated.creditCardId && newCardUsage > 0) {
-          await tx.creditCard.update({
-            where: { id: validated.creditCardId },
-            data: { usedAmount: { increment: newCardUsage } },
-          });
-        }
-      } else if (validated.creditCardId && oldCardUsage !== newCardUsage) {
-        await tx.creditCard.update({
-          where: { id: validated.creditCardId },
-          data: { usedAmount: { increment: newCardUsage - oldCardUsage } },
-        });
-      }
-
-      // Debt installments charged to a credit card never go through the invoice
-      // flow, so toggling their paid status is what frees/reserves the limit.
-      if (updated.debtId && updated.creditCardId && updated.type === TransactionType.EXPENSE) {
-        const wasPaid = oldTransaction.status === TransactionStatus.PAID;
-        const isPaid = updated.status === TransactionStatus.PAID;
-        if (!wasPaid && isPaid) {
-          await tx.creditCard.update({
-            where: { id: updated.creditCardId },
-            data: { usedAmount: { decrement: Number(updated.amount) } },
-          });
-        } else if (wasPaid && !isPaid) {
-          await tx.creditCard.update({
-            where: { id: updated.creditCardId },
-            data: { usedAmount: { increment: Number(updated.amount) } },
-          });
-        }
-      }
+      // Limite do cartão é calculado dinamicamente por competência (ver
+      // lib/queries/credit-card-usage.ts) — não há mais contador para ajustar aqui.
 
       // Linking/unlinking/reamounting a transaction adjusts the debt's total (initialValue)
       // immediately, regardless of paid status — currentValue then falls out of that via
@@ -383,6 +327,7 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
       action: 'UPDATE_TRANSACTION',
       entity: 'Transaction',
       entityId: transaction.id,
+      oldValue: oldTransaction,
       newValue: validated,
     });
 
@@ -448,21 +393,8 @@ export async function markTransactionAsPaid(id: string) {
         },
       });
 
-      // Debt installments charged to a credit card never go through the invoice
-      // flow (their accountId is the debt's payment account, not the card's own
-      // account, so generateInvoices/payInvoice never sees them) — settling one
-      // here is the only place that can free up the limit it reserved.
-      if (
-        u.debtId &&
-        u.creditCardId &&
-        u.type === TransactionType.EXPENSE &&
-        transaction.status !== TransactionStatus.PAID
-      ) {
-        await tx.creditCard.update({
-          where: { id: u.creditCardId },
-          data: { usedAmount: { decrement: Number(u.amount) } },
-        });
-      }
+      // Limite do cartão é calculado dinamicamente por competência e já exclui
+      // transações PAID — nada para ajustar aqui (ver lib/queries/credit-card-usage.ts).
 
       if (u.debtId) {
         await syncDebtCurrentValueInTx(tx, u.debtId);
@@ -584,15 +516,6 @@ export async function deleteTransaction(id: string, deleteSeries = false) {
       const debtId = transaction.debtId;
 
       await prisma.$transaction(async (tx) => {
-        for (const t of seriesTransactions) {
-          if (t.creditCardId && t.type === TransactionType.EXPENSE) {
-            await tx.creditCard.update({
-              where: { id: t.creditCardId },
-              data: { usedAmount: { decrement: Number(t.amount) } },
-            });
-          }
-        }
-
         await tx.transaction.deleteMany({
           where: { id: { in: seriesTransactions.map((t) => t.id) } },
         });
@@ -633,13 +556,6 @@ export async function deleteTransaction(id: string, deleteSeries = false) {
     }
 
     await prisma.$transaction(async (tx) => {
-      if (transaction.creditCardId && transaction.type === TransactionType.EXPENSE) {
-        await tx.creditCard.update({
-          where: { id: transaction.creditCardId },
-          data: { usedAmount: { decrement: Number(transaction.amount) } },
-        });
-      }
-
       if (transaction.debtId) {
         await tx.debt.update({
           where: { id: transaction.debtId },

@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   BarChart3,
+  Bell,
   Bot,
   Building2,
   Calculator,
@@ -58,6 +59,12 @@ const dashboardRoutes: Route[] = [
     icon: Wallet,
     href: '/transactions',
     color: 'text-violet-500',
+  },
+  {
+    label: 'Notificações',
+    icon: Bell,
+    href: '/notifications',
+    color: 'text-sky-500',
   },
 ];
 
