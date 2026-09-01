@@ -138,6 +138,12 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
           ? Number(existingDebt.installmentValue)
           : null;
 
+    // If the user explicitly typed a different "Valor Total" than what's currently stored, that's
+    // an intentional override (e.g. correcting a value that drifted out of sync) — it always wins,
+    // bypassing the plan-delta logic below entirely.
+    const userOverrodeInitialValue =
+      data.initialValue != null && data.initialValue !== Number(existingDebt.initialValue);
+
     // For fixed-installment debts, the parcela plan's total is installments × installmentValue.
     // `existingDebt.initialValue` may already include extra amounts from ad-hoc transactions
     // linked to this debt from the Transactions screen (see lib/actions/transactions.ts), which
@@ -153,8 +159,9 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
       calculationType === 'FIXED_INSTALLMENT' && installmentsTotal && installmentValue
         ? installmentsTotal * installmentValue
         : null;
-    const initialValue =
-      oldPlanTotal != null && newPlanTotal != null
+    const initialValue = userOverrodeInitialValue
+      ? data.initialValue!
+      : oldPlanTotal != null && newPlanTotal != null
         ? Number(existingDebt.initialValue) + (newPlanTotal - oldPlanTotal)
         : (newPlanTotal ?? data.initialValue ?? Number(existingDebt.initialValue));
 
