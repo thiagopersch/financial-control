@@ -31,6 +31,14 @@ export default defineConfig({
     seed: 'npx ts-node -P tsconfig.seed.json prisma/seed.ts',
   },
   datasource: {
-    url: process.env.DATABASE_URL!,
+    // The Prisma CLI (migrate/db push/introspect) needs a direct (non-pooled)
+    // connection: it relies on Postgres advisory locks, which aren't reliably
+    // preserved across statements through a transaction-mode pooler like
+    // Neon's `-pooler` endpoint — using it here causes `migrate deploy` to
+    // hang and fail with P1002. DIRECT_URL is optional and falls back to
+    // DATABASE_URL for setups without a separate pooled/direct split (e.g.
+    // local Postgres). The app itself (lib/prisma.ts) always uses the pooled
+    // DATABASE_URL directly and is unaffected by this.
+    url: process.env.DIRECT_URL || process.env.DATABASE_URL!,
   },
 });
