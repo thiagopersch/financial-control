@@ -11,7 +11,7 @@ import { createAuditLog } from '@/lib/services/audit';
 import { matchCategorizationRule } from '@/lib/services/categorization';
 import { applyConditionalRules } from '@/lib/services/conditional-rules';
 import { resolveDebtStatusFromBalance } from '@/lib/services/debt-status';
-import { TransactionStatus, TransactionType } from '@prisma/client';
+import { Prisma, TransactionStatus, TransactionType } from '@prisma/client';
 import { addMonths, startOfMonth } from 'date-fns';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
@@ -43,12 +43,32 @@ const transactionSchema = z.object({
   creditCardId: z.string().nullable().optional(),
   costCenterId: z.string().nullable().optional(),
   supplierId: z.string().nullable().optional(),
+  debtId: z.string().nullable().optional(),
   notes: z.string().max(255, 'Máximo de 255 caracteres').optional(),
   isRecurring: z.boolean().default(false),
   recurrenceType: z.enum(['CONTINUOUS', 'INSTALLMENTS']).nullable().optional(),
   installments: z.coerce.number().min(1).nullable().optional(),
   autoMoveEnabled: z.boolean().default(false),
 });
+
+async function syncDebtCurrentValueInTx(tx: Prisma.TransactionClient, debtId: string) {
+  const debt = await tx.debt.findUnique({ where: { id: debtId } });
+  if (!debt) return;
+
+  const paidTransactions = await tx.transaction.findMany({
+    where: { debtId, status: TransactionStatus.PAID },
+  });
+  const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+  const debtNewCurrentValue = Number(debt.initialValue) - totalPaid;
+
+  await tx.debt.update({
+    where: { id: debtId },
+    data: {
+      currentValue: debtNewCurrentValue,
+      status: resolveDebtStatusFromBalance(debt.status, debtNewCurrentValue),
+    },
+  });
+}
 
 export async function createTransaction(data: z.infer<typeof transactionSchema>) {
   try {
@@ -91,6 +111,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
             creditCardId: validated.creditCardId,
             costCenterId: validated.costCenterId,
             supplierId: validated.supplierId,
+            debtId: validated.debtId,
             notes: validated.notes,
             workspaceId: session.user.workspaceId,
             isRecurring: true,
@@ -122,6 +143,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
             creditCardId: validated.creditCardId,
             costCenterId: validated.costCenterId,
             supplierId: validated.supplierId,
+            debtId: validated.debtId,
             notes: `${validated.notes || ''} (${i + 1}/${count})`,
             workspaceId: session.user.workspaceId,
             isRecurring: true,
@@ -141,6 +163,10 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
             where: { id: validated.creditCardId },
             data: { usedAmount: { increment: validated.amount } },
           });
+        }
+
+        if (validated.debtId && validated.status === TransactionStatus.PAID) {
+          await syncDebtCurrentValueInTx(tx, validated.debtId);
         }
 
         return parentTransaction;
@@ -183,6 +209,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
           creditCardId: validated.creditCardId,
           costCenterId: validated.costCenterId,
           supplierId: validated.supplierId,
+          debtId: validated.debtId,
           notes: validated.notes,
           workspaceId: session.user.workspaceId,
         },
@@ -194,6 +221,10 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
           where: { id: validated.creditCardId },
           data: { usedAmount: { increment: validated.amount } },
         });
+      }
+
+      if (validated.debtId && validated.status === TransactionStatus.PAID) {
+        await syncDebtCurrentValueInTx(tx, validated.debtId);
       }
 
       return t;
@@ -240,30 +271,6 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
     if (!oldTransaction) return { success: false, error: 'Transação não encontrada' };
 
     const transaction = await prisma.$transaction(async (tx) => {
-      if (oldTransaction.status === TransactionStatus.PAID) {
-        const oldAmount = Number(oldTransaction.amount);
-        if (oldTransaction.debtId) {
-          const debt = await tx.debt.findUnique({
-            where: { id: oldTransaction.debtId },
-          });
-          if (debt) {
-            const paidTransactions = await tx.transaction.findMany({
-              where: { debtId: oldTransaction.debtId, status: TransactionStatus.PAID },
-            });
-            const totalPaid =
-              paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0) - oldAmount;
-            const debtNewCurrentValue = Number(debt.initialValue) - totalPaid;
-            await tx.debt.update({
-              where: { id: oldTransaction.debtId },
-              data: {
-                currentValue: debtNewCurrentValue,
-                status: resolveDebtStatusFromBalance(debt.status, debtNewCurrentValue),
-              },
-            });
-          }
-        }
-      }
-
       const updated = await tx.transaction.update({
         where: { id },
         data: {
@@ -281,6 +288,7 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
           creditCardId: validated.creditCardId,
           costCenterId: validated.costCenterId,
           supplierId: validated.supplierId,
+          debtId: validated.debtId,
           notes: validated.notes,
           isRecurring: validated.isRecurring,
           recurrenceType: validated.recurrenceType,
@@ -333,26 +341,15 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
         }
       }
 
-      if (validated.status === TransactionStatus.PAID) {
-        if (updated.debtId) {
-          const debt = await tx.debt.findUnique({
-            where: { id: updated.debtId },
-          });
-          if (debt) {
-            const paidTransactions = await tx.transaction.findMany({
-              where: { debtId: updated.debtId, status: TransactionStatus.PAID },
-            });
-            const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
-            const debtNewCurrentValue = Number(debt.initialValue) - totalPaid;
-            await tx.debt.update({
-              where: { id: updated.debtId },
-              data: {
-                currentValue: debtNewCurrentValue,
-                status: resolveDebtStatusFromBalance(debt.status, debtNewCurrentValue),
-              },
-            });
-          }
-        }
+      const affectedDebtIds = new Set<string>();
+      if (oldTransaction.debtId && oldTransaction.status === TransactionStatus.PAID) {
+        affectedDebtIds.add(oldTransaction.debtId);
+      }
+      if (updated.debtId && updated.status === TransactionStatus.PAID) {
+        affectedDebtIds.add(updated.debtId);
+      }
+      for (const debtId of affectedDebtIds) {
+        await syncDebtCurrentValueInTx(tx, debtId);
       }
 
       return updated;
@@ -440,21 +437,7 @@ export async function markTransactionAsPaid(id: string) {
       }
 
       if (u.debtId) {
-        const debt = await tx.debt.findUnique({ where: { id: u.debtId } });
-        if (debt) {
-          const paidTransactions = await tx.transaction.findMany({
-            where: { debtId: u.debtId, status: TransactionStatus.PAID },
-          });
-          const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
-          const debtNewCurrentValue = Number(debt.initialValue) - totalPaid;
-          await tx.debt.update({
-            where: { id: u.debtId },
-            data: {
-              currentValue: debtNewCurrentValue,
-              status: resolveDebtStatusFromBalance(debt.status, debtNewCurrentValue),
-            },
-          });
-        }
+        await syncDebtCurrentValueInTx(tx, u.debtId);
       }
 
       return u;

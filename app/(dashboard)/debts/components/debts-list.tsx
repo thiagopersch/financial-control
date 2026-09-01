@@ -189,6 +189,10 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
     router.push('/debts/new');
   };
 
+  const openView = (debt: DebtDTO) => {
+    router.push(`/debts/${debt.id}`);
+  };
+
   const openEdit = (debt: DebtDTO) => {
     router.push(`/debts/${debt.id}/edit`);
   };
@@ -279,7 +283,13 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {paginatedActiveDebts.map((debt) => (
-              <DebtsCard key={debt.id} debt={debt} onEdit={openEdit} onDelete={openDelete} />
+              <DebtsCard
+                key={debt.id}
+                debt={debt}
+                onView={openView}
+                onEdit={openEdit}
+                onDelete={openDelete}
+              />
             ))}
           </div>
           <ListPagination
@@ -306,7 +316,13 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {visiblePaidDebts.map((debt) => (
-              <DebtsCard key={debt.id} debt={debt} onEdit={openEdit} onDelete={openDelete} />
+              <DebtsCard
+                key={debt.id}
+                debt={debt}
+                onView={openView}
+                onEdit={openEdit}
+                onDelete={openDelete}
+              />
             ))}
           </div>
           {paidDebts.length > PAID_VISIBLE_LIMIT && (

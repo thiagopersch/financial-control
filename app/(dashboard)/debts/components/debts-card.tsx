@@ -14,10 +14,11 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { DEBT_STATUS_BADGE_VARIANT, DEBT_STATUS_LABELS } from '@/lib/constants/debt-status';
 import type { DebtDTO } from '@/lib/queries/debts';
-import { AlertTriangle, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { AlertTriangle, Eye, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 
 interface DebtsCardProps {
   debt: DebtDTO;
+  onView: (debt: DebtDTO) => void;
   onEdit: (debt: DebtDTO) => void;
   onDelete: (debt: DebtDTO) => void;
 }
@@ -29,7 +30,7 @@ const formatCurrency = (value: number) => {
   });
 };
 
-export function DebtsCard({ debt, onEdit, onDelete }: DebtsCardProps) {
+export function DebtsCard({ debt, onView, onEdit, onDelete }: DebtsCardProps) {
   const debtPaid = debt.initialValue - debt.currentValue;
   const debtPercentage = debt.initialValue > 0 ? (debtPaid / debt.initialValue) * 100 : 0;
 
@@ -53,6 +54,10 @@ export function DebtsCard({ debt, onEdit, onDelete }: DebtsCardProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Ações</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => onView(debt)}>
+              <Eye className="mr-2 h-4 w-4" />
+              Ver detalhes
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onEdit(debt)}>
               <Pencil className="mr-2 h-4 w-4" />
               Editar

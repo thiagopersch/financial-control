@@ -3,6 +3,7 @@ import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
 import { getCostCenters } from '@/lib/queries/cost-centers';
 import { getCreditCards } from '@/lib/queries/credit-cards';
+import { getDebts } from '@/lib/queries/debts';
 import { getPaymentMethods } from '@/lib/queries/payment-methods';
 import { getServerSession } from 'next-auth';
 import { notFound } from 'next/navigation';
@@ -12,27 +13,36 @@ export default async function EditTransactionPage({ params }: { params: Promise<
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const [transaction, categories, suppliers, accounts, costCenters, paymentMethods, creditCards] =
-    await Promise.all([
-      prisma.transaction.findFirst({
-        where: { id, workspaceId: session.user.workspaceId },
-      }),
-      prisma.category.findMany({
-        where: { workspaceId: session.user.workspaceId },
-        orderBy: { name: 'asc' },
-      }),
-      prisma.supplier.findMany({
-        where: { workspaceId: session.user.workspaceId },
-        orderBy: { name: 'asc' },
-      }),
-      prisma.account.findMany({
-        where: { workspaceId: session.user.workspaceId },
-        orderBy: { name: 'asc' },
-      }),
-      getCostCenters(),
-      getPaymentMethods(),
-      getCreditCards(),
-    ]);
+  const [
+    transaction,
+    categories,
+    suppliers,
+    accounts,
+    costCenters,
+    paymentMethods,
+    creditCards,
+    debts,
+  ] = await Promise.all([
+    prisma.transaction.findFirst({
+      where: { id, workspaceId: session.user.workspaceId },
+    }),
+    prisma.category.findMany({
+      where: { workspaceId: session.user.workspaceId },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.supplier.findMany({
+      where: { workspaceId: session.user.workspaceId },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.account.findMany({
+      where: { workspaceId: session.user.workspaceId },
+      orderBy: { name: 'asc' },
+    }),
+    getCostCenters(),
+    getPaymentMethods(),
+    getCreditCards(),
+    getDebts(),
+  ]);
 
   if (!transaction) {
     notFound();
@@ -51,6 +61,7 @@ export default async function EditTransactionPage({ params }: { params: Promise<
       costCenters={costCenters}
       paymentMethods={paymentMethods}
       creditCards={creditCards}
+      debts={debts}
       initialData={initialData}
     />
   );

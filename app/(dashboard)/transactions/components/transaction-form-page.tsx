@@ -50,6 +50,7 @@ const transactionSchema = z.object({
   creditCardId: z.string().nullable().optional(),
   costCenterId: z.string().nullable().optional(),
   supplierId: z.string().nullable().optional(),
+  debtId: z.string().nullable().optional(),
   notes: z.string().max(255, 'Máximo de 255 caracteres').optional(),
   isRecurring: z.boolean().default(false),
   recurrenceType: z.enum(['CONTINUOUS', 'INSTALLMENTS']).nullable().optional(),
@@ -66,6 +67,7 @@ interface TransactionFormPageProps {
   costCenters?: { id: string; name: string }[];
   paymentMethods: PaymentMethodDTO[];
   creditCards: CreditCardDTO[];
+  debts?: { id: string; name: string }[];
   initialData?: any;
 }
 
@@ -82,6 +84,7 @@ export function TransactionFormPage({
   costCenters = [],
   paymentMethods,
   creditCards,
+  debts = [],
   initialData,
 }: TransactionFormPageProps) {
   const router = useRouter();
@@ -103,6 +106,7 @@ export function TransactionFormPage({
           creditCardId: initialData.creditCardId || null,
           costCenterId: initialData.costCenterId || null,
           supplierId: initialData.supplierId,
+          debtId: initialData.debtId || null,
           notes: initialData.notes || '',
           isRecurring: initialData.isRecurring || false,
           recurrenceType: initialData.recurrenceType || 'CONTINUOUS',
@@ -122,6 +126,7 @@ export function TransactionFormPage({
           creditCardId: null,
           costCenterId: null,
           supplierId: null,
+          debtId: null,
           notes: '',
           isRecurring: false,
           recurrenceType: 'CONTINUOUS',
@@ -538,6 +543,25 @@ export function TransactionFormPage({
                         onValueChange={(v) => field.onChange(v)}
                         placeholder="Selecione..."
                         emptyText="Nenhum fornecedor encontrado."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="debtId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Dívida (opcional)</FormLabel>
+                    <FormControl>
+                      <SelectSearch
+                        options={debts.map((d) => ({ value: d.id, label: d.name }))}
+                        value={field.value || null}
+                        onValueChange={(v) => field.onChange(v)}
+                        placeholder="Selecione..."
+                        emptyText="Nenhuma dívida encontrada."
                       />
                     </FormControl>
                     <FormMessage />
