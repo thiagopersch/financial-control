@@ -15,10 +15,16 @@ interface DebtsHeaderProps {
   categoryFilter: string;
   accountFilter: string;
   supplierFilter: string;
+  statusFilter: string;
   categoryOptions: Option[];
   accountOptions: Option[];
   supplierOptions: Option[];
-  onApplyFilters: (values: { category: string; account: string; supplier: string }) => void;
+  onApplyFilters: (values: {
+    category: string;
+    account: string;
+    supplier: string;
+    status: string;
+  }) => void;
   onClearFilters: () => void;
   showActivePagination?: boolean;
   activePaginationSlotRef?: (node: HTMLDivElement | null) => void;
@@ -34,6 +40,7 @@ export function DebtsHeader({
   categoryFilter,
   accountFilter,
   supplierFilter,
+  statusFilter,
   categoryOptions,
   accountOptions,
   supplierOptions,
@@ -63,6 +70,7 @@ export function DebtsHeader({
           categoryFilter={categoryFilter}
           accountFilter={accountFilter}
           supplierFilter={supplierFilter}
+          statusFilter={statusFilter}
           categoryOptions={categoryOptions}
           accountOptions={accountOptions}
           supplierOptions={supplierOptions}

@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { DEBT_STATUS_OPTIONS } from '@/lib/constants/debt-status';
 import { useEffect, useState } from 'react';
 
 type Option = { id: string; name: string; color?: string };
@@ -16,10 +17,16 @@ type DebtsFiltersProps = {
   categoryFilter: string;
   accountFilter: string;
   supplierFilter: string;
+  statusFilter: string;
   categoryOptions: Option[];
   accountOptions: Option[];
   supplierOptions: Option[];
-  onApply: (values: { category: string; account: string; supplier: string }) => void;
+  onApply: (values: {
+    category: string;
+    account: string;
+    supplier: string;
+    status: string;
+  }) => void;
   onClear: () => void;
 };
 
@@ -27,6 +34,7 @@ export function DebtsFilters({
   categoryFilter,
   accountFilter,
   supplierFilter,
+  statusFilter,
   categoryOptions,
   accountOptions,
   supplierOptions,
@@ -36,30 +44,33 @@ export function DebtsFilters({
   const [category, setCategory] = useState(categoryFilter);
   const [account, setAccount] = useState(accountFilter);
   const [supplier, setSupplier] = useState(supplierFilter);
+  const [status, setStatus] = useState(statusFilter);
 
   useEffect(() => {
     setCategory(categoryFilter);
     setAccount(accountFilter);
     setSupplier(supplierFilter);
-  }, [categoryFilter, accountFilter, supplierFilter]);
+    setStatus(statusFilter);
+  }, [categoryFilter, accountFilter, supplierFilter, statusFilter]);
 
   const onSelectChange = (setter: (value: string) => void) => (value: string | null) => {
     setter(value || 'all');
   };
 
   const handleApply = () => {
-    onApply({ category, account, supplier });
+    onApply({ category, account, supplier, status });
   };
 
   const handleClear = () => {
     setCategory('all');
     setAccount('all');
     setSupplier('all');
+    setStatus('all');
     onClear();
   };
 
   return (
-    <FilterPanel onApply={handleApply} onClear={handleClear} gridClassName="md:grid-cols-3">
+    <FilterPanel onApply={handleApply} onClear={handleClear} gridClassName="md:grid-cols-4">
       <FilterField label="Categoria">
         <Select value={category} onValueChange={onSelectChange(setCategory)}>
           <SelectTrigger className="h-10 w-full">
@@ -117,6 +128,22 @@ export function DebtsFilters({
                   <div className="h-2 w-2 rounded-full" style={{ backgroundColor: '#94a3b8' }} />
                   {s.name}
                 </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FilterField>
+
+      <FilterField label="Status">
+        <Select value={status} onValueChange={onSelectChange(setStatus)}>
+          <SelectTrigger className="h-10 w-full">
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            {DEBT_STATUS_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
               </SelectItem>
             ))}
           </SelectContent>

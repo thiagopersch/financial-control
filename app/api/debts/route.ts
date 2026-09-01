@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         dueDay,
         startDate: new Date(startDate),
         installments,
-        isActive: true,
+        status: 'ACTIVE',
         workspaceId: session.user.workspaceId,
       },
     });

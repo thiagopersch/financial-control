@@ -1,5 +1,6 @@
 import { authOptions } from '@/lib/auth-options';
 import { CHART_STATUS_COLORS, getCategoricalColor } from '@/lib/chart-colors';
+import { DEBT_OPEN_STATUSES } from '@/lib/constants/debt-status';
 import prisma from '@/lib/prisma';
 import { Prisma, TransactionType } from '@prisma/client';
 import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
@@ -543,7 +544,7 @@ export async function getSummaryCount(
   }
   const goalCount = await prisma.goal.count({ where: goalWhere });
 
-  const debtWhere: Prisma.DebtWhereInput = { workspaceId, isActive: true };
+  const debtWhere: Prisma.DebtWhereInput = { workspaceId, status: { in: DEBT_OPEN_STATUSES } };
   if (startDate && endDate) {
     debtWhere.startDate = { lte: endDate };
     debtWhere.OR = [{ endDate: null }, { endDate: { gte: startDate } }];
@@ -560,7 +561,7 @@ export async function getDebtsData() {
   const debts = await prisma.debt.findMany({
     where: {
       workspaceId: session.user.workspaceId,
-      isActive: true,
+      status: { in: DEBT_OPEN_STATUSES },
     },
     orderBy: {
       createdAt: 'desc',

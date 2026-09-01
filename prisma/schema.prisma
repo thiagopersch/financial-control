@@ -49,6 +49,14 @@ enum FirstInstallmentMonth {
   NEXT
 }
 
+enum DebtStatus {
+  ACTIVE
+  PAID
+  CANCELLED
+  RENEGOTIATED
+  SUSPENDED
+}
+
 enum AccountType {
   WALLET
   BANK
@@ -569,7 +577,7 @@ model Debt {
   dueDay                Int?
   startDate             DateTime
   endDate               DateTime?
-  isActive              Boolean                @default(true)
+  status                DebtStatus             @default(ACTIVE)
   installments          Int?
   calculationType       CalculationType?
   installmentValue      Decimal?               @db.Decimal(12, 2)

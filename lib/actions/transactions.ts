@@ -10,6 +10,7 @@ import prisma from '@/lib/prisma';
 import { createAuditLog } from '@/lib/services/audit';
 import { matchCategorizationRule } from '@/lib/services/categorization';
 import { applyConditionalRules } from '@/lib/services/conditional-rules';
+import { resolveDebtStatusFromBalance } from '@/lib/services/debt-status';
 import { TransactionStatus, TransactionType } from '@prisma/client';
 import { addMonths, startOfMonth } from 'date-fns';
 import { revalidatePath } from 'next/cache';
@@ -251,11 +252,12 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
             });
             const totalPaid =
               paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0) - oldAmount;
+            const debtNewCurrentValue = Number(debt.initialValue) - totalPaid;
             await tx.debt.update({
               where: { id: oldTransaction.debtId },
               data: {
-                currentValue: Number(debt.initialValue) - totalPaid,
-                isActive: Number(debt.initialValue) - totalPaid > 0,
+                currentValue: debtNewCurrentValue,
+                status: resolveDebtStatusFromBalance(debt.status, debtNewCurrentValue),
               },
             });
           }
@@ -341,11 +343,12 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
               where: { debtId: updated.debtId, status: TransactionStatus.PAID },
             });
             const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+            const debtNewCurrentValue = Number(debt.initialValue) - totalPaid;
             await tx.debt.update({
               where: { id: updated.debtId },
               data: {
-                currentValue: Number(debt.initialValue) - totalPaid,
-                isActive: Number(debt.initialValue) - totalPaid > 0,
+                currentValue: debtNewCurrentValue,
+                status: resolveDebtStatusFromBalance(debt.status, debtNewCurrentValue),
               },
             });
           }
@@ -443,11 +446,12 @@ export async function markTransactionAsPaid(id: string) {
             where: { debtId: u.debtId, status: TransactionStatus.PAID },
           });
           const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+          const debtNewCurrentValue = Number(debt.initialValue) - totalPaid;
           await tx.debt.update({
             where: { id: u.debtId },
             data: {
-              currentValue: Number(debt.initialValue) - totalPaid,
-              isActive: Number(debt.initialValue) - totalPaid > 0,
+              currentValue: debtNewCurrentValue,
+              status: resolveDebtStatusFromBalance(debt.status, debtNewCurrentValue),
             },
           });
         }

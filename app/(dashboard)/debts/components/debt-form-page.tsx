@@ -96,6 +96,7 @@ export function DebtFormPage({
       ? {
           name: debt.name,
           description: debt.description || '',
+          status: debt.status,
           initialValue: debt.initialValue?.toString() || '',
           currentValue: debt.currentValue ?? 0,
           startDate: debt.startDate,
@@ -119,6 +120,7 @@ export function DebtFormPage({
       description: values.description || undefined,
       initialValue: parseFloat(values.initialValue) || 0,
       currentValue: parseFloat(values.initialValue) || 0,
+      status: 'ACTIVE',
       dueDay: parseInt(values.dueDay) || 10,
       installments: parseInt(values.installments) || 1,
       calculationType: values.calculationType,
@@ -138,6 +140,7 @@ export function DebtFormPage({
     const editValues: EditDebtFormValues = {
       name: values.name,
       description: values.description || undefined,
+      status: values.status,
       dueDay: values.dueDay || '',
       installments: values.installments || '',
       calculationType: values.calculationType,

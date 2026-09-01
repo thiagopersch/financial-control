@@ -1,5 +1,6 @@
 'use server';
 
+import { DEBT_OPEN_STATUSES } from '@/lib/constants/debt-status';
 import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
 import { type AIMessage, type ChatResponse, type FinancialContext } from '@/types/ai';
@@ -56,7 +57,7 @@ async function buildFinancialContext(workspaceId: string): Promise<FinancialCont
       include: { category: { select: { name: true } } },
     }),
     prisma.debt.findMany({
-      where: { workspaceId, isActive: true },
+      where: { workspaceId, status: { in: DEBT_OPEN_STATUSES } },
       select: {
         name: true,
         currentValue: true,

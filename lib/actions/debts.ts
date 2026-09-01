@@ -3,7 +3,8 @@
 import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
 import { syncDebtInstallments } from '@/lib/services/debt-installments';
-import { TransactionStatus } from '@prisma/client';
+import { resolveDebtStatusFromBalance } from '@/lib/services/debt-status';
+import { DebtStatus, TransactionStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -14,6 +15,7 @@ const debtSchema = z.object({
   currentValue: z.coerce.number().positive('Valor atual deve ser maior que zero'),
   dueDay: z.coerce.number().min(1, 'Dia do vencimento é obrigatório').max(31),
   startDate: z.string(),
+  status: z.nativeEnum(DebtStatus).optional(),
   installments: z.coerce.number().min(1).optional().nullable(),
   calculationType: z.string().optional(),
   installmentValue: z.coerce.number().positive().optional().nullable(),
@@ -66,7 +68,7 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
           supplierId: validated.supplierId,
           paymentMethodId: validated.paymentMethodId,
           creditCardId: validated.creditCardId,
-          isActive: true,
+          status: validated.status ?? 'ACTIVE',
           workspaceId,
         },
       });
@@ -267,7 +269,7 @@ export async function syncDebtCurrentValue(debtId: string) {
       where: { id: debtId },
       data: {
         currentValue: newCurrentValue,
-        isActive: newCurrentValue > 0,
+        status: resolveDebtStatusFromBalance(debt.status, newCurrentValue),
       },
     });
 

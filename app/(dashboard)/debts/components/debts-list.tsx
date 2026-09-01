@@ -10,6 +10,7 @@ import { ListPagination } from '@/components/ui/list-pagination';
 import { Progress } from '@/components/ui/progress';
 import { useDebtForm } from '@/hooks/forms/use-debt-form';
 import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
+import { DEBT_CLOSED_STATUSES, DEBT_OPEN_STATUSES } from '@/lib/constants/debt-status';
 import type { DebtDTO } from '@/lib/queries/debts';
 import {
   AlertTriangle,
@@ -43,6 +44,7 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [accountFilter, setAccountFilter] = useState('all');
   const [supplierFilter, setSupplierFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
 
   const [activePage, setActivePage] = useState(1);
@@ -53,12 +55,13 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
 
   usePersistedPageFilters(
     'debts',
-    { search, categoryFilter, accountFilter, supplierFilter },
+    { search, categoryFilter, accountFilter, supplierFilter, statusFilter },
     (saved) => {
       if (saved.search !== undefined) setSearch(saved.search);
       if (saved.categoryFilter) setCategoryFilter(saved.categoryFilter);
       if (saved.accountFilter) setAccountFilter(saved.accountFilter);
       if (saved.supplierFilter) setSupplierFilter(saved.supplierFilter);
+      if (saved.statusFilter) setStatusFilter(saved.statusFilter);
     },
   );
 
@@ -113,17 +116,18 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
       if (categoryFilter !== 'all' && d.categoryId !== categoryFilter) return false;
       if (accountFilter !== 'all' && d.accountId !== accountFilter) return false;
       if (supplierFilter !== 'all' && d.supplierId !== supplierFilter) return false;
+      if (statusFilter !== 'all' && d.status !== statusFilter) return false;
       return true;
     });
-  }, [debts, search, categoryFilter, accountFilter, supplierFilter]);
+  }, [debts, search, categoryFilter, accountFilter, supplierFilter, statusFilter]);
 
   const resetPages = () => {
     setActivePage(1);
     setShowAllPaid(false);
   };
 
-  const activeDebts = filteredDebts.filter((d) => d.isActive);
-  const paidDebts = filteredDebts.filter((d) => !d.isActive);
+  const activeDebts = filteredDebts.filter((d) => DEBT_OPEN_STATUSES.includes(d.status));
+  const paidDebts = filteredDebts.filter((d) => DEBT_CLOSED_STATUSES.includes(d.status));
 
   const paginatedActiveDebts = activeDebts.slice(
     (activePage - 1) * activePageSize,
@@ -131,7 +135,7 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
   );
   const visiblePaidDebts = showAllPaid ? paidDebts : paidDebts.slice(0, PAID_VISIBLE_LIMIT);
 
-  const allActiveDebts = debts.filter((d) => d.isActive);
+  const allActiveDebts = debts.filter((d) => DEBT_OPEN_STATUSES.includes(d.status));
   const totalDebt = allActiveDebts.reduce((sum, d) => sum + d.currentValue, 0);
   const totalInitial = allActiveDebts.reduce((sum, d) => sum + d.initialValue, 0);
   const paidPercentage = totalInitial > 0 ? ((totalInitial - totalDebt) / totalInitial) * 100 : 0;
@@ -140,7 +144,8 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
     search !== '' ||
     categoryFilter !== 'all' ||
     accountFilter !== 'all' ||
-    supplierFilter !== 'all';
+    supplierFilter !== 'all' ||
+    statusFilter !== 'all';
 
   const searchParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -157,14 +162,17 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
     category,
     account,
     supplier,
+    status,
   }: {
     category: string;
     account: string;
     supplier: string;
+    status: string;
   }) => {
     setCategoryFilter(category);
     setAccountFilter(account);
     setSupplierFilter(supplier);
+    setStatusFilter(status);
     resetPages();
   };
 
@@ -173,6 +181,7 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
     setCategoryFilter('all');
     setAccountFilter('all');
     setSupplierFilter('all');
+    setStatusFilter('all');
     resetPages();
   };
 
@@ -209,6 +218,7 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
         categoryFilter={categoryFilter}
         accountFilter={accountFilter}
         supplierFilter={supplierFilter}
+        statusFilter={statusFilter}
         categoryOptions={categoryOptions}
         accountOptions={accountOptions}
         supplierOptions={supplierOptions}
@@ -291,7 +301,7 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
           <div className="flex items-center gap-2 border-t pt-6">
             <History className="text-muted-foreground h-4 w-4" />
             <h2 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
-              Histórico de dívidas pagas
+              Histórico de dívidas encerradas
             </h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

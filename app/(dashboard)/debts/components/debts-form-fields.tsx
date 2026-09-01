@@ -20,6 +20,7 @@ import {
 import { SelectSearch } from '@/components/ui/select-search';
 import { Textarea } from '@/components/ui/textarea';
 import { CreditCardSelect } from '@/components/transactions/credit-card-select';
+import { DEBT_STATUS_OPTIONS } from '@/lib/constants/debt-status';
 import type { AccountDTO } from '@/lib/queries/accounts';
 import type { CreditCardDTO } from '@/lib/queries/credit-cards';
 import type { PaymentMethodDTO } from '@/lib/queries/payment-methods';
@@ -49,6 +50,7 @@ interface DebtsFormFieldsProps {
 
 export function DebtsFormFields({
   form,
+  type,
   accounts,
   categories = [],
   suppliers = [],
@@ -101,6 +103,36 @@ export function DebtsFormFields({
             </FormItem>
           )}
         />
+        {type === 'edit' && (
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel required>Status</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  value={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione o status" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {DEBT_STATUS_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
           <FormField
             control={form.control}

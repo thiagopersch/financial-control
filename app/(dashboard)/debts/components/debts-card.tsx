@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
+import { DEBT_STATUS_BADGE_VARIANT, DEBT_STATUS_LABELS } from '@/lib/constants/debt-status';
 import type { DebtDTO } from '@/lib/queries/debts';
 import { AlertTriangle, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 
@@ -37,11 +38,11 @@ export function DebtsCard({ debt, onEdit, onDelete }: DebtsCardProps) {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center gap-2">
           <AlertTriangle
-            className={`h-5 w-5 ${debt.isActive ? 'text-red-500' : 'text-gray-400'}`}
+            className={`h-5 w-5 ${debt.status === 'ACTIVE' ? 'text-red-500' : 'text-gray-400'}`}
           />
           <CardTitle className="text-lg">{debt.name}</CardTitle>
-          <Badge variant={debt.isActive ? 'default' : 'secondary'}>
-            {debt.isActive ? 'Ativa' : 'Quitada'}
+          <Badge variant={DEBT_STATUS_BADGE_VARIANT[debt.status]}>
+            {DEBT_STATUS_LABELS[debt.status]}
           </Badge>
         </div>
         <DropdownMenu>

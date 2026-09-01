@@ -3,6 +3,7 @@
 import { createDebt, deleteDebt, updateDebt } from '@/lib/actions/debts';
 import type { DebtDTO } from '@/lib/queries/debts';
 import { showError, showSuccess } from '@/lib/utils/toast';
+import { DebtStatus } from '@prisma/client';
 import * as z from 'zod';
 
 export const createDebtSchema = z
@@ -14,6 +15,7 @@ export const createDebtSchema = z
       (v) => (v === '' || v === undefined || v === null ? 0 : v),
       z.coerce.number().min(0, 'Valor atual deve ser maior ou igual a zero'),
     ),
+    status: z.nativeEnum(DebtStatus).default('ACTIVE'),
     dueDay: z.coerce
       .number({ message: 'Dia do vencimento é obrigatório' })
       .min(1, 'Dia do vencimento deve ser maior que zero')
@@ -57,6 +59,7 @@ export const createDebtSchema = z
 export const editDebtSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   description: z.string().optional(),
+  status: z.nativeEnum(DebtStatus),
   dueDay: z.string().min(1, { message: 'Dia do vencimento é obrigatório' }),
   installments: z.string().optional(),
   calculationType: z.string().optional(),
@@ -88,6 +91,7 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
     description: '',
     initialValue: 0,
     currentValue: 0,
+    status: 'ACTIVE',
     dueDay: 10,
     startDate: new Date().toISOString(),
     installments: 1,
@@ -105,6 +109,7 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
     ? {
         name: debt.name,
         description: debt.description || '',
+        status: debt.status,
         dueDay: debt.dueDay?.toString() || '10',
         installments: debt.installments?.toString() || '',
         calculationType: debt.calculationType || 'TOTAL_DIVIDED',
@@ -120,6 +125,7 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
     : {
         name: '',
         description: '',
+        status: 'ACTIVE',
         dueDay: '10',
         installments: '',
         calculationType: 'TOTAL_DIVIDED',
@@ -167,6 +173,7 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
       const parsedValues = {
         name: values.name,
         description: values.description || undefined,
+        status: values.status,
         dueDay: values.dueDay ? parseInt(values.dueDay) : undefined,
         installments: values.installments ? parseInt(values.installments) : undefined,
         calculationType: values.calculationType,

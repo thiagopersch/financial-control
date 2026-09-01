@@ -1,6 +1,11 @@
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
-import { CalculationType, FirstInstallmentMonth, TransactionStatus } from '@prisma/client';
+import {
+  CalculationType,
+  DebtStatus,
+  FirstInstallmentMonth,
+  TransactionStatus,
+} from '@prisma/client';
 import { getServerSession } from 'next-auth';
 
 export type DebtDTO = {
@@ -14,7 +19,7 @@ export type DebtDTO = {
   dueDay: number | null;
   startDate: string;
   endDate: string | null;
-  isActive: boolean;
+  status: DebtStatus;
   installments: number | null;
   calculationType: CalculationType | null;
   installmentValue: number | null;
@@ -55,7 +60,7 @@ function mapDebt(debt: {
   dueDay: number | null;
   startDate: Date;
   endDate: Date | null;
-  isActive: boolean;
+  status: DebtStatus;
   installments: number | null;
   calculationType: CalculationType | null;
   installmentValue: unknown;
@@ -89,7 +94,7 @@ function mapDebt(debt: {
     dueDay: debt.dueDay,
     startDate: debt.startDate.toISOString(),
     endDate: debt.endDate?.toISOString() || null,
-    isActive: debt.isActive,
+    status: debt.status,
     installments: debt.installments,
     calculationType: debt.calculationType,
     installmentValue: debt.installmentValue != null ? Number(debt.installmentValue) : null,
