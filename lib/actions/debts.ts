@@ -138,14 +138,25 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
           ? Number(existingDebt.installmentValue)
           : null;
 
-    // For fixed-installment debts, the total is derived from parcelas × valor da parcela.
-    // Recomputing it here keeps it in sync whenever installments/installmentValue change
-    // (e.g. bumping the parcela count on an existing debt), instead of trusting a stale
-    // "Valor Total" that was only correct for the previous installment count.
-    const initialValue =
+    // For fixed-installment debts, the parcela plan's total is installments × installmentValue.
+    // `existingDebt.initialValue` may already include extra amounts from ad-hoc transactions
+    // linked to this debt from the Transactions screen (see lib/actions/transactions.ts), which
+    // aren't part of the parcela plan — so instead of overwriting initialValue outright, apply
+    // only the *delta* between the old and new plan totals, preserving those extra amounts.
+    const oldPlanTotal =
+      existingDebt.calculationType === 'FIXED_INSTALLMENT' &&
+      existingDebt.installments &&
+      existingDebt.installmentValue
+        ? existingDebt.installments * Number(existingDebt.installmentValue)
+        : null;
+    const newPlanTotal =
       calculationType === 'FIXED_INSTALLMENT' && installmentsTotal && installmentValue
         ? installmentsTotal * installmentValue
-        : (data.initialValue ?? Number(existingDebt.initialValue));
+        : null;
+    const initialValue =
+      oldPlanTotal != null && newPlanTotal != null
+        ? Number(existingDebt.initialValue) + (newPlanTotal - oldPlanTotal)
+        : (newPlanTotal ?? data.initialValue ?? Number(existingDebt.initialValue));
 
     const updatedData: any = { ...data, initialValue };
     if (data.startDate) {
@@ -210,6 +221,7 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
     const freshDebt = await prisma.debt.findUnique({ where: { id } });
 
     revalidatePath('/debts');
+    revalidatePath(`/debts/${id}`);
     revalidatePath('/transactions');
     revalidatePath('/forecast');
     return { success: true, data: serializeDebt(freshDebt ?? debt) };
@@ -298,6 +310,7 @@ export async function syncDebtCurrentValue(debtId: string) {
     });
 
     revalidatePath('/debts');
+    revalidatePath(`/debts/${debtId}`);
     return { success: true };
   } catch (error) {
     console.error('Error syncing debt:', error);

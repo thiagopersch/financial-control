@@ -165,7 +165,11 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
           });
         }
 
-        if (validated.debtId && validated.status === TransactionStatus.PAID) {
+        if (validated.debtId) {
+          await tx.debt.update({
+            where: { id: validated.debtId },
+            data: { initialValue: { increment: validated.amount } },
+          });
           await syncDebtCurrentValueInTx(tx, validated.debtId);
         }
 
@@ -188,6 +192,8 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
       revalidatePath('/transactions');
       revalidatePath('/dashboard');
       revalidatePath('/accounts');
+      revalidatePath('/debts');
+      if (validated.debtId) revalidatePath(`/debts/${validated.debtId}`);
       return { success: true };
     }
 
@@ -223,7 +229,11 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
         });
       }
 
-      if (validated.debtId && validated.status === TransactionStatus.PAID) {
+      if (validated.debtId) {
+        await tx.debt.update({
+          where: { id: validated.debtId },
+          data: { initialValue: { increment: validated.amount } },
+        });
         await syncDebtCurrentValueInTx(tx, validated.debtId);
       }
 
@@ -246,6 +256,8 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
     revalidatePath('/transactions');
     revalidatePath('/dashboard');
     revalidatePath('/accounts');
+    revalidatePath('/debts');
+    if (validated.debtId) revalidatePath(`/debts/${validated.debtId}`);
     return {
       success: true,
       data: {
@@ -341,13 +353,25 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
         }
       }
 
+      // Linking/unlinking/reamounting a transaction adjusts the debt's total (initialValue)
+      // immediately, regardless of paid status — currentValue then falls out of that via
+      // syncDebtCurrentValueInTx (initialValue - sum of PAID), so it reacts too.
+      if (oldTransaction.debtId) {
+        await tx.debt.update({
+          where: { id: oldTransaction.debtId },
+          data: { initialValue: { decrement: Number(oldTransaction.amount) } },
+        });
+      }
+      if (updated.debtId) {
+        await tx.debt.update({
+          where: { id: updated.debtId },
+          data: { initialValue: { increment: Number(updated.amount) } },
+        });
+      }
+
       const affectedDebtIds = new Set<string>();
-      if (oldTransaction.debtId && oldTransaction.status === TransactionStatus.PAID) {
-        affectedDebtIds.add(oldTransaction.debtId);
-      }
-      if (updated.debtId && updated.status === TransactionStatus.PAID) {
-        affectedDebtIds.add(updated.debtId);
-      }
+      if (oldTransaction.debtId) affectedDebtIds.add(oldTransaction.debtId);
+      if (updated.debtId) affectedDebtIds.add(updated.debtId);
       for (const debtId of affectedDebtIds) {
         await syncDebtCurrentValueInTx(tx, debtId);
       }
@@ -378,6 +402,10 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
     revalidatePath('/transactions');
     revalidatePath('/dashboard');
     revalidatePath('/debts');
+    if (oldTransaction.debtId) revalidatePath(`/debts/${oldTransaction.debtId}`);
+    if (transaction.debtId && transaction.debtId !== oldTransaction.debtId) {
+      revalidatePath(`/debts/${transaction.debtId}`);
+    }
     return {
       success: true,
       data: {
@@ -471,6 +499,7 @@ export async function markTransactionAsPaid(id: string) {
     revalidatePath('/transactions');
     revalidatePath('/dashboard');
     revalidatePath('/debts');
+    if (updated.debtId) revalidatePath(`/debts/${updated.debtId}`);
     return { success: true, movedToCurrentMonth: isPastMonth };
   } catch (error) {
     console.error('Error marking transaction as paid:', error);
@@ -570,9 +599,15 @@ export async function deleteTransaction(id: string, deleteSeries = false) {
 
         if (debtId) {
           const remainingInstallments = await tx.transaction.count({ where: { debtId } });
+          const deletedDebtAmount = seriesTransactions
+            .filter((t) => t.debtId === debtId)
+            .reduce((sum, t) => sum + Number(t.amount), 0);
           await tx.debt.update({
             where: { id: debtId },
-            data: { installments: remainingInstallments },
+            data: {
+              installments: remainingInstallments,
+              initialValue: { decrement: deletedDebtAmount },
+            },
           });
         }
       });
@@ -593,6 +628,7 @@ export async function deleteTransaction(id: string, deleteSeries = false) {
       revalidatePath('/dashboard');
       revalidatePath('/accounts');
       revalidatePath('/debts');
+      if (debtId) revalidatePath(`/debts/${debtId}`);
       return { success: true, deletedCount: seriesTransactions.length };
     }
 
@@ -604,9 +640,20 @@ export async function deleteTransaction(id: string, deleteSeries = false) {
         });
       }
 
+      if (transaction.debtId) {
+        await tx.debt.update({
+          where: { id: transaction.debtId },
+          data: { initialValue: { decrement: Number(transaction.amount) } },
+        });
+      }
+
       await tx.transaction.delete({
         where: { id },
       });
+
+      if (transaction.debtId) {
+        await syncDebtCurrentValueInTx(tx, transaction.debtId);
+      }
     });
 
     await createAuditLog({
@@ -618,6 +665,8 @@ export async function deleteTransaction(id: string, deleteSeries = false) {
     revalidatePath('/transactions');
     revalidatePath('/dashboard');
     revalidatePath('/accounts');
+    revalidatePath('/debts');
+    if (transaction.debtId) revalidatePath(`/debts/${transaction.debtId}`);
     return { success: true };
   } catch (error) {
     console.error('Error deleting transaction:', error);
