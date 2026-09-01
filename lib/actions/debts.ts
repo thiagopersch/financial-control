@@ -50,13 +50,24 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
     const validated = debtSchema.parse(data);
     const workspaceId = session.user.workspaceId;
 
+    // For fixed-installment debts, the total is derived from parcelas × valor da parcela —
+    // it can't be set independently without drifting out of sync with the generated installments.
+    const initialValue =
+      validated.calculationType === 'FIXED_INSTALLMENT' &&
+      validated.installments &&
+      validated.installmentValue
+        ? validated.installments * validated.installmentValue
+        : validated.initialValue;
+
     const debt = await prisma.$transaction(async (tx) => {
       const newDebt = await tx.debt.create({
         data: {
           name: validated.name,
           description: validated.description,
-          initialValue: validated.initialValue,
-          currentValue: validated.currentValue,
+          initialValue,
+          // The create form always mirrors "Valor Total" into currentValue (nothing paid yet);
+          // use the corrected initialValue so a fixed-installment debt doesn't start out of sync.
+          currentValue: initialValue,
           dueDay: validated.dueDay || DEFAULT_DUE_DAY,
           startDate: new Date(validated.startDate),
           installments: validated.installments,
@@ -78,7 +89,7 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
         workspaceId,
         debtName: validated.name,
         debtDescription: validated.description,
-        initialValue: validated.initialValue,
+        initialValue,
         installmentsTotal: validated.installments,
         calculationType: validated.calculationType ?? 'TOTAL_DIVIDED',
         installmentValue: validated.installmentValue ?? null,
@@ -118,7 +129,25 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
       return { success: false, error: 'Dívida não encontrada' };
     }
 
-    const updatedData: any = { ...data };
+    const installmentsTotal = data.installments ?? existingDebt.installments;
+    const calculationType = data.calculationType ?? existingDebt.calculationType ?? 'TOTAL_DIVIDED';
+    const installmentValue =
+      data.installmentValue != null
+        ? data.installmentValue
+        : existingDebt.installmentValue
+          ? Number(existingDebt.installmentValue)
+          : null;
+
+    // For fixed-installment debts, the total is derived from parcelas × valor da parcela.
+    // Recomputing it here keeps it in sync whenever installments/installmentValue change
+    // (e.g. bumping the parcela count on an existing debt), instead of trusting a stale
+    // "Valor Total" that was only correct for the previous installment count.
+    const initialValue =
+      calculationType === 'FIXED_INSTALLMENT' && installmentsTotal && installmentValue
+        ? installmentsTotal * installmentValue
+        : (data.initialValue ?? Number(existingDebt.initialValue));
+
+    const updatedData: any = { ...data, initialValue };
     if (data.startDate) {
       updatedData.startDate = new Date(data.startDate);
     }
@@ -144,15 +173,6 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
         data: updatedData,
       });
 
-      const installmentsTotal = data.installments ?? existingDebt.installments;
-      const calculationType =
-        data.calculationType ?? existingDebt.calculationType ?? 'TOTAL_DIVIDED';
-      const installmentValue =
-        data.installmentValue != null
-          ? data.installmentValue
-          : existingDebt.installmentValue
-            ? Number(existingDebt.installmentValue)
-            : null;
       const firstInstallmentMonth =
         data.firstInstallmentMonth ?? existingDebt.firstInstallmentMonth ?? 'NEXT';
       const dueDay = updatedDebt.dueDay ?? DEFAULT_DUE_DAY;
@@ -162,7 +182,6 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
       const categoryId = data.categoryId ?? existingDebt.categoryId;
       const accountId = data.accountId ?? existingDebt.accountId;
       const supplierId = data.supplierId ?? existingDebt.supplierId;
-      const initialValue = data.initialValue ?? Number(existingDebt.initialValue);
 
       await syncDebtInstallments(tx, {
         debtId: id,
@@ -185,10 +204,15 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
       return updatedDebt;
     });
 
+    // currentValue depends on initialValue, which may have just been recomputed above —
+    // resync it (and the derived status) now that the debt row reflects its new total.
+    await syncDebtCurrentValue(id);
+    const freshDebt = await prisma.debt.findUnique({ where: { id } });
+
     revalidatePath('/debts');
     revalidatePath('/transactions');
     revalidatePath('/forecast');
-    return { success: true, data: serializeDebt(debt) };
+    return { success: true, data: serializeDebt(freshDebt ?? debt) };
   } catch (error) {
     console.error('Error updating debt:', error);
     return {
