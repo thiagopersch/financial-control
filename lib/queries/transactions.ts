@@ -11,6 +11,11 @@ export type DebtTransactionDTO = {
   status: TransactionStatus;
   categoryName: string | null;
   categoryColor: string | null;
+  categoryId: string | null;
+  accountId: string | null;
+  paymentMethodId: string | null;
+  creditCardId: string | null;
+  dueDate: string | null;
 };
 
 export async function getTransactionsByDebtId(debtId: string): Promise<DebtTransactionDTO[]> {
@@ -32,6 +37,11 @@ export async function getTransactionsByDebtId(debtId: string): Promise<DebtTrans
       status: t.status,
       categoryName: t.category?.name ?? null,
       categoryColor: t.category?.color ?? null,
+      categoryId: t.categoryId ?? null,
+      accountId: t.accountId ?? null,
+      paymentMethodId: t.paymentMethodId ?? null,
+      creditCardId: t.creditCardId ?? null,
+      dueDate: t.dueDate?.toISOString() ?? null,
     }));
   } catch (error) {
     console.error('Error fetching transactions by debt:', error);

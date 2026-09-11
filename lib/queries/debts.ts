@@ -4,6 +4,7 @@ import {
   CalculationType,
   DebtStatus,
   FirstInstallmentMonth,
+  Periodicity,
   TransactionStatus,
 } from '@prisma/client';
 import { getServerSession } from 'next-auth';
@@ -24,6 +25,8 @@ export type DebtDTO = {
   calculationType: CalculationType | null;
   installmentValue: number | null;
   firstInstallmentMonth: FirstInstallmentMonth | null;
+  periodicity: Periodicity | null;
+  firstInstallmentDate: string | null;
   workspaceId: string;
   createdAt: string;
   updatedAt: string;
@@ -65,6 +68,8 @@ function mapDebt(debt: {
   calculationType: CalculationType | null;
   installmentValue: unknown;
   firstInstallmentMonth: FirstInstallmentMonth | null;
+  periodicity: Periodicity | null;
+  firstInstallmentDate: Date | null;
   workspaceId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -99,6 +104,8 @@ function mapDebt(debt: {
     calculationType: debt.calculationType,
     installmentValue: debt.installmentValue != null ? Number(debt.installmentValue) : null,
     firstInstallmentMonth: debt.firstInstallmentMonth,
+    periodicity: debt.periodicity,
+    firstInstallmentDate: debt.firstInstallmentDate?.toISOString() || null,
     workspaceId: debt.workspaceId,
     createdAt: debt.createdAt.toISOString(),
     updatedAt: debt.updatedAt.toISOString(),

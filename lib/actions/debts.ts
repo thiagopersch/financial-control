@@ -4,7 +4,7 @@ import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
 import { syncDebtInstallments } from '@/lib/services/debt-installments';
 import { resolveDebtStatusFromBalance } from '@/lib/services/debt-status';
-import { DebtStatus, TransactionStatus } from '@prisma/client';
+import { DebtStatus, Periodicity, TransactionStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -12,7 +12,7 @@ const debtSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   description: z.string().optional(),
   initialValue: z.coerce.number().positive('Valor inicial deve ser maior que zero'),
-  currentValue: z.coerce.number().positive('Valor atual deve ser maior que zero'),
+  currentValue: z.coerce.number().min(0, 'Valor atual deve ser maior ou igual a zero'),
   dueDay: z.coerce.number().min(1, 'Dia do vencimento é obrigatório').max(31),
   startDate: z.string(),
   status: z.nativeEnum(DebtStatus).optional(),
@@ -20,10 +20,21 @@ const debtSchema = z.object({
   calculationType: z.string().optional(),
   installmentValue: z.coerce.number().positive().optional().nullable(),
   firstInstallmentMonth: z.string().optional(),
+  periodicity: z.nativeEnum(Periodicity).optional().nullable(),
+  firstInstallmentDate: z.string().optional().nullable(),
   accountId: z.string().min(1, 'Conta é obrigatória'),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
   supplierId: z.string().min(1, 'Fornecedor é obrigatório'),
   paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
+  creditCardId: z.string().nullable().optional(),
+});
+
+const installmentSchema = z.object({
+  dueDate: z.coerce.date().optional(),
+  amount: z.coerce.number().positive('Valor deve ser maior que zero').optional(),
+  categoryId: z.string().min(1, 'Categoria é obrigatória').optional(),
+  accountId: z.string().min(1, 'Conta é obrigatória').nullable().optional(),
+  paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório').nullable().optional(),
   creditCardId: z.string().nullable().optional(),
 });
 
@@ -41,6 +52,8 @@ function serializeDebt(debt: any) {
     installments: debt.installments ?? null,
     calculationType: debt.calculationType ?? null,
     firstInstallmentMonth: debt.firstInstallmentMonth ?? null,
+    periodicity: debt.periodicity ?? null,
+    firstInstallmentDate: debt.firstInstallmentDate?.toISOString?.() ?? null,
   };
 }
 
@@ -69,11 +82,17 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
           // use the corrected initialValue so a fixed-installment debt doesn't start out of sync.
           currentValue: initialValue,
           dueDay: validated.dueDay || DEFAULT_DUE_DAY,
-          startDate: new Date(validated.startDate),
+          startDate: validated.firstInstallmentDate
+            ? new Date(validated.firstInstallmentDate)
+            : new Date(validated.startDate),
           installments: validated.installments,
           calculationType: (validated.calculationType ?? 'TOTAL_DIVIDED') as any,
           installmentValue: validated.installmentValue,
           firstInstallmentMonth: (validated.firstInstallmentMonth ?? 'NEXT') as any,
+          periodicity: (validated.periodicity ?? 'MONTHLY') as any,
+          firstInstallmentDate: validated.firstInstallmentDate
+            ? new Date(validated.firstInstallmentDate)
+            : null,
           accountId: validated.accountId,
           categoryId: validated.categoryId,
           supplierId: validated.supplierId,
@@ -95,6 +114,10 @@ export async function createDebt(data: z.infer<typeof debtSchema>) {
         installmentValue: validated.installmentValue ?? null,
         firstInstallmentMonth: validated.firstInstallmentMonth ?? 'NEXT',
         dueDay: validated.dueDay ?? null,
+        periodicity: validated.periodicity ?? 'MONTHLY',
+        firstInstallmentDate: validated.firstInstallmentDate
+          ? new Date(validated.firstInstallmentDate)
+          : null,
         categoryId: validated.categoryId,
         accountId: validated.accountId,
         supplierId: validated.supplierId,
@@ -175,6 +198,12 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
     if (data.firstInstallmentMonth) {
       updatedData.firstInstallmentMonth = data.firstInstallmentMonth as any;
     }
+    if (data.periodicity) {
+      updatedData.periodicity = data.periodicity as any;
+    }
+    if (data.firstInstallmentDate) {
+      updatedData.firstInstallmentDate = new Date(data.firstInstallmentDate);
+    }
     if (data.installmentValue !== undefined) {
       updatedData.installmentValue = data.installmentValue;
     }
@@ -212,6 +241,10 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
         installmentValue,
         firstInstallmentMonth,
         dueDay,
+        periodicity: data.periodicity ?? existingDebt.periodicity ?? 'MONTHLY',
+        firstInstallmentDate: data.firstInstallmentDate
+          ? new Date(data.firstInstallmentDate)
+          : (existingDebt.firstInstallmentDate ?? null),
         categoryId,
         accountId,
         supplierId,
@@ -313,5 +346,94 @@ export async function syncDebtCurrentValue(debtId: string) {
   } catch (error) {
     console.error('Error syncing debt:', error);
     return { success: false, error: 'Erro ao sincronizar dívida' };
+  }
+}
+
+export type UpdateInstallmentInput = z.infer<typeof installmentSchema>;
+
+export async function updateInstallment(transactionId: string, data: UpdateInstallmentInput) {
+  try {
+    const session = await requirePermission('transactions', 'UPDATE');
+    const validated = installmentSchema.parse(data);
+
+    const transaction = await prisma.transaction.findFirst({
+      where: {
+        id: transactionId,
+        workspaceId: session.user.workspaceId,
+        debtId: { not: null },
+      },
+      include: { debt: true },
+    });
+
+    if (!transaction) {
+      return { success: false, error: 'Transação não encontrada' };
+    }
+
+    if (transaction.status === TransactionStatus.PAID) {
+      return {
+        success: false,
+        error: 'Não é possível editar uma parcela já paga. Preserve o histórico financeiro.',
+      };
+    }
+
+    if (!transaction.debt || !transaction.debtId) {
+      return { success: false, error: 'Parcela não vinculada a uma dívida' };
+    }
+
+    const updateData: any = {};
+    if (validated.dueDate) {
+      updateData.dueDate = validated.dueDate;
+      updateData.date = validated.dueDate;
+    }
+    if (validated.amount != null) {
+      updateData.amount = validated.amount;
+    }
+    if (validated.categoryId) {
+      updateData.categoryId = validated.categoryId;
+    }
+    if (validated.accountId !== undefined) {
+      updateData.accountId = validated.accountId;
+    }
+    if (validated.paymentMethodId !== undefined) {
+      updateData.paymentMethodId = validated.paymentMethodId;
+    }
+    if (validated.creditCardId !== undefined) {
+      updateData.creditCardId = validated.creditCardId;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.transaction.update({
+        where: { id: transactionId },
+        data: updateData,
+      });
+
+      const paidTransactions = await tx.transaction.findMany({
+        where: { debtId: transaction.debtId, status: TransactionStatus.PAID },
+      });
+      const debt = await tx.debt.findUnique({ where: { id: transaction.debtId! } });
+
+      if (debt) {
+        const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+        const newCurrentValue = Number(debt.initialValue) - totalPaid;
+        await tx.debt.update({
+          where: { id: debt.id },
+          data: {
+            currentValue: newCurrentValue,
+            status: resolveDebtStatusFromBalance(debt.status, newCurrentValue),
+          },
+        });
+      }
+    });
+
+    revalidatePath(`/debts/${transaction.debtId}`);
+    revalidatePath('/debts');
+    revalidatePath('/transactions');
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating installment:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Não foi possível atualizar a parcela',
+    };
   }
 }

@@ -49,6 +49,17 @@ enum FirstInstallmentMonth {
   NEXT
 }
 
+enum Periodicity {
+  UNIQUE
+  WEEKLY
+  FORTNIGHTLY
+  MONTHLY
+  BIMONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+}
+
 enum DebtStatus {
   ACTIVE
   PAID
@@ -585,6 +596,8 @@ model Debt {
   calculationType       CalculationType?
   installmentValue      Decimal?               @db.Decimal(12, 2)
   firstInstallmentMonth FirstInstallmentMonth?
+  periodicity           Periodicity?
+  firstInstallmentDate  DateTime?
   categoryId            String?
   category              Category?              @relation(fields: [categoryId], references: [id])
   accountId             String?

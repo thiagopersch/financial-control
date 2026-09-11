@@ -3,7 +3,7 @@
 import { createDebt, deleteDebt, updateDebt } from '@/lib/actions/debts';
 import type { DebtDTO } from '@/lib/queries/debts';
 import { showError, showSuccess } from '@/lib/utils/toast';
-import { DebtStatus } from '@prisma/client';
+import { DebtStatus, Periodicity } from '@prisma/client';
 import * as z from 'zod';
 
 export const createDebtSchema = z
@@ -42,6 +42,8 @@ export const createDebtSchema = z
       z.coerce.number().positive().nullable().optional(),
     ),
     firstInstallmentMonth: z.string().min(1, 'Primeira parcela é obrigatória'),
+    periodicity: z.nativeEnum(Periodicity).default(Periodicity.MONTHLY),
+    firstInstallmentDate: z.string().min(1, 'Data da primeira parcela é obrigatória'),
   })
   .refine(
     (data) => {
@@ -65,6 +67,8 @@ export const editDebtSchema = z.object({
   calculationType: z.string().optional(),
   installmentValue: z.string().optional(),
   firstInstallmentMonth: z.string().optional(),
+  periodicity: z.nativeEnum(Periodicity).optional(),
+  firstInstallmentDate: z.string().optional(),
   accountId: z.string().min(1, 'Conta é obrigatória'),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
   supplierId: z.string().min(1, 'Fornecedor é obrigatório'),
@@ -103,6 +107,8 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
     calculationType: 'TOTAL_DIVIDED',
     installmentValue: null,
     firstInstallmentMonth: 'NEXT',
+    periodicity: Periodicity.MONTHLY,
+    firstInstallmentDate: '',
   };
 
   const defaultValuesEdit: EditDebtFormValues = debt
@@ -115,6 +121,8 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
         calculationType: debt.calculationType || 'TOTAL_DIVIDED',
         installmentValue: debt.installmentValue?.toString() || '',
         firstInstallmentMonth: debt.firstInstallmentMonth || 'NEXT',
+        periodicity: debt.periodicity || Periodicity.MONTHLY,
+        firstInstallmentDate: debt.firstInstallmentDate || '',
         accountId: debt.accountId || '',
         categoryId: debt.categoryId || '',
         supplierId: debt.supplierId || '',
@@ -131,6 +139,8 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
         calculationType: 'TOTAL_DIVIDED',
         installmentValue: '',
         firstInstallmentMonth: 'NEXT',
+        periodicity: Periodicity.MONTHLY,
+        firstInstallmentDate: '',
         accountId: '',
         categoryId: '',
         supplierId: '',
@@ -179,6 +189,8 @@ export function useDebtForm({ debt, refresh, onSuccess, onError }: UseDebtFormOp
         calculationType: values.calculationType,
         installmentValue: values.installmentValue ? parseFloat(values.installmentValue) : undefined,
         firstInstallmentMonth: values.firstInstallmentMonth,
+        periodicity: values.periodicity,
+        firstInstallmentDate: values.firstInstallmentDate || undefined,
         accountId: values.accountId,
         categoryId: values.categoryId,
         supplierId: values.supplierId,

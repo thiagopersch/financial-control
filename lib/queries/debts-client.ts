@@ -1,5 +1,5 @@
 import useSWR, { type SWRConfiguration } from 'swr';
-import { CalculationType, DebtStatus, FirstInstallmentMonth } from '@prisma/client';
+import { CalculationType, DebtStatus, FirstInstallmentMonth, Periodicity } from '@prisma/client';
 
 export interface DebtDTO {
   id: string;
@@ -17,6 +17,8 @@ export interface DebtDTO {
   calculationType: CalculationType | null;
   installmentValue: number | null;
   firstInstallmentMonth: FirstInstallmentMonth | null;
+  periodicity: Periodicity | null;
+  firstInstallmentDate: string | null;
   workspaceId: string;
   createdAt: string;
   updatedAt: string;

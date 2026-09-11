@@ -1,8 +1,19 @@
 import prisma from '@/lib/prisma';
 import { Prisma, TransactionStatus, TransactionType } from '@prisma/client';
-import { addMonths, setDate, startOfDay, startOfMonth } from 'date-fns';
+import {
+  buildInstallmentDates,
+  calculateInstallmentAmount,
+  calculateInstallmentAmounts,
+  divideExactly,
+} from '@/lib/utils/installment-calculation';
+import { startOfDay } from 'date-fns';
 
-const DEFAULT_DUE_DAY = 10;
+export {
+  buildInstallmentDates,
+  calculateInstallmentAmount,
+  calculateInstallmentAmounts,
+  divideExactly,
+};
 
 export async function getOrCreateDebtCategory(workspaceId: string) {
   const existing = await prisma.category.findFirst({
@@ -24,31 +35,6 @@ export async function getOrCreateDebtCategory(workspaceId: string) {
   });
 }
 
-export function calculateInstallmentAmount(
-  remainingValue: number,
-  remainingCount: number,
-  calculationType: string | null,
-  installmentValue: number | null,
-): number {
-  if (calculationType === 'FIXED_INSTALLMENT' && installmentValue) {
-    return installmentValue;
-  }
-  if (remainingCount <= 0) return 0;
-  return Number((remainingValue / remainingCount).toFixed(2));
-}
-
-export function getInstallmentDueDate(
-  monthOffset: number,
-  firstInstallmentMonth: string | null,
-  dueDay: number | null,
-): Date {
-  const now = new Date();
-  const baseMonth =
-    firstInstallmentMonth === 'CURRENT' ? startOfMonth(now) : addMonths(startOfMonth(now), 1);
-  const monthDate = addMonths(baseMonth, monthOffset);
-  return setDate(monthDate, dueDay || DEFAULT_DUE_DAY);
-}
-
 export interface SyncDebtInstallmentsParams {
   debtId: string;
   workspaceId: string;
@@ -65,6 +51,8 @@ export interface SyncDebtInstallmentsParams {
   supplierId: string | null;
   paymentMethodId: string | null;
   creditCardId: string | null;
+  periodicity?: string | null;
+  firstInstallmentDate?: Date | null;
 }
 
 /**
@@ -73,8 +61,7 @@ export interface SyncDebtInstallmentsParams {
  * Never touches PAID transactions (they anchor the debt's paid history/percentage).
  * Existing unpaid (PENDING/OVERDUE) transactions are updated in place; new ones are
  * only created when `installmentsTotal` grows past the current unpaid count, and
- * trailing unpaid ones are deleted when it shrinks. This keeps transaction ids/paid
- * history stable across edits instead of deleting-and-recreating everything.
+ * trailing unpaid ones are deleted when it shrinks.
  */
 export async function syncDebtInstallments(
   tx: Prisma.TransactionClient,
@@ -116,21 +103,30 @@ export async function syncDebtInstallments(
   const remainingNeeded = installmentsTotal - paidCount;
   const paidTotal = paid.reduce((sum, t) => sum + Number(t.amount), 0);
   const remainingValue = Math.max(params.initialValue - paidTotal, 0);
-  const installmentAmount = calculateInstallmentAmount(
+
+  const amounts = calculateInstallmentAmounts(
     remainingValue,
     remainingNeeded,
     params.calculationType,
     params.installmentValue,
   );
+
   const today = startOfDay(new Date());
+  const dates = buildInstallmentDates(
+    params.firstInstallmentDate,
+    params.firstInstallmentMonth,
+    params.dueDay,
+    params.periodicity,
+    remainingNeeded,
+  );
 
   for (let i = 0; i < remainingNeeded; i++) {
-    const dueDate = getInstallmentDueDate(i, params.firstInstallmentMonth, params.dueDay);
+    const dueDate = dates[i];
     const status = dueDate < today ? TransactionStatus.OVERDUE : TransactionStatus.PENDING;
 
     const data = {
       type: TransactionType.EXPENSE,
-      amount: installmentAmount,
+      amount: amounts[i],
       date: dueDate,
       dueDate,
       status,
@@ -148,9 +144,6 @@ export async function syncDebtInstallments(
       installments: installmentsTotal,
     };
 
-    // Limite do cartão é calculado dinamicamente por competência a partir das
-    // próprias Transactions (ver lib/queries/credit-card-usage.ts) — não há mais
-    // um contador em CreditCard.usedAmount para manter sincronizado aqui.
     const existingRow = unpaid[i];
     if (existingRow) {
       await tx.transaction.update({ where: { id: existingRow.id }, data });

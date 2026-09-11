@@ -61,9 +61,7 @@ export function DebtsHeader({
       createLabel="Nova Dívida"
       onCreate={onCreate}
       extraActions={
-        showActivePagination && (
-          <div ref={activePaginationSlotRef} className="w-full md:w-auto" />
-        )
+        showActivePagination && <div ref={activePaginationSlotRef} className="w-full md:w-auto" />
       }
       filtersPanel={
         <DebtsFilters
