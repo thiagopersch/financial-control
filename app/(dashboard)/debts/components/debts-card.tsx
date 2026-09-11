@@ -52,7 +52,7 @@ export function DebtsCard({ debt, onView, onEdit, onDelete }: DebtsCardProps) {
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="w-auto min-w-40">
             <DropdownMenuLabel>Ações</DropdownMenuLabel>
             <DropdownMenuItem onClick={() => onView(debt)}>
               <Eye className="mr-2 h-4 w-4" />

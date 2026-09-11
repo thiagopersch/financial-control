@@ -37,12 +37,13 @@ export function CurrencyInput({
   );
   const [prevValue, setPrevValue] = React.useState(value);
   const [isFocused, setIsFocused] = React.useState(false);
-  const lastEmittedRef = React.useRef<number | null>(null);
+  const lastEmittedRef = React.useRef<number | null>(value ?? null);
 
   if (prevValue !== value) {
     setPrevValue(value);
     if (!isFocused) {
       setDisplayValue(value ? formatBRL(Number(value)) : '');
+      lastEmittedRef.current = value ?? 0;
     }
   }
 
