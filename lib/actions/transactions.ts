@@ -504,6 +504,68 @@ export async function markTransactionAsPaid(id: string) {
   }
 }
 
+const transactionStatusSchema = z.enum(TransactionStatus);
+
+/**
+ * Altera apenas o status de uma transação. Marcar como paga reaproveita
+ * `markTransactionAsPaid` (mesma regra de mover para o mês vigente); voltar para
+ * pendente/atrasada limpa o `paidAt`. Em ambos os casos a dívida vinculada é
+ * ressincronizada (valor atual e status).
+ */
+export async function updateTransactionStatus(id: string, status: TransactionStatus) {
+  try {
+    const session = await requirePermission('transactions', 'UPDATE');
+    const validatedStatus = transactionStatusSchema.parse(status);
+
+    if (validatedStatus === TransactionStatus.PAID) {
+      return await markTransactionAsPaid(id);
+    }
+
+    const transaction = await prisma.transaction.findUnique({
+      where: { id, workspaceId: session.user.workspaceId },
+    });
+    if (!transaction) return { success: false, error: 'Transação não encontrada' };
+    if (transaction.status === validatedStatus)
+      return { success: true, movedToCurrentMonth: false };
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.transaction.update({
+        where: { id },
+        data: { status: validatedStatus, paidAt: null },
+      });
+
+      if (u.debtId) {
+        await syncDebtCurrentValueInTx(tx, u.debtId);
+      }
+
+      return u;
+    });
+
+    await createAuditLog({
+      action: 'UPDATE_TRANSACTION_STATUS',
+      entity: 'Transaction',
+      entityId: id,
+      oldValue: { status: transaction.status, paidAt: transaction.paidAt },
+      newValue: { status: updated.status, paidAt: updated.paidAt },
+    });
+
+    await notifyTransactionStatusChange({
+      id: updated.id,
+      oldStatus: transaction.status,
+      newStatus: updated.status,
+    });
+
+    revalidatePath('/transactions');
+    revalidatePath('/dashboard');
+    revalidatePath('/debts');
+    if (updated.debtId) revalidatePath(`/debts/${updated.debtId}`);
+    return { success: true, movedToCurrentMonth: false };
+  } catch (error) {
+    console.error('Error updating transaction status:', error);
+    return { success: false, error: 'Erro ao atualizar status da transação' };
+  }
+}
+
 export async function autoMoveOverdueTransactions() {
   try {
     const session = await requirePermission('transactions', 'VIEW');

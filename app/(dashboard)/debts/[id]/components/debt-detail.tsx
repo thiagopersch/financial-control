@@ -12,7 +12,7 @@ import type { CreditCardDTO } from '@/lib/queries/credit-cards';
 import type { DebtDTO } from '@/lib/queries/debts';
 import type { PaymentMethodDTO } from '@/lib/queries/payment-methods';
 import type { DebtTransactionDTO } from '@/lib/queries/transactions';
-import { cn, formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import { PERIODICITY_LABELS } from '@/lib/constants/periodicity';
 import { Periodicity, TransactionStatus } from '@prisma/client';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -22,6 +22,7 @@ import { ArrowLeft, Pencil } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { InstallmentEditDialog } from './installment-edit-dialog';
+import { InstallmentStatusMenu } from './installment-status-menu';
 
 interface DebtDetailProps {
   debt: DebtDTO;
@@ -31,21 +32,6 @@ interface DebtDetailProps {
   paymentMethods: PaymentMethodDTO[];
   creditCards: CreditCardDTO[];
 }
-
-const statusMap: Record<TransactionStatus, { label: string; className: string }> = {
-  PAID: {
-    label: 'Pago',
-    className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  },
-  PENDING: {
-    label: 'Pendente',
-    className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  },
-  OVERDUE: {
-    label: 'Atrasado',
-    className: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
-  },
-};
 
 export function DebtDetail({
   debt,
@@ -112,14 +98,7 @@ export function DebtDetail({
     {
       accessorKey: 'status',
       header: 'Status',
-      cell: ({ row }) => {
-        const status = row.original.status;
-        return (
-          <Badge variant="secondary" className={cn('border-none', statusMap[status].className)}>
-            {statusMap[status].label}
-          </Badge>
-        );
-      },
+      cell: ({ row }) => <InstallmentStatusMenu transaction={row.original} />,
     },
     {
       id: 'actions',
