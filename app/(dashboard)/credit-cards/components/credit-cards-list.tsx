@@ -23,8 +23,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { CreditCardUsageDialog } from './credit-card-usage-dialog';
 import { CreditCardsForm } from './credit-cards-form';
 import { CreditCardsHeader } from './credit-cards-header';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
+import { matchesMulti, parseMultiParam, serializeMultiParam } from '@/lib/utils/filter-params';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
 interface CreditCardsListProps {
   creditCards: CreditCardDTO[];
@@ -64,15 +66,19 @@ export function CreditCardsList({
 
   const [usageCard, setUsageCard] = useState<CreditCardDTO | null>(null);
   const [search, setSearch] = useState('');
-  const [accountFilter, setAccountFilter] = useState('all');
+  const [accountFilter, setAccountFilter] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
-  usePersistedPageFilters('credit-cards', { search, accountFilter }, (saved) => {
-    if (saved.search !== undefined) setSearch(saved.search);
-    if (saved.accountFilter) setAccountFilter(saved.accountFilter);
-  });
+  usePersistedPageFilters(
+    'credit-cards',
+    { search, accountFilter: serializeMultiParam(accountFilter) },
+    (saved) => {
+      if (saved.search !== undefined) setSearch(saved.search);
+      setAccountFilter(parseMultiParam(saved.accountFilter));
+    },
+  );
 
   const accountOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -85,7 +91,7 @@ export function CreditCardsList({
   const filteredCreditCards = useMemo(() => {
     return creditCards.filter((card) => {
       const matchesSearch = card.account.name.toLowerCase().includes(search.toLowerCase());
-      const matchesAccount = accountFilter === 'all' || card.accountId === accountFilter;
+      const matchesAccount = matchesMulti(accountFilter, card.accountId);
       return matchesSearch && matchesAccount;
     });
   }, [creditCards, search, accountFilter]);
@@ -107,7 +113,7 @@ export function CreditCardsList({
     setPage(1);
   };
 
-  const handleAccountFilterChange = (value: string) => {
+  const handleAccountFilterChange = (value: string[]) => {
     setAccountFilter(value);
     setPage(1);
   };

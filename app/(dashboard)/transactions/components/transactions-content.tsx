@@ -1,5 +1,7 @@
 'use client';
 
+import { PeriodLoading } from '@/components/ui/loading-overlay';
+import type { WorkspaceUserOption } from '@/lib/queries/users';
 import { useState } from 'react';
 import { TransactionsHeader } from './transactions-header';
 import { TransactionsTable } from './transactions-table';
@@ -13,7 +15,7 @@ interface TransactionsContentProps {
   paymentMethods?: any[];
   creditCards?: any[];
   transactionCounts?: Record<string, number>;
-  monthCounts?: Record<string, number>;
+  users?: WorkspaceUserOption[];
   canModify?: boolean;
   transactions: any[];
   totalCount: number;
@@ -35,7 +37,7 @@ export function TransactionsContent({
   paymentMethods,
   creditCards,
   transactionCounts,
-  monthCounts,
+  users,
   canModify,
   transactions,
   totalCount,
@@ -60,27 +62,29 @@ export function TransactionsContent({
         paymentMethods={paymentMethods}
         creditCards={creditCards}
         transactionCounts={transactionCounts}
-        monthCounts={monthCounts}
+        users={users}
         canModify={canModify}
         paginationSlotRef={setPaginationSlot}
       />
-      <TransactionsTable
-        transactions={transactions}
-        categories={categories}
-        suppliers={suppliers}
-        accounts={accounts}
-        costCenters={costCenters}
-        canModify={canModify}
-        totalCount={totalCount}
-        totalAmount={totalAmount}
-        totalExpenseAmount={totalExpenseAmount}
-        totalIncomeAmount={totalIncomeAmount}
-        expenseCount={expenseCount}
-        incomeCount={incomeCount}
-        page={page}
-        pageSize={pageSize}
-        paginationSlot={paginationSlot}
-      />
+      <PeriodLoading size="md" className="rounded-xl">
+        <TransactionsTable
+          transactions={transactions}
+          categories={categories}
+          suppliers={suppliers}
+          accounts={accounts}
+          costCenters={costCenters}
+          canModify={canModify}
+          totalCount={totalCount}
+          totalAmount={totalAmount}
+          totalExpenseAmount={totalExpenseAmount}
+          totalIncomeAmount={totalIncomeAmount}
+          expenseCount={expenseCount}
+          incomeCount={incomeCount}
+          page={page}
+          pageSize={pageSize}
+          paginationSlot={paginationSlot}
+        />
+      </PeriodLoading>
     </>
   );
 }

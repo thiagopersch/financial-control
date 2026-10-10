@@ -2,6 +2,8 @@
 
 import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
+import { createAuditLog } from '@/lib/services/audit';
+import { runScheduledTransaction } from '@/lib/services/scheduled-transactions';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -9,7 +11,7 @@ const scheduledTransactionSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   type: z.enum(['INCOME', 'EXPENSE']),
   amount: z.coerce.number().positive('Valor deve ser maior que zero'),
-  frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'BUSINESS_DAYS']),
+  frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY', 'BUSINESS_DAYS', 'CUSTOM']),
   dayOfMonth: z.number().min(1).max(31).optional(),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
   accountId: z.string().min(1, 'Conta é obrigatória'),
@@ -124,5 +126,48 @@ export async function toggleScheduledTransaction(id: string, isActive: boolean) 
   } catch (error) {
     console.error('Error toggling scheduled transaction:', error);
     return { success: false, error: 'Erro ao atualizar agendamento' };
+  }
+}
+
+/**
+ * Execução manual ("Executar agora"): gera a próxima ocorrência do agendamento
+ * imediatamente, mesmo que ainda não tenha vencido, e avança a próxima execução.
+ */
+export async function runScheduledTransactionNow(id: string) {
+  try {
+    const session = await requirePermission('scheduled', 'UPDATE');
+    const scheduled = await prisma.scheduledTransaction.findFirst({
+      where: { id, workspaceId: session.user.workspaceId },
+    });
+    if (!scheduled) return { success: false, error: 'Agendamento não encontrado' };
+
+    const result = await runScheduledTransaction(scheduled, { force: true });
+    const occurrence = result.occurrence.toLocaleDateString('pt-BR');
+
+    await createAuditLog({
+      action: 'RUN_SCHEDULED_TRANSACTION',
+      entity: 'ScheduledTransaction',
+      entityId: id,
+      newValue: result,
+    });
+
+    revalidatePath('/scheduled');
+    revalidatePath('/transactions');
+    revalidatePath('/dashboard');
+
+    if (result.status === 'skipped') {
+      return {
+        success: false,
+        error: `Já existe uma transação deste agendamento para a ocorrência de ${occurrence}`,
+      };
+    }
+
+    return {
+      success: true,
+      message: `Transação gerada para ${occurrence}`,
+    };
+  } catch (error) {
+    console.error('Error running scheduled transaction:', error);
+    return { success: false, error: 'Erro ao executar agendamento' };
   }
 }

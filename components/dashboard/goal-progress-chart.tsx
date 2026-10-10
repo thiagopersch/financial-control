@@ -5,7 +5,13 @@ import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
 
 interface GoalProgressChartProps {
-  goals: { id: string; name: string; targetAmount: number; currentAmount: number; percent: number }[];
+  goals: {
+    id: string;
+    name: string;
+    targetAmount: number;
+    currentAmount: number;
+    percent: number;
+  }[];
 }
 
 function formatCurrency(value: number) {

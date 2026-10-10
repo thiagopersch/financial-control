@@ -36,6 +36,10 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Senha incorreta');
         }
 
+        if (!user.isActive) {
+          throw new Error('Usuário inativo. Fale com o administrador do workspace.');
+        }
+
         const { permissionProfileId, permissionProfileName, permissions } =
           await loadPermissionsForUser(user.id);
 

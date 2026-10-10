@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { ChartVisualType } from './chart-type-switcher';
+import type { ChartAltType } from './chart-type-switcher';
 
 interface Series {
   dataKey: string;
@@ -24,7 +24,7 @@ interface Series {
 }
 
 interface ChartAltRendererProps {
-  type: Exclude<ChartVisualType, 'default'>;
+  type: ChartAltType;
   data: any[];
   series: Series[];
   xKey?: string;
@@ -75,7 +75,9 @@ export function ChartAltRenderer({
             cy="50%"
             innerRadius={type === 'donut' ? 60 : 0}
             outerRadius={80}
-            paddingAngle={type === 'donut' ? 5 : 2}
+            // Com uma fatia só, o espaçamento + borda desenham um risco no gráfico.
+            paddingAngle={pieData.length > 1 ? (type === 'donut' ? 5 : 2) : 0}
+            stroke="none"
             dataKey="value"
           >
             {pieData.map((entry, i) => (
@@ -156,7 +158,13 @@ export function ChartAltRenderer({
           </>
         ) : (
           <>
-            <XAxis dataKey={xKey} stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+            <XAxis
+              dataKey={xKey}
+              stroke="#888888"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+            />
             <YAxis
               stroke="#888888"
               fontSize={12}
@@ -169,7 +177,7 @@ export function ChartAltRenderer({
         <Tooltip
           formatter={(v: any) => formatTooltip(v)}
           contentStyle={tooltipStyle}
-          cursor={{ fill: '#f8fafc' }}
+          cursor={{ fill: 'rgba(148, 163, 184, 0.15)' }}
         />
         {series.length > 1 && <Legend verticalAlign="top" height={36} iconType="circle" />}
         {series.map((s) => (

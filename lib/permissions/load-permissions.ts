@@ -16,6 +16,7 @@ export async function loadPermissionsForUser(userId: string): Promise<LoadedPerm
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
+      isActive: true,
       permissionProfile: {
         select: {
           id: true,
@@ -30,7 +31,8 @@ export async function loadPermissionsForUser(userId: string): Promise<LoadedPerm
     },
   });
 
-  if (!user?.permissionProfile) {
+  // Usuário desativado perde todas as permissões na próxima request, mesmo com sessão aberta.
+  if (!user?.isActive || !user.permissionProfile) {
     return { permissionProfileId: null, permissionProfileName: null, permissions: [] };
   }
 

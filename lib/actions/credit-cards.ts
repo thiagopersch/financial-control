@@ -11,6 +11,7 @@ import { InvoiceStatus } from '@prisma/client';
 import { endOfMonth, startOfMonth } from 'date-fns';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
+import { toCompetence } from '@/lib/utils/competence';
 
 const creditCardSchema = z.object({
   limit: z.coerce.number().positive('Limite deve ser maior que zero'),
@@ -312,6 +313,8 @@ export async function payInvoice(
           type: 'EXPENSE',
           amount: invoice.amount,
           date: new Date(),
+          competence: toCompetence(new Date()),
+          originalCompetence: toCompetence(new Date()),
           status: 'PAID',
           description: `Pagamento fatura ${invoice.month}/${invoice.year} - ${invoice.creditCard.account.name}`,
           categoryId: invoice.creditCard.account.id,

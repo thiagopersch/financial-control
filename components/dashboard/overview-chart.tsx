@@ -70,7 +70,7 @@ export function OverviewChart({ data, isFullYear, isAllPeriod }: OverviewChartPr
                     border: 'none',
                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                   }}
-                  cursor={{ fill: '#f8fafc' }}
+                  cursor={{ fill: 'rgba(148, 163, 184, 0.15)' }}
                 />
                 <Legend verticalAlign="top" height={36} iconType="circle" />
                 <Bar

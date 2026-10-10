@@ -4,8 +4,7 @@ import { hasPermission } from '@/lib/permissions/has-permission';
 import prisma from '@/lib/prisma';
 import { getRulesPaginated } from '@/lib/queries/rules';
 import { RulesContent } from '@/components/rules/rules-content';
-
-const ALLOWED_PAGE_SIZES = [10, 20, 50, 100];
+import { parsePageSize } from '@/lib/constants/pagination';
 
 export default async function RulesPage({
   searchParams: searchParamsPromise,
@@ -21,9 +20,7 @@ export default async function RulesPage({
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const pageSize = ALLOWED_PAGE_SIZES.includes(Number(searchParams.pageSize))
-    ? Number(searchParams.pageSize)
-    : 10;
+  const pageSize = parsePageSize(searchParams.pageSize);
   const page = Math.max(1, parseInt(searchParams.page || '1', 10) || 1);
 
   const [{ rules, totalCount }, categories] = await Promise.all([

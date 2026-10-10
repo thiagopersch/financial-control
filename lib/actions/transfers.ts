@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { TransactionStatus, TransactionType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
+import { toCompetence } from '@/lib/utils/competence';
 
 const transferSchema = z.object({
   amount: z.coerce.number().positive('Valor deve ser maior que zero'),
@@ -60,6 +61,8 @@ export async function createTransfer(data: z.infer<typeof transferSchema>) {
           type: TransactionType.TRANSFER,
           amount: validated.amount,
           date: validated.date,
+          competence: toCompetence(validated.date),
+          originalCompetence: toCompetence(validated.date),
           status: TransactionStatus.PAID,
           notes: `[SAÍDA] Transferência: ${validated.description || ''}`,
           accountId: validated.fromAccountId,
@@ -76,6 +79,8 @@ export async function createTransfer(data: z.infer<typeof transferSchema>) {
           type: TransactionType.TRANSFER,
           amount: validated.amount,
           date: validated.date,
+          competence: toCompetence(validated.date),
+          originalCompetence: toCompetence(validated.date),
           status: TransactionStatus.PAID,
           notes: `[ENTRADA] Transferência: ${validated.description || ''}`,
           accountId: validated.toAccountId,

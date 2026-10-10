@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 
 interface ManualPaginationProps {
   page: number;
@@ -52,7 +53,7 @@ export function DataTable<TData, TValue>({
   emptyMessage = 'Nenhum resultado encontrado.',
   initialSorting = [],
   getRowClassName,
-  pageSize = 15,
+  pageSize = DEFAULT_PAGE_SIZE,
   manualPagination,
   footer,
   paginationSlot,
@@ -112,7 +113,10 @@ export function DataTable<TData, TValue>({
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="dark:bg-accent bg-slate-50/50">
+                <TableRow
+                  key={headerGroup.id}
+                  className="dark:bg-accent dark:hover:bg-accent bg-slate-50/50 hover:bg-slate-50/50"
+                >
                   {headerGroup.headers.map((header) => (
                     <TableHead key={header.id}>
                       {header.isPlaceholder
@@ -130,11 +134,7 @@ export function DataTable<TData, TValue>({
                     key={row.id}
                     data-state={row.getIsSelected() && 'selected'}
                     onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                    className={cn(
-                      'hover:bg-muted/50 dark:hover:bg-muted/40 transition-colors',
-                      onRowClick && 'cursor-pointer',
-                      getRowClassName?.(row.original),
-                    )}
+                    className={cn(onRowClick && 'cursor-pointer', getRowClassName?.(row.original))}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>

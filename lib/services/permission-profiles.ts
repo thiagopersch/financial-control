@@ -175,9 +175,16 @@ export async function assertKeepsSystemProfileUser(
   if (newPermissionProfileId === targetUser.permissionProfileId) return;
 
   const remaining = await client.user.count({
-    where: { workspaceId, id: { not: userId }, permissionProfile: { isSystem: true } },
+    where: {
+      workspaceId,
+      id: { not: userId },
+      isActive: true,
+      permissionProfile: { isSystem: true },
+    },
   });
   if (remaining === 0) {
-    throw new Error('Deve existir pelo menos um usuário com um perfil administrador no workspace');
+    throw new Error(
+      'Deve existir pelo menos um usuário ativo com um perfil administrador no workspace',
+    );
   }
 }

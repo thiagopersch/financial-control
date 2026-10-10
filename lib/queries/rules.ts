@@ -1,6 +1,8 @@
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
+import { parseMultiParam, toInFilter } from '@/lib/utils/filter-params';
 
 export type GetRulesParams = {
   q?: string;
@@ -13,13 +15,13 @@ export async function getRulesPaginated(params: GetRulesParams = {}) {
   const session = await getServerSession(authOptions);
   if (!session) return { rules: [], totalCount: 0 };
 
-  const { q, category, page = 1, pageSize = 10 } = params;
+  const { q, category, page = 1, pageSize = DEFAULT_PAGE_SIZE } = params;
 
   const where: any = {
     workspaceId: session.user.workspaceId,
   };
 
-  if (category) where.categoryId = category;
+  where.categoryId = toInFilter(parseMultiParam(category));
 
   if (q) {
     const query = q.trim();

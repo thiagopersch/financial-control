@@ -9,7 +9,13 @@ export interface ScheduledTransaction {
   amount: number;
   frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'BUSINESS_DAYS' | 'CUSTOM';
   dayOfMonth: number | null;
+  dayOfWeek: number | null;
+  customDays: number[];
   nextRun: string;
+  lastRun: string | null;
+  createdAt: string;
+  /** Quantidade de transações já geradas por este agendamento. */
+  generatedCount: number;
   isActive: boolean;
   categoryId: string;
   category?: {
@@ -19,6 +25,7 @@ export interface ScheduledTransaction {
   accountId: string | null;
   paymentMethodId: string | null;
   creditCardId: string | null;
+  costCenterId: string | null;
   supplierId: string | null;
   supplier?: {
     name: string;

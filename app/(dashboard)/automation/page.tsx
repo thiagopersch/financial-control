@@ -51,6 +51,7 @@ import {
 } from '@/hooks/forms/use-automation-form';
 import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 import type { ConditionalRule } from '@/lib/queries/automation';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 
 const conditionOptions = [
   { value: 'AMOUNT_GREATER', label: 'Valor maior que' },
@@ -100,7 +101,7 @@ export default function AutomationPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   usePersistedPageFilters('automation', { search, statusFilter }, (saved) => {
     if (saved.search !== undefined) setSearch(saved.search);

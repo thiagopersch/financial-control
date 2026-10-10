@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DatePicker } from '@/components/ui/date-picker';
+import { MonthPicker } from '@/components/ui/month-picker';
 import {
   Form,
   FormControl,
@@ -28,12 +29,20 @@ import { CreditCardSelect } from '@/components/transactions/credit-card-select';
 import { createTransaction, updateTransaction } from '@/lib/actions/transactions';
 import type { CreditCardDTO } from '@/lib/queries/credit-cards';
 import type { PaymentMethodDTO } from '@/lib/queries/payment-methods';
+import type { WorkspaceUserOption } from '@/lib/queries/users';
+import {
+  competenceToYearMonthString,
+  formatCompetence,
+  isSameCompetence,
+  isYearMonthString,
+  toYearMonthString,
+} from '@/lib/utils/competence';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TransactionStatus, TransactionType } from '@prisma/client';
 import { ArrowLeft, RefreshCw, Repeat } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -42,6 +51,10 @@ const transactionSchema = z.object({
   type: z.enum([TransactionType.INCOME, TransactionType.EXPENSE]),
   amount: z.coerce.number().positive('Valor deve ser maior que zero'),
   date: z.coerce.date({ error: 'Data de vencimento inválida' }),
+  competence: z
+    .string({ error: 'Competência é obrigatória' })
+    .refine(isYearMonthString, 'Competência é obrigatória'),
+  paidById: z.string().nullable().optional(),
   status: z.enum([TransactionStatus.PAID, TransactionStatus.PENDING, TransactionStatus.OVERDUE]),
   paidAt: z.coerce.date().nullable().optional(),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
@@ -68,6 +81,7 @@ interface TransactionFormPageProps {
   paymentMethods: PaymentMethodDTO[];
   creditCards: CreditCardDTO[];
   debts?: { id: string; name: string }[];
+  users?: WorkspaceUserOption[];
   initialData?: any;
 }
 
@@ -85,10 +99,13 @@ export function TransactionFormPage({
   paymentMethods,
   creditCards,
   debts = [],
+  users = [],
   initialData,
 }: TransactionFormPageProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Enquanto o usuário não escolher a competência manualmente, ela acompanha o vencimento.
+  const competenceTouched = useRef(!!initialData);
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema) as any,
@@ -98,6 +115,10 @@ export function TransactionFormPage({
           type: initialData.type,
           amount: Number(initialData.amount),
           date: parseDate(initialData.date) || new Date(),
+          competence: initialData.competence
+            ? competenceToYearMonthString(initialData.competence)
+            : toYearMonthString(parseDate(initialData.date) || new Date()),
+          paidById: initialData.paidById || null,
           status: initialData.status,
           paidAt: parseDate(initialData.paidAt),
           categoryId: initialData.categoryId,
@@ -118,6 +139,8 @@ export function TransactionFormPage({
           type: TransactionType.EXPENSE,
           amount: 0,
           date: undefined as unknown as Date,
+          competence: '',
+          paidById: null,
           status: TransactionStatus.PENDING,
           paidAt: null,
           categoryId: '',
@@ -159,10 +182,19 @@ export function TransactionFormPage({
 
   useEffect(() => {
     if (!initialData && !form.getValues('date')) {
-      form.setValue('date', new Date());
+      const today = new Date();
+      form.setValue('date', today);
+      form.setValue('competence', toYearMonthString(today));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const movedFromCompetence =
+    initialData?.competence &&
+    initialData?.originalCompetence &&
+    !isSameCompetence(initialData.competence, initialData.originalCompetence)
+      ? formatCompetence(initialData.originalCompetence)
+      : null;
 
   const filteredCategories = categories.filter((c) => c.type === selectedType);
 
@@ -504,12 +536,48 @@ export function TransactionFormPage({
                     <FormItem>
                       <FormLabel required>Data de vencimento</FormLabel>
                       <FormControl>
-                        <DatePicker date={field.value} setDate={field.onChange} />
+                        <DatePicker
+                          date={field.value}
+                          setDate={(date) => {
+                            field.onChange(date);
+                            if (date && !competenceTouched.current) {
+                              form.setValue('competence', toYearMonthString(date), {
+                                shouldValidate: true,
+                              });
+                            }
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="competence"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required>Competência</FormLabel>
+                      <FormControl>
+                        <MonthPicker
+                          value={field.value}
+                          onChange={(value) => {
+                            competenceTouched.current = true;
+                            field.onChange(value);
+                          }}
+                        />
+                      </FormControl>
+                      {movedFromCompetence && (
+                        <p className="text-muted-foreground text-xs">
+                          Competência de origem: {movedFromCompetence}
+                        </p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
                 <FormField
                   control={form.control}
                   name="costCenterId"
@@ -523,6 +591,30 @@ export function TransactionFormPage({
                           onValueChange={(v) => field.onChange(v)}
                           placeholder="Selecione..."
                           emptyText="Nenhum centro de custo encontrado."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="paidById"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Pago por (opcional)</FormLabel>
+                      <FormControl>
+                        <SelectSearch
+                          options={users.map((user) => ({
+                            value: user.id,
+                            label: user.isActive
+                              ? user.name || user.email
+                              : `${user.name || user.email} (inativo)`,
+                          }))}
+                          value={field.value || null}
+                          onValueChange={(v) => field.onChange(v)}
+                          placeholder="Selecione o usuário..."
+                          emptyText="Nenhum usuário encontrado."
                         />
                       </FormControl>
                       <FormMessage />
@@ -682,16 +774,17 @@ export function TransactionFormPage({
                   </FormItem>
                 )}
               />
-              <div className="flex justify-end gap-2 border-t pt-4">
+              <div className="flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end">
                 <Button
                   type="button"
                   variant="outline"
+                  className="w-full sm:w-auto"
                   onClick={() => router.push('/transactions')}
                   disabled={isSubmitting}
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting}>
                   {isSubmitting ? 'Salvando...' : initialData ? 'Atualizar' : 'Cadastrar'}
                 </Button>
               </div>

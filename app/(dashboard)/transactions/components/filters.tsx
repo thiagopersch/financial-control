@@ -2,26 +2,38 @@
 
 import { DatePicker } from '@/components/ui/date-picker';
 import { FilterField, FilterPanel } from '@/components/ui/filter-panel';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-select';
+import { PAID_BY_NONE, parseMultiParam, setMultiParam } from '@/lib/utils/filter-params';
 
-import { format, parse } from 'date-fns';
+import { format, isValid, parse } from 'date-fns';
 import { useState } from 'react';
+
+const TYPE_OPTIONS: MultiSelectOption[] = [
+  { value: 'EXPENSE', label: 'Despesas', color: '#f43f5e' },
+  { value: 'INCOME', label: 'Receitas', color: '#10b981' },
+  { value: 'TRANSFER', label: 'Transferências', color: '#94a3b8' },
+];
+
+const STATUS_OPTIONS: MultiSelectOption[] = [
+  { value: 'PENDING', label: 'Pendente', color: '#f59e0b' },
+  { value: 'OVERDUE', label: 'Atrasado', color: '#f43f5e' },
+  { value: 'PAID', label: 'Pago', color: '#10b981' },
+];
 
 type FiltersProps = {
   searchParams: URLSearchParams;
   applyFilters: (params: URLSearchParams) => void;
   handleClearFilters: () => void;
   categories: { id: string; name: string; type: string; color: string }[];
-  accounts: any[];
-  types?: { value: string; label: string; color: string }[];
-  statuses?: { value: string; label: string; color: string }[];
+  accounts: { id: string; name: string; color?: string | null }[];
+  users?: { id: string; name: string | null; email: string }[];
 };
+
+function parseDateParam(value: string | null) {
+  if (!value) return undefined;
+  const date = parse(value, 'yyyy-MM-dd', new Date());
+  return isValid(date) ? date : undefined;
+}
 
 export function Filters({
   searchParams,
@@ -29,58 +41,49 @@ export function Filters({
   handleClearFilters,
   categories,
   accounts,
-  types = [
-    { value: 'all', label: 'Todos os tipos', color: '' },
-    { value: 'INCOME', label: 'Receitas', color: '#10b981' },
-    { value: 'EXPENSE', label: 'Despesas', color: '#f43f5e' },
-  ],
-  statuses = [
-    { value: 'all', label: 'Todos os status', color: '' },
-    { value: 'PAID', label: 'Pago', color: '#10b981' },
-    { value: 'PENDING', label: 'Pendente', color: '#f59e0b' },
-    { value: 'OVERDUE', label: 'Atrasado', color: '#f43f5e' },
-  ],
+  users = [],
 }: FiltersProps) {
-  const [type, setType] = useState(searchParams.get('type') || 'all');
-  const [status, setStatus] = useState(searchParams.get('status') || 'all');
-  const [category, setCategory] = useState(searchParams.get('category') || 'all');
-  const [account, setAccount] = useState(searchParams.get('account') || 'all');
+  const [dueFrom, setDueFrom] = useState(parseDateParam(searchParams.get('from')));
+  const [dueTo, setDueTo] = useState(parseDateParam(searchParams.get('to')));
+  const [types, setTypes] = useState(parseMultiParam(searchParams.get('type')));
+  const [statuses, setStatuses] = useState(parseMultiParam(searchParams.get('status')));
+  const [categoryIds, setCategoryIds] = useState(parseMultiParam(searchParams.get('category')));
+  const [accountIds, setAccountIds] = useState(parseMultiParam(searchParams.get('account')));
+  const [paidByIds, setPaidByIds] = useState(parseMultiParam(searchParams.get('paidBy')));
 
-  const onSelectChange = (setter: (value: string) => void) => (value: string | null) => {
-    setter(value || 'all');
-  };
-
-  const handlePeriodChange = (key: string, value: string) => {
-    const params = new URLSearchParams(searchParams);
-    if (value === 'all') {
-      params.delete(key);
-    } else {
-      params.set(key, value);
-      if (key === 'from' || key === 'to') {
-        params.delete('month');
-      }
-    }
-    applyFilters(params);
-  };
+  const categoryOptions = categories.map((c) => ({ value: c.id, label: c.name, color: c.color }));
+  const accountOptions = accounts.map((a) => ({
+    value: a.id,
+    label: a.name,
+    color: a.color ?? undefined,
+  }));
+  const paidByOptions: MultiSelectOption[] = [
+    ...users.map((u) => ({ value: u.id, label: u.name || u.email })),
+    { value: PAID_BY_NONE, label: 'Não informado' },
+  ];
 
   const handleApply = () => {
     const params = new URLSearchParams(searchParams);
-    const setOrDelete = (key: string, value: string) => {
-      if (value === 'all') params.delete(key);
-      else params.set(key, value);
-    };
-    setOrDelete('type', type);
-    setOrDelete('status', status);
-    setOrDelete('category', category);
-    setOrDelete('account', account);
+    if (dueFrom) params.set('from', format(dueFrom, 'yyyy-MM-dd'));
+    else params.delete('from');
+    if (dueTo) params.set('to', format(dueTo, 'yyyy-MM-dd'));
+    else params.delete('to');
+    setMultiParam(params, 'type', types);
+    setMultiParam(params, 'status', statuses);
+    setMultiParam(params, 'category', categoryIds);
+    setMultiParam(params, 'account', accountIds);
+    setMultiParam(params, 'paidBy', paidByIds);
     applyFilters(params);
   };
 
   const handleClear = () => {
-    setType('all');
-    setStatus('all');
-    setCategory('all');
-    setAccount('all');
+    setDueFrom(undefined);
+    setDueTo(undefined);
+    setTypes([]);
+    setStatuses([]);
+    setCategoryIds([]);
+    setAccountIds([]);
+    setPaidByIds([]);
     handleClearFilters();
   };
 
@@ -88,128 +91,59 @@ export function Filters({
     <FilterPanel
       onApply={handleApply}
       onClear={handleClear}
-      gridClassName="md:grid-cols-3 lg:grid-cols-6"
+      gridClassName="sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
     >
-      <FilterField label="Início">
-        <DatePicker
-          date={
-            searchParams.get('from')
-              ? parse(searchParams.get('from')!, 'yyyy-MM-dd', new Date())
-              : undefined
-          }
-          setDate={(date) => {
-            if (date) {
-              handlePeriodChange('from', format(date, 'yyyy-MM-dd'));
-            } else {
-              handlePeriodChange('from', 'all');
-            }
-          }}
-        />
+      <FilterField label="Vencimento de">
+        <DatePicker date={dueFrom} setDate={setDueFrom} placeholder="Qualquer data" />
       </FilterField>
 
-      <FilterField label="Fim">
-        <DatePicker
-          date={
-            searchParams.get('to')
-              ? parse(searchParams.get('to')!, 'yyyy-MM-dd', new Date())
-              : undefined
-          }
-          setDate={(date) => {
-            if (date) {
-              handlePeriodChange('to', format(date, 'yyyy-MM-dd'));
-            } else {
-              handlePeriodChange('to', 'all');
-            }
-          }}
-        />
+      <FilterField label="Vencimento até">
+        <DatePicker date={dueTo} setDate={setDueTo} placeholder="Qualquer data" />
       </FilterField>
 
       <FilterField label="Tipo">
-        <Select value={type} onValueChange={onSelectChange(setType)}>
-          <SelectTrigger className="h-10 w-full">
-            <SelectValue placeholder="Todos os tipos" />
-          </SelectTrigger>
-          <SelectContent>
-            {types.map((t) => (
-              <SelectItem key={t.value} value={t.value}>
-                <div className="flex items-center gap-2">
-                  {t.color && (
-                    <div
-                      className="h-2 w-2 rounded-full"
-                      style={{
-                        backgroundColor:
-                          t.color === 'emerald'
-                            ? '#10b981'
-                            : t.color === 'rose'
-                              ? '#f43f5e'
-                              : t.color,
-                      }}
-                    />
-                  )}
-                  {t.label}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelect
+          options={TYPE_OPTIONS}
+          value={types}
+          onValueChange={setTypes}
+          placeholder="Todos os tipos"
+        />
       </FilterField>
 
       <FilterField label="Status">
-        <Select value={status} onValueChange={onSelectChange(setStatus)}>
-          <SelectTrigger className="h-10 w-full">
-            <SelectValue placeholder="Todos os status" />
-          </SelectTrigger>
-          <SelectContent>
-            {statuses.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                <div className="flex items-center gap-2">
-                  {s.color && (
-                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
-                  )}
-                  {s.label}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelect
+          options={STATUS_OPTIONS}
+          value={statuses}
+          onValueChange={setStatuses}
+          placeholder="Todos os status"
+        />
       </FilterField>
 
       <FilterField label="Categoria">
-        <Select value={category} onValueChange={onSelectChange(setCategory)}>
-          <SelectTrigger className="h-10 w-full">
-            <SelectValue placeholder="Todas as categorias" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as categorias</SelectItem>
-            {categories.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />
-                  {c.name}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelect
+          options={categoryOptions}
+          value={categoryIds}
+          onValueChange={setCategoryIds}
+          placeholder="Todas as categorias"
+        />
       </FilterField>
 
       <FilterField label="Conta">
-        <Select value={account} onValueChange={onSelectChange(setAccount)}>
-          <SelectTrigger className="h-10 w-full">
-            <SelectValue placeholder="Todas as contas" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as contas</SelectItem>
-            {accounts.map((a) => (
-              <SelectItem key={a.id} value={a.id}>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: a.color }} />
-                  {a.name}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelect
+          options={accountOptions}
+          value={accountIds}
+          onValueChange={setAccountIds}
+          placeholder="Todas as contas"
+        />
+      </FilterField>
+
+      <FilterField label="Pago por">
+        <MultiSelect
+          options={paidByOptions}
+          value={paidByIds}
+          onValueChange={setPaidByIds}
+          placeholder="Todos os usuários"
+        />
       </FilterField>
     </FilterPanel>
   );

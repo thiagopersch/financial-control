@@ -2,6 +2,7 @@
 
 import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
+import { createAuditLog } from '@/lib/services/audit';
 import { assertKeepsSystemProfileUser } from '@/lib/services/permission-profiles';
 import bcrypt from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
@@ -135,6 +136,50 @@ export async function deleteUser(id: string) {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro ao excluir usuário',
+    };
+  }
+}
+
+/**
+ * Ativa/desativa um usuário. Inativos não conseguem logar (nem manter a sessão),
+ * não aparecem no "Pago por" de novas transações e não contam como admin do workspace.
+ */
+export async function toggleUserActive(id: string, isActive: boolean) {
+  try {
+    const session = await requirePermission('users', 'UPDATE');
+    const validated = z.object({ id: z.string().min(1), isActive: z.boolean() }).parse({
+      id,
+      isActive,
+    });
+
+    if (!validated.isActive && validated.id === session.user.id) {
+      return { success: false, error: 'Você não pode desativar sua própria conta' };
+    }
+
+    if (!validated.isActive) {
+      await assertKeepsSystemProfileUser(prisma, session.user.workspaceId, validated.id, null);
+    }
+
+    const user = await prisma.user.update({
+      where: { id: validated.id, workspaceId: session.user.workspaceId },
+      data: { isActive: validated.isActive },
+      select: { id: true, isActive: true },
+    });
+
+    await createAuditLog({
+      action: validated.isActive ? 'ACTIVATE_USER' : 'DEACTIVATE_USER',
+      entity: 'User',
+      entityId: validated.id,
+      newValue: { isActive: user.isActive },
+    });
+
+    revalidatePath('/users');
+    return { success: true };
+  } catch (error) {
+    console.error('Error toggling user active state:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao atualizar usuário',
     };
   }
 }

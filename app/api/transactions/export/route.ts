@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
+import { buildTransactionWhere } from '@/lib/queries/transactions';
+import { formatCompetence } from '@/lib/utils/competence';
+import { compareTransactionsDefault } from '@/lib/utils/transaction-order';
 import { TransactionType, TransactionStatus } from '@prisma/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -13,28 +16,20 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const from = searchParams.get('from');
-  const to = searchParams.get('to');
-  const type = searchParams.get('type') as TransactionType | null;
-  const status = searchParams.get('status') as TransactionStatus | null;
-  const category = searchParams.get('category');
   const formatParam = searchParams.get('format');
 
-  const where: any = {
-    workspaceId: session.user.workspaceId,
-  };
+  // Mesmo `where` e ordenação da listagem, para o export refletir o que está na tela.
+  const where = buildTransactionWhere(
+    Object.fromEntries(searchParams.entries()),
+    session.user.workspaceId,
+  );
 
-  if (from) where.date = { ...where.date, gte: new Date(from) };
-  if (to) where.date = { ...where.date, lte: new Date(to) };
-  if (type) where.type = type;
-  if (status) where.status = status;
-  if (category) where.categoryId = category;
-
-  const transactions = await prisma.transaction.findMany({
-    where,
-    include: { category: true, supplier: true },
-    orderBy: { date: 'desc' },
-  });
+  const transactions = (
+    await prisma.transaction.findMany({
+      where,
+      include: { category: true, supplier: true, paidBy: { select: { name: true, email: true } } },
+    })
+  ).sort(compareTransactionsDefault);
 
   // Return JSON when format=json is requested (used by XLSX/PDF client exports)
   if (formatParam === 'json') {
@@ -42,30 +37,49 @@ export async function GET(request: NextRequest) {
       transactions: transactions.map((t) => ({
         id: t.id,
         date: format(new Date(t.date), 'dd/MM/yyyy', { locale: ptBR }),
+        competence: formatCompetence(t.competence),
         type: t.type,
         amount: Number(t.amount),
         categoryName: t.category.name,
         supplierName: t.supplier?.name || null,
         status: t.status,
+        paidBy: t.paidBy ? t.paidBy.name || t.paidBy.email : null,
         notes: t.notes,
       })),
     });
   }
 
-  const typeLabel = (t: TransactionType) => (t === TransactionType.INCOME ? 'Receita' : 'Despesa');
+  const typeLabel = (t: TransactionType) =>
+    t === TransactionType.INCOME
+      ? 'Receita'
+      : t === TransactionType.TRANSFER
+        ? 'Transferência'
+        : 'Despesa';
   const statusLabel = (s: TransactionStatus) => {
     const map = { PAID: 'Pago', PENDING: 'Pendente', OVERDUE: 'Atrasado' };
     return map[s];
   };
 
-  const header = ['Data', 'Tipo', 'Categoria', 'Fornecedor', 'Valor (R$)', 'Status', 'Observações'];
+  const header = [
+    'Vencimento',
+    'Competência',
+    'Tipo',
+    'Categoria',
+    'Fornecedor',
+    'Valor (R$)',
+    'Status',
+    'Pago por',
+    'Observações',
+  ];
   const rows = transactions.map((t) => [
     format(new Date(t.date), 'dd/MM/yyyy', { locale: ptBR }),
+    formatCompetence(t.competence),
     typeLabel(t.type),
     t.category.name,
     t.supplier?.name || '',
     Number(t.amount).toFixed(2).replace('.', ','),
     statusLabel(t.status),
+    t.paidBy ? t.paidBy.name || t.paidBy.email : '',
     (t.notes || '').replace(/"/g, '""'),
   ]);
 

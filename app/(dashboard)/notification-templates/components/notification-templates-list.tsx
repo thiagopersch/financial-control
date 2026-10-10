@@ -29,6 +29,8 @@ import { Send } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
+import { matchesMulti, parseMultiParam, serializeMultiParam } from '@/lib/utils/filter-params';
 
 interface NotificationTemplatesListProps {
   templates: NotificationTemplateDTO[];
@@ -62,14 +64,30 @@ export function NotificationTemplatesList({
   });
 
   const [search, setSearch] = useState('');
-  const [channelFilter, setChannelFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [channelFilter, setChannelFilter] = useState<string[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
+  usePersistedPageFilters(
+    'notification-templates',
+    {
+      search,
+      channelFilter: serializeMultiParam(channelFilter),
+      typeFilter: serializeMultiParam(typeFilter),
+      statusFilter,
+    },
+    (saved) => {
+      if (saved.search !== undefined) setSearch(saved.search);
+      setChannelFilter(parseMultiParam(saved.channelFilter));
+      setTypeFilter(parseMultiParam(saved.typeFilter));
+      if (saved.statusFilter) setStatusFilter(saved.statusFilter);
+    },
+  );
+
   const hasActiveFilters =
-    channelFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'all';
+    channelFilter.length > 0 || typeFilter.length > 0 || statusFilter !== 'all';
 
   const searchParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -81,8 +99,8 @@ export function NotificationTemplatesList({
     const term = search.trim().toLowerCase();
     return templates.filter((template) => {
       const matchesSearch = term ? template.name.toLowerCase().includes(term) : true;
-      const matchesChannel = channelFilter === 'all' || template.channel === channelFilter;
-      const matchesType = typeFilter === 'all' || template.type === typeFilter;
+      const matchesChannel = matchesMulti(channelFilter, template.channel);
+      const matchesType = matchesMulti(typeFilter, template.type);
       const matchesStatus =
         statusFilter === 'all' ||
         (statusFilter === 'active' ? template.isActive : !template.isActive);
@@ -95,8 +113,8 @@ export function NotificationTemplatesList({
     type,
     status,
   }: {
-    channel: string;
-    type: string;
+    channel: string[];
+    type: string[];
     status: string;
   }) => {
     setChannelFilter(channel);
@@ -105,8 +123,8 @@ export function NotificationTemplatesList({
   };
 
   const clearFilters = () => {
-    setChannelFilter('all');
-    setTypeFilter('all');
+    setChannelFilter([]);
+    setTypeFilter([]);
     setStatusFilter('all');
   };
 

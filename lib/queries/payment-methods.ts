@@ -1,6 +1,7 @@
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 
 export type PaymentMethodDTO = {
   id: string;
@@ -63,7 +64,7 @@ export async function getPaymentMethodsPaginated(
   const session = await getServerSession(authOptions);
   if (!session) return { paymentMethods: [], totalCount: 0 };
 
-  const { q, isCreditCard, page = 1, pageSize = 10 } = params;
+  const { q, isCreditCard, page = 1, pageSize = DEFAULT_PAGE_SIZE } = params;
 
   const where: any = {
     workspaceId: session.user.workspaceId,

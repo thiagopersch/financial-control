@@ -12,18 +12,18 @@ interface DebtsHeaderProps {
   hasActiveFilters: boolean;
   showFilters: boolean;
   onToggleFilters: () => void;
-  categoryFilter: string;
-  accountFilter: string;
-  supplierFilter: string;
-  statusFilter: string;
+  categoryFilter: string[];
+  accountFilter: string[];
+  supplierFilter: string[];
+  statusFilter: string[];
   categoryOptions: Option[];
   accountOptions: Option[];
   supplierOptions: Option[];
   onApplyFilters: (values: {
-    category: string;
-    account: string;
-    supplier: string;
-    status: string;
+    category: string[];
+    account: string[];
+    supplier: string[];
+    status: string[];
   }) => void;
   onClearFilters: () => void;
   showActivePagination?: boolean;

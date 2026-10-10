@@ -8,7 +8,24 @@ const DEFAULT_IGNORED_PARAMS = ['page', 'pageSize', 'q'];
 /** Geridas separadamente pelo MonthSelector (período global) — nunca persistidas por página. */
 const PERIOD_PARAMS = ['year', 'month'];
 
-export function useUrlFilters(ignoredParams: string[] = DEFAULT_IGNORED_PARAMS) {
+interface UseUrlFiltersOptions {
+  /** Params que não contam como "filtro ativo". */
+  ignoredParams?: string[];
+  /** Persiste também a busca (`q`) junto com os filtros da página. */
+  persistSearch?: boolean;
+  /**
+   * Restaura também o período global (`year`/`month`) no mesmo `router.replace` dos
+   * filtros. Use junto com `<MonthSelector restoreOnMount={false} />` — dois replaces
+   * concorrentes no mount fazem um sobrescrever o outro.
+   */
+  includePeriod?: boolean;
+}
+
+export function useUrlFilters({
+  ignoredParams = DEFAULT_IGNORED_PARAMS,
+  persistSearch = false,
+  includePeriod = false,
+}: UseUrlFiltersOptions = {}) {
   const [showFilters, setShowFilters] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -16,23 +33,44 @@ export function useUrlFilters(ignoredParams: string[] = DEFAULT_IGNORED_PARAMS) 
   const store = usePersistedFiltersStore();
   const hydrated = useRef(false);
 
+  const notPersisted = [
+    ...DEFAULT_IGNORED_PARAMS.filter((key) => !(persistSearch && key === 'q')),
+    ...PERIOD_PARAMS,
+  ];
+
   const hasActiveFilters = Array.from(searchParams.keys()).some(
-    (key) => !ignoredParams.includes(key),
+    (key) => !ignoredParams.includes(key) && !(includePeriod && PERIOD_PARAMS.includes(key)),
   );
 
   useEffect(() => {
     if (hydrated.current) return;
     hydrated.current = true;
-    if (hasActiveFilters) return;
-
-    const saved = store.filtersByPage[pathname];
-    if (!saved) return;
 
     const params = new URLSearchParams(searchParams);
-    for (const [key, value] of new URLSearchParams(saved)) {
-      params.set(key, value);
+    let changed = false;
+
+    if (includePeriod && !params.has('year') && !params.has('month')) {
+      const now = new Date();
+      const period = store.period
+        ? new URLSearchParams(store.period)
+        : new URLSearchParams({
+            year: String(now.getFullYear()),
+            month: String(now.getMonth() + 1).padStart(2, '0'),
+          });
+      for (const [key, value] of period) params.set(key, value);
+      changed = true;
     }
-    router.replace(`${pathname}?${params.toString()}`);
+
+    const hasPageFilters = Array.from(searchParams.keys()).some(
+      (key) => !notPersisted.includes(key),
+    );
+    const saved = store.filtersByPage[pathname];
+    if (!hasPageFilters && saved) {
+      for (const [key, value] of new URLSearchParams(saved)) params.set(key, value);
+      changed = true;
+    }
+
+    if (changed) router.replace(`${pathname}?${params.toString()}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -40,7 +78,7 @@ export function useUrlFilters(ignoredParams: string[] = DEFAULT_IGNORED_PARAMS) 
     params.delete('page');
 
     const toPersist = new URLSearchParams(params);
-    for (const key of [...DEFAULT_IGNORED_PARAMS, ...PERIOD_PARAMS]) {
+    for (const key of notPersisted) {
       toPersist.delete(key);
     }
     if (Array.from(toPersist.keys()).length > 0) {
@@ -62,9 +100,18 @@ export function useUrlFilters(ignoredParams: string[] = DEFAULT_IGNORED_PARAMS) 
     applyFilters(params);
   };
 
+  /** Limpa filtros e busca da página; com `includePeriod`, mantém o período selecionado. */
   const handleClearFilters = () => {
     store.clearPageFilters(pathname);
-    router.push(window.location.pathname);
+    const params = new URLSearchParams();
+    if (includePeriod) {
+      for (const key of PERIOD_PARAMS) {
+        const value = searchParams.get(key);
+        if (value) params.set(key, value);
+      }
+    }
+    const query = params.toString();
+    router.push(query ? `${window.location.pathname}?${query}` : window.location.pathname);
   };
 
   const toggleFilters = () => setShowFilters((prev) => !prev);

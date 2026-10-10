@@ -1,6 +1,7 @@
 'use client';
 
 import { FilterField, FilterPanel } from '@/components/ui/filter-panel';
+import { MultiSelect } from '@/components/ui/multi-select';
 import {
   Select,
   SelectContent,
@@ -15,10 +16,10 @@ import {
 import { useMemo, useState } from 'react';
 
 type NotificationTemplatesFiltersProps = {
-  channelFilter: string;
-  typeFilter: string;
+  channelFilter: string[];
+  typeFilter: string[];
   statusFilter: string;
-  onApply: (values: { channel: string; type: string; status: string }) => void;
+  onApply: (values: { channel: string[]; type: string[]; status: string }) => void;
   onClear: () => void;
 };
 
@@ -49,7 +50,13 @@ export function NotificationTemplatesFilters({
 
   const typeOptions = useMemo(
     () =>
-      Object.entries(NOTIFICATION_TYPE_LABELS).sort((a, b) => a[1].localeCompare(b[1], 'pt-BR')),
+      Object.entries(NOTIFICATION_TYPE_LABELS)
+        .sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'))
+        .map(([value, label]) => ({ value, label })),
+    [],
+  );
+  const channelOptions = useMemo(
+    () => Object.entries(NOTIFICATION_CHANNEL_LABELS).map(([value, label]) => ({ value, label })),
     [],
   );
 
@@ -62,8 +69,8 @@ export function NotificationTemplatesFilters({
   };
 
   const handleClear = () => {
-    setChannel('all');
-    setType('all');
+    setChannel([]);
+    setType([]);
     setStatus('all');
     onClear();
   };
@@ -71,35 +78,21 @@ export function NotificationTemplatesFilters({
   return (
     <FilterPanel onApply={handleApply} onClear={handleClear} gridClassName="md:grid-cols-3">
       <FilterField label="Canal">
-        <Select value={channel} onValueChange={onSelectChange(setChannel)}>
-          <SelectTrigger className="h-10 w-full">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            {Object.entries(NOTIFICATION_CHANNEL_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelect
+          options={channelOptions}
+          value={channel}
+          onValueChange={setChannel}
+          placeholder="Todos"
+        />
       </FilterField>
 
       <FilterField label="Tipo">
-        <Select value={type} onValueChange={onSelectChange(setType)}>
-          <SelectTrigger className="h-10 w-full">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            {typeOptions.map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelect
+          options={typeOptions}
+          value={type}
+          onValueChange={setType}
+          placeholder="Todos"
+        />
       </FilterField>
 
       <FilterField label="Status">

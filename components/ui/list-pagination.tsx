@@ -8,10 +8,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { PAGE_SIZE_OPTIONS } from '@/lib/constants/pagination';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { createPortal } from 'react-dom';
-
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 interface ListPaginationProps {
   page: number;

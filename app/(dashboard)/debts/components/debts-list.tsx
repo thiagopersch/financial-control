@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
+import { matchesMulti, parseMultiParam, serializeMultiParam } from '@/lib/utils/filter-params';
 
 interface DebtsListProps {
   debts: DebtDTO[];
@@ -41,27 +43,33 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
   const [debtToDelete, setDebtToDelete] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [accountFilter, setAccountFilter] = useState('all');
-  const [supplierFilter, setSupplierFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
+  const [accountFilter, setAccountFilter] = useState<string[]>([]);
+  const [supplierFilter, setSupplierFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
   const [activePage, setActivePage] = useState(1);
-  const [activePageSize, setActivePageSize] = useState(10);
+  const [activePageSize, setActivePageSize] = useState(DEFAULT_PAGE_SIZE);
   const [showAllPaid, setShowAllPaid] = useState(false);
 
   const [activePaginationSlot, setActivePaginationSlot] = useState<HTMLDivElement | null>(null);
 
   usePersistedPageFilters(
     'debts',
-    { search, categoryFilter, accountFilter, supplierFilter, statusFilter },
+    {
+      search,
+      categoryFilter: serializeMultiParam(categoryFilter),
+      accountFilter: serializeMultiParam(accountFilter),
+      supplierFilter: serializeMultiParam(supplierFilter),
+      statusFilter: serializeMultiParam(statusFilter),
+    },
     (saved) => {
       if (saved.search !== undefined) setSearch(saved.search);
-      if (saved.categoryFilter) setCategoryFilter(saved.categoryFilter);
-      if (saved.accountFilter) setAccountFilter(saved.accountFilter);
-      if (saved.supplierFilter) setSupplierFilter(saved.supplierFilter);
-      if (saved.statusFilter) setStatusFilter(saved.statusFilter);
+      setCategoryFilter(parseMultiParam(saved.categoryFilter));
+      setAccountFilter(parseMultiParam(saved.accountFilter));
+      setSupplierFilter(parseMultiParam(saved.supplierFilter));
+      setStatusFilter(parseMultiParam(saved.statusFilter));
     },
   );
 
@@ -113,10 +121,10 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
     const searchLower = search.trim().toLowerCase();
     return debts.filter((d) => {
       if (searchLower && !d.name.toLowerCase().includes(searchLower)) return false;
-      if (categoryFilter !== 'all' && d.categoryId !== categoryFilter) return false;
-      if (accountFilter !== 'all' && d.accountId !== accountFilter) return false;
-      if (supplierFilter !== 'all' && d.supplierId !== supplierFilter) return false;
-      if (statusFilter !== 'all' && d.status !== statusFilter) return false;
+      if (!matchesMulti(categoryFilter, d.categoryId)) return false;
+      if (!matchesMulti(accountFilter, d.accountId)) return false;
+      if (!matchesMulti(supplierFilter, d.supplierId)) return false;
+      if (!matchesMulti(statusFilter, d.status)) return false;
       return true;
     });
   }, [debts, search, categoryFilter, accountFilter, supplierFilter, statusFilter]);
@@ -142,10 +150,10 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
 
   const hasActiveFilters =
     search !== '' ||
-    categoryFilter !== 'all' ||
-    accountFilter !== 'all' ||
-    supplierFilter !== 'all' ||
-    statusFilter !== 'all';
+    categoryFilter.length > 0 ||
+    accountFilter.length > 0 ||
+    supplierFilter.length > 0 ||
+    statusFilter.length > 0;
 
   const searchParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -164,10 +172,10 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
     supplier,
     status,
   }: {
-    category: string;
-    account: string;
-    supplier: string;
-    status: string;
+    category: string[];
+    account: string[];
+    supplier: string[];
+    status: string[];
   }) => {
     setCategoryFilter(category);
     setAccountFilter(account);
@@ -178,10 +186,10 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
 
   const clearFilters = () => {
     setSearch('');
-    setCategoryFilter('all');
-    setAccountFilter('all');
-    setSupplierFilter('all');
-    setStatusFilter('all');
+    setCategoryFilter([]);
+    setAccountFilter([]);
+    setSupplierFilter([]);
+    setStatusFilter([]);
     resetPages();
   };
 

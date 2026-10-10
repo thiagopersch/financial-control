@@ -26,6 +26,9 @@ import { showError, showSuccess } from '@/lib/utils/toast';
 import type { GoalData } from '@/types/goal';
 import { Plus, Rocket, Target } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { matchesMulti, parseMultiParam, serializeMultiParam } from '@/lib/utils/filter-params';
 
 interface GoalsPageClientProps {
   initialGoals: GoalData[];
@@ -39,7 +42,7 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'completed', label: 'Concluídas' },
 ];
 
-const PAGE_SIZE_DEFAULT = 10;
+const PAGE_SIZE_DEFAULT = DEFAULT_PAGE_SIZE;
 
 export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
   const [goals, setGoals] = useState<GoalData[]>(initialGoals);
@@ -76,7 +79,7 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
   const [targetMax, setTargetMax] = useState('');
   const [deadlineFrom, setDeadlineFrom] = useState<Date | undefined>(undefined);
   const [deadlineTo, setDeadlineTo] = useState<Date | undefined>(undefined);
-  const [colorFilter, setColorFilter] = useState('all');
+  const [colorFilter, setColorFilter] = useState<string[]>([]);
 
   usePersistedPageFilters(
     'goals',
@@ -89,7 +92,7 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
       targetMax,
       deadlineFrom: deadlineFrom ? deadlineFrom.toISOString() : '',
       deadlineTo: deadlineTo ? deadlineTo.toISOString() : '',
-      colorFilter,
+      colorFilter: serializeMultiParam(colorFilter),
     },
     (saved) => {
       if (saved.search !== undefined) setSearch(saved.search);
@@ -100,7 +103,7 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
       if (saved.targetMax) setTargetMax(saved.targetMax);
       if (saved.deadlineFrom) setDeadlineFrom(new Date(saved.deadlineFrom));
       if (saved.deadlineTo) setDeadlineTo(new Date(saved.deadlineTo));
-      if (saved.colorFilter) setColorFilter(saved.colorFilter);
+      setColorFilter(parseMultiParam(saved.colorFilter));
     },
   );
 
@@ -130,7 +133,7 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
     targetMax !== '' ||
     deadlineFrom !== undefined ||
     deadlineTo !== undefined ||
-    colorFilter !== 'all';
+    colorFilter.length > 0;
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -155,7 +158,7 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
     setTargetMax('');
     setDeadlineFrom(undefined);
     setDeadlineTo(undefined);
-    setColorFilter('all');
+    setColorFilter([]);
     setPage(1);
   };
 
@@ -187,7 +190,7 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
       }
     }
 
-    const matchesColor = colorFilter === 'all' || goal.color === colorFilter;
+    const matchesColor = matchesMulti(colorFilter, goal.color);
 
     return (
       matchesSearch &&
@@ -348,28 +351,15 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
           </FilterField>
 
           <FilterField label="Cor">
-            <Select
+            <MultiSelect
+              options={colorOptions.map((color) => ({ value: color, label: color, color }))}
               value={colorFilter}
               onValueChange={(value) => {
                 setColorFilter(value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger className="h-10 w-full">
-                <SelectValue placeholder="Todas as cores" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as cores</SelectItem>
-                {colorOptions.map((color) => (
-                  <SelectItem key={color} value={color}>
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-                      {color}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Todas as cores"
+            />
           </FilterField>
 
           <FilterField label="Prazo de">

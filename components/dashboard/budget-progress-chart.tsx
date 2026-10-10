@@ -6,7 +6,13 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 interface BudgetProgressChartProps {
-  budgets: { id: string; amount: number; spent: number; percent: number; category: { name: string } }[];
+  budgets: {
+    id: string;
+    amount: number;
+    spent: number;
+    percent: number;
+    category: { name: string };
+  }[];
 }
 
 function formatCurrency(value: number) {

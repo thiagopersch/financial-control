@@ -1,7 +1,9 @@
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
-import { type TransactionType } from '@prisma/client';
+import { TransactionType } from '@prisma/client';
 import { getServerSession } from 'next-auth';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
+import { parseMultiParam, toInFilter } from '@/lib/utils/filter-params';
 
 export type CategoryDTO = {
   id: string;
@@ -56,14 +58,17 @@ export async function getCategoriesPaginated(
   const session = await getServerSession(authOptions);
   if (!session) return { categories: [], totalCount: 0 };
 
-  const { q, type, color, page = 1, pageSize = 10 } = params;
+  const { q, type, color, page = 1, pageSize = DEFAULT_PAGE_SIZE } = params;
 
   const where: any = {
     workspaceId: session.user.workspaceId,
   };
 
-  if (type) where.type = type as TransactionType;
-  if (color) where.color = color;
+  const types = parseMultiParam(type).filter((value): value is TransactionType =>
+    Object.values(TransactionType).includes(value as TransactionType),
+  );
+  where.type = toInFilter(types);
+  where.color = toInFilter(parseMultiParam(color));
   if (q) where.name = { contains: q.trim(), mode: 'insensitive' };
 
   try {

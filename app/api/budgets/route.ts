@@ -3,8 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
 import { getBudgetsFiltered } from '@/lib/queries/budgets';
-
-const ALLOWED_PAGE_SIZES = [10, 20, 50, 100];
+import { parsePageSize } from '@/lib/constants/pagination';
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,8 +17,7 @@ export async function GET(request: NextRequest) {
     const year = parseInt(searchParams.get('year') || '') || new Date().getFullYear();
     const q = searchParams.get('q')?.trim() || undefined;
     const category = searchParams.get('category') || undefined;
-    const pageSizeParam = Number(searchParams.get('pageSize'));
-    const pageSize = ALLOWED_PAGE_SIZES.includes(pageSizeParam) ? pageSizeParam : 10;
+    const pageSize = parsePageSize(searchParams.get('pageSize'));
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
 
     const { budgets, totalCount } = await getBudgetsFiltered({

@@ -3,42 +3,61 @@ import { CHART_STATUS_COLORS, getCategoricalColor } from '@/lib/chart-colors';
 import { DEBT_OPEN_STATUSES } from '@/lib/constants/debt-status';
 import prisma from '@/lib/prisma';
 import { getCreditCardsCurrentUsage } from '@/lib/queries/credit-card-usage';
-import { Prisma, TransactionType } from '@prisma/client';
+import {
+  addCompetenceMonths,
+  competenceFromYearMonth,
+  competenceRange,
+} from '@/lib/utils/competence';
+import { Prisma, TransactionStatus, TransactionType } from '@prisma/client';
 import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getServerSession } from 'next-auth';
 
-export async function getDashboardStats(start?: Date, end?: Date) {
+/** Intervalo de competência (`{ gte, lte }` na coluna `competence`); `undefined` = todos os períodos. */
+export type CompetenceFilter = { gte: Date; lte: Date } | undefined;
+
+function competenceWhere(competence: CompetenceFilter): Prisma.TransactionWhereInput {
+  return competence ? { competence } : {};
+}
+
+export async function getDashboardStats(competence?: CompetenceFilter) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error('Unauthorized');
 
   const workspaceId = session.user.workspaceId;
 
-  const allTransactions = await prisma.transaction.findMany({
-    where: { workspaceId },
-  });
+  const [allTransactions, cardLimitAggregate] = await Promise.all([
+    prisma.transaction.findMany({ where: { workspaceId } }),
+    prisma.creditCard.aggregate({
+      where: { account: { workspaceId } },
+      _sum: { limit: true },
+    }),
+  ]);
 
-  // Credit card purchases don't move cash out of an account until the invoice is
-  // paid — that payment is recorded as its own transaction (without creditCardId).
-  // Counting both would double-deduct the same expense from net worth.
-  const paidByAccount = allTransactions.filter((t) => t.status === 'PAID' && !t.creditCardId);
-  const totalBalance = paidByAccount.reduce((acc, t) => {
-    if (t.type === TransactionType.INCOME) return acc + Number(t.amount);
-    if (t.type === TransactionType.EXPENSE) return acc - Number(t.amount);
-    if (t.type === TransactionType.TRANSFER) {
-      return acc + (t.notes?.startsWith('[SAÍDA]') ? -Number(t.amount) : Number(t.amount));
-    }
-    return acc;
-  }, 0);
+  // Limite total dos cartões entra como recurso disponível no patrimônio e nas receitas.
+  const totalCardLimit = Number(cardLimitAggregate._sum.limit || 0);
 
-  const filteredTransactions =
-    start && end
-      ? allTransactions.filter((t) => t.date >= start && t.date <= end)
-      : allTransactions;
-
-  const totalIncome = filteredTransactions
+  // Patrimônio = todas as receitas cadastradas (pagas ou não) + limite dos cartões
+  // − despesas já pagas. Compras no cartão ficam de fora: o pagamento da fatura é
+  // registrado como uma despesa própria (sem creditCardId) e contar as duas duplicaria.
+  const allIncome = allTransactions
     .filter((t) => t.type === TransactionType.INCOME)
     .reduce((acc, t) => acc + Number(t.amount), 0);
+  const paidExpenses = allTransactions
+    .filter((t) => t.type === TransactionType.EXPENSE && t.status === 'PAID' && !t.creditCardId)
+    .reduce((acc, t) => acc + Number(t.amount), 0);
+  const totalBalance = allIncome + totalCardLimit - paidExpenses;
+
+  const filteredTransactions = competence
+    ? allTransactions.filter(
+        (t) => t.competence >= competence.gte && t.competence <= competence.lte,
+      )
+    : allTransactions;
+
+  const totalIncome =
+    filteredTransactions
+      .filter((t) => t.type === TransactionType.INCOME)
+      .reduce((acc, t) => acc + Number(t.amount), 0) + totalCardLimit;
 
   const totalExpense = filteredTransactions
     .filter((t) => t.type === TransactionType.EXPENSE)
@@ -54,20 +73,21 @@ export async function getDashboardStats(start?: Date, end?: Date) {
   let lastMonthIncome = 0;
   let lastMonthExpense = 0;
 
-  if (start && end) {
-    const lastStart = subMonths(start, 1);
-    const lastEnd = subMonths(end, 1);
-
+  if (competence) {
     const lastTransactions = await prisma.transaction.findMany({
       where: {
         workspaceId,
-        date: { gte: lastStart, lte: lastEnd },
+        competence: {
+          gte: addCompetenceMonths(competence.gte, -1),
+          lte: addCompetenceMonths(competence.lte, -1),
+        },
       },
     });
 
-    lastMonthIncome = lastTransactions
-      .filter((t) => t.type === TransactionType.INCOME)
-      .reduce((acc, t) => acc + Number(t.amount), 0);
+    lastMonthIncome =
+      lastTransactions
+        .filter((t) => t.type === TransactionType.INCOME)
+        .reduce((acc, t) => acc + Number(t.amount), 0) + totalCardLimit;
 
     lastMonthExpense = lastTransactions
       .filter((t) => t.type === TransactionType.EXPENSE)
@@ -83,6 +103,7 @@ export async function getDashboardStats(start?: Date, end?: Date) {
     totalIncome,
     totalExpense,
     totalBalance,
+    cardLimit: totalCardLimit,
     balance,
     pendingToPay,
     incomeGrowth,
@@ -178,10 +199,7 @@ export async function getBudgetData(month: number, year: number) {
     where: {
       workspaceId: session.user.workspaceId,
       type: TransactionType.EXPENSE,
-      date: {
-        gte: startOfMonth(new Date(year, month - 1)),
-        lte: endOfMonth(new Date(year, month - 1)),
-      },
+      competence: competenceRange(year, month),
     },
   });
 
@@ -250,21 +268,14 @@ export async function getFinancialInsights() {
   };
 }
 
-export async function getRecentTransactions(start?: Date, end?: Date) {
+export async function getRecentTransactions(competence?: CompetenceFilter) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error('Unauthorized');
 
   return await prisma.transaction.findMany({
     where: {
       workspaceId: session.user.workspaceId,
-      ...(start && end
-        ? {
-            date: {
-              gte: start,
-              lte: end,
-            },
-          }
-        : {}),
+      ...competenceWhere(competence),
     },
     take: 8,
     orderBy: {
@@ -292,18 +303,18 @@ export async function getChartData(
   if (isAllPeriod) {
     const result = await prisma.transaction.aggregate({
       where: { workspaceId: session.user.workspaceId },
-      _min: { date: true },
-      _max: { date: true },
+      _min: { competence: true },
+      _max: { competence: true },
     });
-    if (result._min.date && result._max.date) {
-      const minDate = new Date(result._min.date);
-      const maxDate = new Date(result._max.date);
+    if (result._min.competence && result._max.competence) {
+      const minDate = new Date(result._min.competence);
+      const maxDate = new Date(result._max.competence);
       const diffMonths =
-        (maxDate.getFullYear() - minDate.getFullYear()) * 12 +
-        (maxDate.getMonth() - minDate.getMonth()) +
+        (maxDate.getUTCFullYear() - minDate.getUTCFullYear()) * 12 +
+        (maxDate.getUTCMonth() - minDate.getUTCMonth()) +
         1;
       monthsToFetch = Math.max(diffMonths, 12);
-      baseDate = maxDate;
+      baseDate = new Date(maxDate.getUTCFullYear(), maxDate.getUTCMonth(), 1);
     } else {
       monthsToFetch = 12;
       baseDate = new Date();
@@ -314,8 +325,7 @@ export async function getChartData(
     .map((_, i) => {
       const date = subMonths(baseDate, i);
       return {
-        start: startOfMonth(date),
-        end: endOfMonth(date),
+        competence: competenceFromYearMonth(date.getFullYear(), date.getMonth() + 1),
         label: format(date, 'MMM', { locale: ptBR }),
       };
     })
@@ -326,10 +336,7 @@ export async function getChartData(
       const transactions = await prisma.transaction.findMany({
         where: {
           workspaceId: session.user.workspaceId,
-          date: {
-            gte: m.start,
-            lte: m.end,
-          },
+          competence: m.competence,
         },
       });
 
@@ -352,7 +359,7 @@ export async function getChartData(
   return chartData;
 }
 
-export async function getCategoryData(start?: Date, end?: Date) {
+export async function getCategoryData(competence?: CompetenceFilter) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error('Unauthorized');
 
@@ -360,14 +367,7 @@ export async function getCategoryData(start?: Date, end?: Date) {
     where: {
       workspaceId: session.user.workspaceId,
       type: TransactionType.EXPENSE,
-      ...(start && end
-        ? {
-            date: {
-              gte: start,
-              lte: end,
-            },
-          }
-        : {}),
+      ...competenceWhere(competence),
     },
     include: {
       category: true,
@@ -391,7 +391,7 @@ export async function getCategoryData(start?: Date, end?: Date) {
   }));
 }
 
-export async function getStatusData(start?: Date, end?: Date) {
+export async function getStatusData(competence?: CompetenceFilter) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error('Unauthorized');
 
@@ -400,14 +400,7 @@ export async function getStatusData(start?: Date, end?: Date) {
     where: {
       workspaceId: session.user.workspaceId,
       type: TransactionType.EXPENSE,
-      ...(start && end
-        ? {
-            date: {
-              gte: start,
-              lte: end,
-            },
-          }
-        : {}),
+      ...competenceWhere(competence),
     },
     _sum: { amount: true },
     _count: true,
@@ -427,7 +420,7 @@ export async function getStatusData(start?: Date, end?: Date) {
   }));
 }
 
-export async function getSupplierData(start?: Date, end?: Date) {
+export async function getSupplierData(competence?: CompetenceFilter) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error('Unauthorized');
 
@@ -436,14 +429,7 @@ export async function getSupplierData(start?: Date, end?: Date) {
       workspaceId: session.user.workspaceId,
       type: TransactionType.EXPENSE,
       supplierId: { not: null },
-      ...(start && end
-        ? {
-            date: {
-              gte: start,
-              lte: end,
-            },
-          }
-        : {}),
+      ...competenceWhere(competence),
     },
     include: { supplier: true },
   });
@@ -459,6 +445,49 @@ export async function getSupplierData(start?: Date, end?: Date) {
     .sort((a, b) => b.value - a.value)
     .slice(0, 8)
     .map((entry, index) => ({ ...entry, color: getCategoricalColor(index) }));
+}
+
+/**
+ * Despesas pagas agrupadas por "Pago por" no período (competência). Transações
+ * sem usuário vinculado entram no grupo "Não informado".
+ */
+export async function getPaidByData(competence?: CompetenceFilter) {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error('Unauthorized');
+
+  const groups = await prisma.transaction.groupBy({
+    by: ['paidById'],
+    where: {
+      workspaceId: session.user.workspaceId,
+      type: TransactionType.EXPENSE,
+      status: TransactionStatus.PAID,
+      ...competenceWhere(competence),
+    },
+    _sum: { amount: true },
+    _count: true,
+  });
+
+  const userIds = groups.map((g) => g.paidById).filter((id): id is string => !!id);
+  const users = userIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: userIds }, workspaceId: session.user.workspaceId },
+        select: { id: true, name: true, email: true },
+      })
+    : [];
+  const userNames = new Map(users.map((u) => [u.id, u.name || u.email]));
+
+  return groups
+    .map((g) => ({
+      name: g.paidById ? (userNames.get(g.paidById) ?? 'Usuário removido') : 'Não informado',
+      value: Number(g._sum.amount || 0),
+      count: g._count,
+      isUnassigned: !g.paidById,
+    }))
+    .sort((a, b) => Number(a.isUnassigned) - Number(b.isUnassigned) || b.value - a.value)
+    .map(({ isUnassigned, ...entry }, index) => ({
+      ...entry,
+      color: isUnassigned ? '#94a3b8' : getCategoricalColor(index),
+    }));
 }
 
 export async function getAvailableRange() {
@@ -489,33 +518,13 @@ export async function getTransactionCountsByYear() {
 
   const transactions = await prisma.transaction.findMany({
     where: { workspaceId: session.user.workspaceId },
-    select: { date: true },
+    select: { competence: true },
   });
 
   const counts: Record<string, number> = {};
   transactions.forEach((t) => {
-    const year = new Date(t.date).getFullYear().toString();
+    const year = t.competence.getUTCFullYear().toString();
     counts[year] = (counts[year] || 0) + 1;
-  });
-
-  return counts;
-}
-
-/** Transaction counts keyed by `${year}-${MM}`, used to label months with real data. */
-export async function getTransactionCountsByMonth() {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error('Unauthorized');
-
-  const transactions = await prisma.transaction.findMany({
-    where: { workspaceId: session.user.workspaceId },
-    select: { date: true },
-  });
-
-  const counts: Record<string, number> = {};
-  transactions.forEach((t) => {
-    const date = new Date(t.date);
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    counts[key] = (counts[key] || 0) + 1;
   });
 
   return counts;

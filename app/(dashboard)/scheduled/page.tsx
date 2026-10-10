@@ -1,17 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { CalendarClock, MoreHorizontal, Play, Pause } from 'lucide-react';
+import { CalendarClock, Play, Pause } from 'lucide-react';
+import { ScheduledCard } from '@/components/scheduled/scheduled-card';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { FormDialog } from '@/components/ui/form-dialog';
+import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
 import {
   Form,
@@ -22,8 +28,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -38,7 +42,10 @@ import { ListPageHeader } from '@/components/ui/list-page-header';
 import { ListPagination } from '@/components/ui/list-pagination';
 import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
 import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
+import { hasPermission } from '@/lib/permissions/has-permission';
+import { matchesMulti, parseMultiParam, serializeMultiParam } from '@/lib/utils/filter-params';
 import { showError, showSuccess } from '@/lib/utils/toast';
+import { useSession } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useMemo } from 'react';
@@ -52,12 +59,15 @@ import { useAccounts } from '@/lib/queries/accounts-client';
 import { usePaymentMethods } from '@/lib/queries/payment-methods-client';
 import { useCreditCards } from '@/lib/queries/credit-cards-client';
 import { useSuppliers } from '@/lib/queries/suppliers-client';
+import { useCostCenters } from '@/lib/queries/cost-centers-client';
 import {
   createScheduledTransaction,
   deleteScheduledTransaction,
+  runScheduledTransactionNow,
   toggleScheduledTransaction,
   updateScheduledTransaction,
 } from '@/lib/actions/scheduled';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 
 const scheduledSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -80,32 +90,60 @@ function coerceSelectChange(onChange: (value: string) => void) {
 
 type ScheduledFormData = z.infer<typeof scheduledSchema>;
 
+const TYPE_FILTER_OPTIONS: MultiSelectOption[] = [
+  { value: 'INCOME', label: 'Receita', color: '#10b981' },
+  { value: 'EXPENSE', label: 'Despesa', color: '#f43f5e' },
+  { value: 'TRANSFER', label: 'Transferência', color: '#3b82f6' },
+];
+
+const FREQUENCY_FILTER_OPTIONS: MultiSelectOption[] = [
+  { value: 'DAILY', label: 'Diária' },
+  { value: 'WEEKLY', label: 'Semanal' },
+  { value: 'MONTHLY', label: 'Mensal' },
+  { value: 'YEARLY', label: 'Anual' },
+  { value: 'BUSINESS_DAYS', label: 'Dias úteis' },
+  { value: 'CUSTOM', label: 'Personalizada' },
+];
+
+const STATUS_FILTER_OPTIONS: MultiSelectOption[] = [
+  { value: 'active', label: 'Ativo', color: '#10b981' },
+  { value: 'inactive', label: 'Inativo', color: '#94a3b8' },
+];
+
 export default function ScheduledPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'INCOME' | 'EXPENSE' | 'TRANSFER'>('all');
-  const [frequencyFilter, setFrequencyFilter] = useState<
-    'all' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'BUSINESS_DAYS' | 'CUSTOM'
-  >('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [frequencyFilter, setFrequencyFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
+  const [runningItem, setRunningItem] = useState<ScheduledTransaction | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+
+  const { data: session } = useSession();
+  const canUpdate = hasPermission(session?.user?.permissions, 'scheduled', 'UPDATE');
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
   usePersistedPageFilters(
     'scheduled',
-    { search, typeFilter, frequencyFilter, statusFilter, categoryFilter },
+    {
+      search,
+      typeFilter: serializeMultiParam(typeFilter),
+      frequencyFilter: serializeMultiParam(frequencyFilter),
+      statusFilter: serializeMultiParam(statusFilter),
+      categoryFilter: serializeMultiParam(categoryFilter),
+    },
     (saved) => {
       if (saved.search !== undefined) setSearch(saved.search);
-      if (saved.typeFilter) setTypeFilter(saved.typeFilter as typeof typeFilter);
-      if (saved.frequencyFilter)
-        setFrequencyFilter(saved.frequencyFilter as typeof frequencyFilter);
-      if (saved.statusFilter) setStatusFilter(saved.statusFilter as typeof statusFilter);
-      if (saved.categoryFilter) setCategoryFilter(saved.categoryFilter);
+      setTypeFilter(parseMultiParam(saved.typeFilter));
+      setFrequencyFilter(parseMultiParam(saved.frequencyFilter));
+      setStatusFilter(parseMultiParam(saved.statusFilter));
+      setCategoryFilter(parseMultiParam(saved.categoryFilter));
     },
   );
 
@@ -115,6 +153,20 @@ export default function ScheduledPage() {
   const { paymentMethods } = usePaymentMethods();
   const { creditCards } = useCreditCards();
   const { suppliers } = useSuppliers();
+  const { costCenters } = useCostCenters();
+
+  // O agendamento guarda só os IDs de conta/meio/cartão/centro de custo: resolve os nomes aqui.
+  const namesById = useMemo(
+    () => ({
+      accounts: new Map(accounts.map((a) => [a.id, a.name])),
+      paymentMethods: new Map(paymentMethods.map((pm) => [pm.id, pm.name])),
+      creditCards: new Map(
+        creditCards.map((card) => [card.id, `${card.account.name} · venc. dia ${card.dueDay}`]),
+      ),
+      costCenters: new Map(costCenters.map((cc) => [cc.id, cc.name])),
+    }),
+    [accounts, paymentMethods, creditCards, costCenters],
+  );
 
   const {
     isOpen: isDeleteOpen,
@@ -299,20 +351,23 @@ export default function ScheduledPage() {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
-  };
-
-  const frequencyLabels: Record<string, string> = {
-    DAILY: 'Diária',
-    WEEKLY: 'Semanal',
-    MONTHLY: 'Mensal',
-    YEARLY: 'Anual',
-    BUSINESS_DAYS: 'Dias úteis',
-    CUSTOM: 'Personalizado',
+  const confirmRunNow = async () => {
+    if (!runningItem) return;
+    setIsRunning(true);
+    try {
+      const result = await runScheduledTransactionNow(runningItem.id);
+      if (result.success) {
+        showSuccess('Agendamento executado!', result.message);
+        refresh();
+      } else {
+        showError('Agendamento não executado', result.error);
+      }
+    } catch {
+      showError('Erro ao executar agendamento');
+    } finally {
+      setIsRunning(false);
+      setRunningItem(null);
+    }
   };
 
   const activeCount = transactions.filter((s) => s.isActive).length;
@@ -331,11 +386,10 @@ export default function ScheduledPage() {
   const filteredTransactions = useMemo(() => {
     return transactions.filter((item) => {
       const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
-      const matchesType = typeFilter === 'all' || item.type === typeFilter;
-      const matchesFrequency = frequencyFilter === 'all' || item.frequency === frequencyFilter;
-      const matchesStatus =
-        statusFilter === 'all' || (statusFilter === 'active' ? item.isActive : !item.isActive);
-      const matchesCategory = categoryFilter === 'all' || item.categoryId === categoryFilter;
+      const matchesType = matchesMulti(typeFilter, item.type);
+      const matchesFrequency = matchesMulti(frequencyFilter, item.frequency);
+      const matchesStatus = matchesMulti(statusFilter, item.isActive ? 'active' : 'inactive');
+      const matchesCategory = matchesMulti(categoryFilter, item.categoryId);
 
       return matchesSearch && matchesType && matchesFrequency && matchesStatus && matchesCategory;
     });
@@ -345,16 +399,21 @@ export default function ScheduledPage() {
   const paginatedTransactions = filteredTransactions.slice((page - 1) * pageSize, page * pageSize);
 
   const hasActiveFilters =
-    typeFilter !== 'all' ||
-    frequencyFilter !== 'all' ||
-    statusFilter !== 'all' ||
-    categoryFilter !== 'all';
+    typeFilter.length > 0 ||
+    frequencyFilter.length > 0 ||
+    statusFilter.length > 0 ||
+    categoryFilter.length > 0;
 
   const handleClearFilters = () => {
-    setTypeFilter('all');
-    setFrequencyFilter('all');
-    setStatusFilter('all');
-    setCategoryFilter('all');
+    setTypeFilter([]);
+    setFrequencyFilter([]);
+    setStatusFilter([]);
+    setCategoryFilter([]);
+    setPage(1);
+  };
+
+  const onFilterChange = (setter: (value: string[]) => void) => (value: string[]) => {
+    setter(value);
     setPage(1);
   };
 
@@ -374,178 +433,40 @@ export default function ScheduledPage() {
         filtersPanel={
           <FilterPanel onApply={() => setPage(1)} onClear={handleClearFilters}>
             <FilterField label="Tipo">
-              <Select
+              <MultiSelect
+                options={TYPE_FILTER_OPTIONS}
                 value={typeFilter}
-                onValueChange={(v) => {
-                  setTypeFilter(v as typeof typeFilter);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os tipos</SelectItem>
-                  <SelectItem value="INCOME">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: '#10b981' }}
-                      />
-                      Receita
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="EXPENSE">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: '#f43f5e' }}
-                      />
-                      Despesa
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="TRANSFER">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: '#3b82f6' }}
-                      />
-                      Transferência
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                onValueChange={onFilterChange(setTypeFilter)}
+                placeholder="Todos os tipos"
+              />
             </FilterField>
             <FilterField label="Frequência">
-              <Select
+              <MultiSelect
+                options={FREQUENCY_FILTER_OPTIONS}
                 value={frequencyFilter}
-                onValueChange={(v) => {
-                  setFrequencyFilter(v as typeof frequencyFilter);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Frequência" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as frequências</SelectItem>
-                  <SelectItem value="DAILY">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: '#94a3b8' }}
-                      />
-                      Diária
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="WEEKLY">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: '#94a3b8' }}
-                      />
-                      Semanal
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="MONTHLY">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: '#94a3b8' }}
-                      />
-                      Mensal
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="YEARLY">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: '#94a3b8' }}
-                      />
-                      Anual
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="BUSINESS_DAYS">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: '#94a3b8' }}
-                      />
-                      Dias úteis
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="CUSTOM">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: '#94a3b8' }}
-                      />
-                      Personalizado
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                onValueChange={onFilterChange(setFrequencyFilter)}
+                placeholder="Todas as frequências"
+              />
             </FilterField>
             <FilterField label="Status">
-              <Select
+              <MultiSelect
+                options={STATUS_FILTER_OPTIONS}
                 value={statusFilter}
-                onValueChange={(v) => {
-                  setStatusFilter(v as typeof statusFilter);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os status</SelectItem>
-                  <SelectItem value="active">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: '#10b981' }}
-                      />
-                      Ativo
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="inactive">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: '#94a3b8' }}
-                      />
-                      Inativo
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                onValueChange={onFilterChange(setStatusFilter)}
+                placeholder="Todos os status"
+              />
             </FilterField>
             <FilterField label="Categoria">
-              <Select
+              <MultiSelect
+                options={categories.map((cat) => ({
+                  value: cat.id,
+                  label: cat.name,
+                  color: cat.color || '#666',
+                }))}
                 value={categoryFilter}
-                onValueChange={(v) => {
-                  setCategoryFilter(v);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as categorias</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: cat.color || '#666' }}
-                        />
-                        {cat.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onValueChange={onFilterChange(setCategoryFilter)}
+                placeholder="Todas as categorias"
+              />
             </FilterField>
           </FilterPanel>
         }
@@ -582,11 +503,24 @@ export default function ScheduledPage() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="py-4">
-                <div className="bg-muted h-6 rounded" />
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+                <Skeleton className="size-9 rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-4 w-1/3" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Skeleton className="h-8 w-1/2" />
+                <Skeleton className="h-9 w-full" />
+                <div className="grid grid-cols-2 gap-3">
+                  {[1, 2, 3, 4, 5, 6].map((j) => (
+                    <Skeleton key={j} className="h-8" />
+                  ))}
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -604,61 +538,29 @@ export default function ScheduledPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {paginatedTransactions.map((item) => (
-            <Card key={item.id}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="flex items-center gap-2">
-                  <CalendarClock
-                    className={`h-5 w-5 ${item.isActive ? 'text-blue-500' : 'text-gray-400'}`}
-                  />
-                  <CardTitle className="text-lg">{item.name}</CardTitle>
-                  <Badge variant={item.isActive ? 'default' : 'secondary'}>
-                    {item.isActive ? 'Ativo' : 'Inativo'}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={item.isActive}
-                    onCheckedChange={() => toggleActive(item.id, item.isActive)}
-                  />
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEdit(item)}>Editar</DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleDelete(item.id)}
-                        className="text-red-600"
-                      >
-                        Excluir
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-4 text-sm">
-                  <span
-                    className="font-medium"
-                    style={item.type === 'INCOME' ? { color: 'green' } : { color: 'red' }}
-                  >
-                    {item.type === 'INCOME' ? '+' : '-'} {formatCurrency(item.amount)}
-                  </span>
-                  <span className="text-muted-foreground">|</span>
-                  <span className="text-muted-foreground">
-                    {frequencyLabels[item.frequency] || item.frequency}
-                  </span>
-                  <span className="text-muted-foreground">|</span>
-                  <span className="text-muted-foreground">
-                    Próxima: {new Date(item.nextRun).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {paginatedTransactions.map((item, index) => (
+            <ScheduledCard
+              key={item.id}
+              item={item}
+              index={index}
+              accountName={item.accountId ? namesById.accounts.get(item.accountId) : null}
+              paymentMethodName={
+                item.paymentMethodId ? namesById.paymentMethods.get(item.paymentMethodId) : null
+              }
+              creditCardName={
+                item.creditCardId ? namesById.creditCards.get(item.creditCardId) : null
+              }
+              costCenterName={
+                item.costCenterId ? namesById.costCenters.get(item.costCenterId) : null
+              }
+              canUpdate={canUpdate}
+              isRunning={isRunning && runningItem?.id === item.id}
+              onToggleActive={() => toggleActive(item.id, item.isActive)}
+              onEdit={() => openEdit(item)}
+              onDelete={() => handleDelete(item.id)}
+              onRunNow={() => setRunningItem(item)}
+            />
           ))}
         </div>
       )}
@@ -958,6 +860,34 @@ export default function ScheduledPage() {
           </div>
         </Form>
       </FormDialog>
+
+      <AlertDialog
+        open={!!runningItem}
+        onOpenChange={(open) => {
+          if (!open && !isRunning) setRunningItem(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Executar agendamento agora?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Uma transação pendente de &quot;{runningItem?.name}&quot; será gerada para a próxima
+              ocorrência
+              {runningItem
+                ? ` (${new Date(runningItem.nextRun).toLocaleDateString('pt-BR')})`
+                : ''}{' '}
+              e a próxima execução será avançada.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isRunning}>Cancelar</AlertDialogCancel>
+            <Button onClick={confirmRunNow} disabled={isRunning}>
+              <Play className="h-4 w-4" />
+              {isRunning ? 'Executando...' : 'Executar agora'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <DeleteConfirmModal
         title="Excluir Agendamento"

@@ -1,4 +1,5 @@
 import { DashboardShell } from '@/components/dashboard-shell';
+import { PeriodTransitionProvider } from '@/components/period-transition';
 import { runAllAlertChecks } from '@/lib/actions/notifications';
 import { authOptions } from '@/lib/auth-options';
 import { processDueScheduledTransactions } from '@/lib/services/scheduled-transactions';
@@ -19,5 +20,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
       .catch((error) => console.error('Error running background checks:', error));
   });
 
-  return <DashboardShell>{children}</DashboardShell>;
+  return (
+    <DashboardShell>
+      <PeriodTransitionProvider>{children}</PeriodTransitionProvider>
+    </DashboardShell>
+  );
 }

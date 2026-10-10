@@ -1,8 +1,7 @@
 import { getAccounts } from '@/lib/queries/accounts';
 import { getPaymentMethodsPaginated } from '@/lib/queries/payment-methods';
 import { PaymentMethodsClient } from './payment-methods-client';
-
-const ALLOWED_PAGE_SIZES = [10, 20, 50, 100];
+import { parsePageSize } from '@/lib/constants/pagination';
 
 export default async function PaymentMethodsPage({
   searchParams: searchParamsPromise,
@@ -16,9 +15,7 @@ export default async function PaymentMethodsPage({
 }) {
   const searchParams = await searchParamsPromise;
 
-  const pageSize = ALLOWED_PAGE_SIZES.includes(Number(searchParams.pageSize))
-    ? Number(searchParams.pageSize)
-    : 10;
+  const pageSize = parsePageSize(searchParams.pageSize);
   const page = Math.max(1, parseInt(searchParams.page || '1', 10) || 1);
 
   const [{ paymentMethods, totalCount }, accounts] = await Promise.all([

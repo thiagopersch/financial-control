@@ -83,12 +83,16 @@ async function main() {
   });
 
   // Create transactions
+  const now = new Date();
+  const competence = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
   await prisma.transaction.createMany({
     data: [
       {
         type: TransactionType.INCOME,
         amount: 0.0,
         date: new Date(),
+        competence,
+        originalCompetence: competence,
         status: TransactionStatus.PAID,
         categoryId: catIncome.id,
         workspaceId: workspace.id,
@@ -98,6 +102,8 @@ async function main() {
         amount: 0.0,
         date: new Date(),
         dueDate: new Date(),
+        competence,
+        originalCompetence: competence,
         status: TransactionStatus.PAID,
         categoryId: catExpense.id,
         supplierId: supplier.id,

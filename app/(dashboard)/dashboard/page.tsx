@@ -3,12 +3,14 @@ import { CategoryPieChart } from '@/components/dashboard/category-pie-chart';
 import { DebtProgressChart } from '@/components/dashboard/debt-progress-chart';
 import { GoalProgressChart } from '@/components/dashboard/goal-progress-chart';
 import { OverviewChart } from '@/components/dashboard/overview-chart';
+import { PaidByChart } from '@/components/dashboard/paid-by-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { StatsCards } from '@/components/dashboard/stats-cards';
 import { StatusChart } from '@/components/dashboard/status-chart';
 import { SummaryCard } from '@/components/dashboard/summary-card';
 import { SupplierChart } from '@/components/dashboard/supplier-chart';
 import { MonthSelector } from '@/components/month-selector';
+import { PeriodLoading } from '@/components/ui/loading-overlay';
 import {
   getBudgetData,
   getCategoryData,
@@ -16,14 +18,18 @@ import {
   getDashboardStats,
   getDebtsData,
   getGoalsData,
+  getPaidByData,
   getRecentTransactions,
   getStatusData,
   getSummaryCount,
   getSupplierData,
-  getTransactionCountsByMonth,
   getTransactionCountsByYear,
 } from '@/lib/queries/dashboard';
+import { competenceRange } from '@/lib/utils/competence';
 import { endOfMonth, parse, startOfMonth } from 'date-fns';
+
+/** Overlay de loading cobre o card inteiro do gráfico dentro do grid. */
+const CHART_LOADING_CLASS = 'rounded-lg [&>[data-slot=card]]:h-full';
 
 export default async function DashboardPage(props: {
   searchParams: Promise<{ year?: string; month?: string }>;
@@ -61,18 +67,39 @@ export default async function DashboardPage(props: {
   const isFullYear = (year && year !== 'all' && !month) || month === 'all';
   const isAllPeriod = year === 'all';
 
-  // Pass both start and end dates to queries to support flexible periods (monthly or yearly)
-  const stats = await getDashboardStats(startDate, endDate);
-  const chartData = await getChartData(selectedMonth, isFullYear, isAllPeriod);
-  const categoryData = await getCategoryData(startDate, endDate);
-  const statusData = await getStatusData(startDate, endDate);
-  const supplierData = await getSupplierData(startDate, endDate);
-  const { debts } = await getDebtsData();
-  const budgets = await getBudgetData(selectedMonth.getMonth() + 1, selectedMonth.getFullYear());
-  const goals = await getGoalsData();
-  const recentTransactions = await getRecentTransactions(startDate, endDate);
-  const transactionCounts = await getTransactionCountsByYear();
-  const monthCounts = await getTransactionCountsByMonth();
+  // Transações são filtradas por competência; metas e dívidas seguem usando datas reais.
+  const competence =
+    startDate && endDate
+      ? isFullYear
+        ? competenceRange(selectedMonth.getFullYear())
+        : competenceRange(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1)
+      : undefined;
+
+  const [
+    stats,
+    chartData,
+    categoryData,
+    statusData,
+    supplierData,
+    paidByData,
+    { debts },
+    budgets,
+    goals,
+    recentTransactions,
+    transactionCounts,
+  ] = await Promise.all([
+    getDashboardStats(competence),
+    getChartData(selectedMonth, isFullYear, isAllPeriod),
+    getCategoryData(competence),
+    getStatusData(competence),
+    getSupplierData(competence),
+    getPaidByData(competence),
+    getDebtsData(),
+    getBudgetData(selectedMonth.getMonth() + 1, selectedMonth.getFullYear()),
+    getGoalsData(),
+    getRecentTransactions(competence),
+    getTransactionCountsByYear(),
+  ]);
 
   const { goalsCount, budgetsCount, debtsCount } = await getSummaryCount(
     startDate,
@@ -88,40 +115,47 @@ export default async function DashboardPage(props: {
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">Visão geral das suas finanças</p>
         </div>
-        <MonthSelector
-          transactionCounts={transactionCounts}
-          monthCounts={monthCounts}
-          useNextYears
-        />
+        <MonthSelector transactionCounts={transactionCounts} />
       </div>
 
-      <StatsCards stats={stats} />
+      <StatsCards stats={stats} isFullYear={!!isFullYear} />
 
       <SummaryCard goalsCount={goalsCount} budgetsCount={budgetsCount} debtsCount={debtsCount} />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="md:col-span-2 lg:col-span-4">
+        <PeriodLoading size="md" className={`${CHART_LOADING_CLASS} md:col-span-2 lg:col-span-4`}>
           <OverviewChart data={chartData} isFullYear={isFullYear} isAllPeriod={isAllPeriod} />
-        </div>
-        <div className="lg:col-span-3">
+        </PeriodLoading>
+        <PeriodLoading size="md" className={`${CHART_LOADING_CLASS} lg:col-span-3`}>
           <CategoryPieChart data={categoryData} />
-        </div>
+        </PeriodLoading>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <StatusChart data={statusData} />
-        <SupplierChart data={supplierData} />
-        <DebtProgressChart debts={debts} />
+        <PeriodLoading size="md" className={CHART_LOADING_CLASS}>
+          <StatusChart data={statusData} />
+        </PeriodLoading>
+        <PeriodLoading size="md" className={CHART_LOADING_CLASS}>
+          <SupplierChart data={supplierData} />
+        </PeriodLoading>
+        <PeriodLoading size="md" className={CHART_LOADING_CLASS}>
+          <PaidByChart data={paidByData} />
+        </PeriodLoading>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <BudgetProgressChart budgets={budgets} />
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <DebtProgressChart debts={debts} />
+        <PeriodLoading size="md" className={CHART_LOADING_CLASS}>
+          <BudgetProgressChart budgets={budgets} />
+        </PeriodLoading>
         <GoalProgressChart goals={goals} />
       </div>
 
-      <RecentTransactions
-        transactions={recentTransactions.map((t) => ({ ...t, amount: Number(t.amount) }))}
-      />
+      <PeriodLoading size="md" className="rounded-lg">
+        <RecentTransactions
+          transactions={recentTransactions.map((t) => ({ ...t, amount: Number(t.amount) }))}
+        />
+      </PeriodLoading>
     </div>
   );
 }

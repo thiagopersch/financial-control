@@ -13,6 +13,8 @@ import { Building2, Coins, CreditCard, Landmark, TrendingUp, Wallet2 } from 'luc
 import { useMemo, useState } from 'react';
 import { AccountsForm } from './accounts-form';
 import { AccountsHeader } from './accounts-header';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
+import { matchesMulti, parseMultiParam, serializeMultiParam } from '@/lib/utils/filter-params';
 
 interface AccountsListProps {
   accounts: AccountDTO[];
@@ -42,7 +44,6 @@ const typeLabels: Record<string, string> = {
 };
 
 const typeFilterOptions = [
-  { value: 'all', label: 'Todos' },
   { value: 'WALLET', label: 'Carteira' },
   { value: 'BANK', label: 'Banco' },
   { value: 'CREDIT_CARD', label: 'Cartão de Crédito' },
@@ -72,15 +73,19 @@ export function AccountsList({ accounts, onRefresh }: AccountsListProps) {
   });
 
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
 
-  usePersistedPageFilters('accounts', { search, typeFilter }, (saved) => {
-    if (saved.search !== undefined) setSearch(saved.search);
-    if (saved.typeFilter) setTypeFilter(saved.typeFilter);
-  });
+  usePersistedPageFilters(
+    'accounts',
+    { search, typeFilter: serializeMultiParam(typeFilter) },
+    (saved) => {
+      if (saved.search !== undefined) setSearch(saved.search);
+      setTypeFilter(parseMultiParam(saved.typeFilter));
+    },
+  );
 
   const searchParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -93,7 +98,7 @@ export function AccountsList({ accounts, onRefresh }: AccountsListProps) {
     setPage(1);
   };
 
-  const handleTypeFilterChange = (value: string) => {
+  const handleTypeFilterChange = (value: string[]) => {
     setTypeFilter(value);
     setPage(1);
   };
@@ -106,7 +111,7 @@ export function AccountsList({ accounts, onRefresh }: AccountsListProps) {
   const filteredAccounts = useMemo(() => {
     return accounts.filter((account) => {
       const matchesSearch = account.name.toLowerCase().includes(search.toLowerCase());
-      const matchesType = typeFilter === 'all' || account.type === typeFilter;
+      const matchesType = matchesMulti(typeFilter, account.type);
       return matchesSearch && matchesType;
     });
   }, [accounts, search, typeFilter]);

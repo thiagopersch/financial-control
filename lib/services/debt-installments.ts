@@ -7,6 +7,7 @@ import {
   divideExactly,
 } from '@/lib/utils/installment-calculation';
 import { startOfDay } from 'date-fns';
+import { toCompetence } from '@/lib/utils/competence';
 
 export {
   buildInstallmentDates,
@@ -129,6 +130,8 @@ export async function syncDebtInstallments(
       amount: amounts[i],
       date: dueDate,
       dueDate,
+      competence: toCompetence(dueDate),
+      originalCompetence: toCompetence(dueDate),
       status,
       categoryId: category.id,
       accountId: account.id,

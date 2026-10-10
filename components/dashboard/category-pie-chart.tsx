@@ -1,10 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartAltRenderer } from './chart-alt-renderer';
-import { ChartTypeSwitcher, type ChartVisualType } from './chart-type-switcher';
+import { ChartTypeSwitcher, type ChartAltType } from './chart-type-switcher';
 
 interface CategoryPieChartProps {
   data: {
@@ -19,7 +18,7 @@ const currencyFormatter = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
 export function CategoryPieChart({ data, isFullYear }: CategoryPieChartProps) {
-  const [chartType, setChartType] = useState<ChartVisualType>('default');
+  const [chartType, setChartType] = useState<ChartAltType>('pie');
 
   if (data.length === 0) {
     return (
@@ -42,42 +41,14 @@ export function CategoryPieChart({ data, isFullYear }: CategoryPieChartProps) {
       </CardHeader>
       <CardContent>
         <div className="h-[300px] w-full">
-          {chartType === 'default' ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value: any) => currencyFormatter(Number(value))}
-                  contentStyle={{
-                    borderRadius: '8px',
-                    border: 'none',
-                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                  }}
-                />
-                <Legend verticalAlign="bottom" height={36} iconType="circle" />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <ChartAltRenderer
-              type={chartType}
-              data={data}
-              series={[{ dataKey: 'value', name: 'Categoria', color: '#6366f1' }]}
-              tooltipFormatter={currencyFormatter}
-              axisFormatter={(v) => `R$${v}`}
-            />
-          )}
+          <ChartAltRenderer
+            type={chartType}
+            data={data}
+            series={[{ dataKey: 'value', name: 'Categoria', color: '#6366f1' }]}
+            tooltipFormatter={currencyFormatter}
+            axisFormatter={(v) => `R$${v}`}
+            pieColorKey="color"
+          />
         </div>
       </CardContent>
     </Card>

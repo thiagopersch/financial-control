@@ -9,9 +9,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { BarChart3, ChartPie, LineChart as LineChartIcon, MoreVertical } from 'lucide-react';
 
-export type ChartVisualType = 'default' | 'line' | 'bar-vertical' | 'bar-horizontal' | 'pie' | 'donut';
+export type ChartVisualType =
+  'default' | 'line' | 'bar-vertical' | 'bar-horizontal' | 'pie' | 'donut';
 
-const OPTIONS: { value: ChartVisualType; label: string; icon: React.ElementType }[] = [
+/** Visualizações oferecidas no menu (todas exceto a `default` própria de cada gráfico). */
+export type ChartAltType = Exclude<ChartVisualType, 'default'>;
+
+const OPTIONS: { value: ChartAltType; label: string; icon: React.ElementType }[] = [
   { value: 'line', label: 'Linha', icon: LineChartIcon },
   { value: 'bar-vertical', label: 'Barra Vertical', icon: BarChart3 },
   { value: 'bar-horizontal', label: 'Barra Horizontal', icon: BarChart3 },
@@ -21,7 +25,7 @@ const OPTIONS: { value: ChartVisualType; label: string; icon: React.ElementType 
 
 interface ChartTypeSwitcherProps {
   value: ChartVisualType;
-  onChange: (value: ChartVisualType) => void;
+  onChange: (value: ChartAltType) => void;
 }
 
 export function ChartTypeSwitcher({ value, onChange }: ChartTypeSwitcherProps) {
@@ -33,12 +37,16 @@ export function ChartTypeSwitcher({ value, onChange }: ChartTypeSwitcherProps) {
           <span className="sr-only">Alterar visualização</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="w-auto min-w-max">
         {OPTIONS.map((opt) => (
-          <DropdownMenuItem key={opt.value} onClick={() => onChange(opt.value)}>
+          <DropdownMenuItem
+            key={opt.value}
+            onClick={() => onChange(opt.value)}
+            className="whitespace-nowrap"
+          >
             <opt.icon className="mr-2 h-4 w-4" />
             {opt.label}
-            {value === opt.value && <span className="ml-auto text-xs">✓</span>}
+            {value === opt.value && <span className="ml-auto pl-4 text-xs">✓</span>}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { hasPermission } from '@/lib/permissions/has-permission';
 import prisma from '@/lib/prisma';
+import { parseMultiParam, toInFilter } from '@/lib/utils/filter-params';
 
 const ID_FIELD_TO_MODEL: Record<string, string> = {
   categoryId: 'category',
@@ -143,13 +144,8 @@ export async function GET(request: NextRequest) {
       workspaceId: session.user.workspaceId,
     };
 
-    if (entity && entity !== 'all') {
-      where.entity = entity;
-    }
-
-    if (action && action !== 'all') {
-      where.action = action;
-    }
+    where.entity = toInFilter(parseMultiParam(entity));
+    where.action = toInFilter(parseMultiParam(action));
 
     const offset = (page - 1) * limit;
 

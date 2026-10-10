@@ -1,13 +1,8 @@
 'use client';
 
 import { FilterField, FilterPanel } from '@/components/ui/filter-panel';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { parseMultiParam, setMultiParam } from '@/lib/utils/filter-params';
 import { useState } from 'react';
 
 type Category = { id: string; name: string; color: string };
@@ -25,43 +20,28 @@ export function BudgetsFilters({
   handleClearFilters,
   categories,
 }: BudgetsFiltersProps) {
-  const [category, setCategory] = useState(searchParams.get('category') || 'all');
-
-  const onSelectChange = (value: string | null) => {
-    setCategory(value || 'all');
-  };
+  const [categoryIds, setCategoryIds] = useState(parseMultiParam(searchParams.get('category')));
 
   const handleApply = () => {
     const params = new URLSearchParams(searchParams);
-    if (category === 'all') params.delete('category');
-    else params.set('category', category);
+    setMultiParam(params, 'category', categoryIds);
     applyFilters(params);
   };
 
   const handleClear = () => {
-    setCategory('all');
+    setCategoryIds([]);
     handleClearFilters();
   };
 
   return (
     <FilterPanel onApply={handleApply} onClear={handleClear}>
       <FilterField label="Categoria">
-        <Select value={category} onValueChange={onSelectChange}>
-          <SelectTrigger className="h-10 w-full">
-            <SelectValue placeholder="Todas as categorias" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as categorias</SelectItem>
-            {categories.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />
-                  {c.name}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelect
+          options={categories.map((c) => ({ value: c.id, label: c.name, color: c.color }))}
+          value={categoryIds}
+          onValueChange={setCategoryIds}
+          placeholder="Todas as categorias"
+        />
       </FilterField>
     </FilterPanel>
   );

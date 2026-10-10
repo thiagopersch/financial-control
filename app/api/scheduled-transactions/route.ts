@@ -17,16 +17,20 @@ export async function GET() {
       include: {
         category: true,
         supplier: true,
+        _count: { select: { transactions: true } },
       },
       orderBy: {
         nextRun: 'asc',
       },
     });
 
-    const transactionsWithNumbers = transactions.map((t) => ({
+    const transactionsWithNumbers = transactions.map(({ _count, ...t }) => ({
       ...t,
       amount: Number(t.amount),
       nextRun: t.nextRun.toISOString(),
+      lastRun: t.lastRun?.toISOString() ?? null,
+      createdAt: t.createdAt.toISOString(),
+      generatedCount: _count.transactions,
     }));
 
     return NextResponse.json({ transactions: transactionsWithNumbers });

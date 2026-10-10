@@ -5,6 +5,7 @@ import { getCostCenters } from '@/lib/queries/cost-centers';
 import { getCreditCards } from '@/lib/queries/credit-cards';
 import { getDebts } from '@/lib/queries/debts';
 import { getPaymentMethods } from '@/lib/queries/payment-methods';
+import { getWorkspaceUsers } from '@/lib/queries/users';
 import { getServerSession } from 'next-auth';
 import { notFound } from 'next/navigation';
 
@@ -48,6 +49,9 @@ export default async function EditTransactionPage({ params }: { params: Promise<
     notFound();
   }
 
+  // Ativos + o "Pago por" atual, mesmo que o usuário tenha sido desativado depois.
+  const users = await getWorkspaceUsers({ activeOnly: true, includeIds: [transaction.paidById] });
+
   const initialData = {
     ...transaction,
     amount: Number(transaction.amount),
@@ -62,6 +66,7 @@ export default async function EditTransactionPage({ params }: { params: Promise<
       paymentMethods={paymentMethods}
       creditCards={creditCards}
       debts={debts}
+      users={users}
       initialData={initialData}
     />
   );

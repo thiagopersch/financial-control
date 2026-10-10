@@ -1,7 +1,120 @@
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
-import { TransactionStatus } from '@prisma/client';
+import { competenceRangeFromPeriodParams } from '@/lib/utils/competence';
+import { PAID_BY_NONE, parseMultiParam, toInFilter } from '@/lib/utils/filter-params';
+import { Prisma, TransactionStatus, TransactionType } from '@prisma/client';
+import { endOfDay, isValid, parse } from 'date-fns';
 import { getServerSession } from 'next-auth';
+import * as z from 'zod';
+
+const STATUS_SEARCH_TERMS: Record<string, TransactionStatus> = {
+  pago: TransactionStatus.PAID,
+  pendente: TransactionStatus.PENDING,
+  atrasado: TransactionStatus.OVERDUE,
+  atrasada: TransactionStatus.OVERDUE,
+};
+
+const optionalParam = z.string().trim().optional().nullable();
+
+const transactionListParamsSchema = z.object({
+  year: optionalParam,
+  month: optionalParam,
+  from: optionalParam,
+  to: optionalParam,
+  q: optionalParam,
+  type: optionalParam,
+  status: optionalParam,
+  category: optionalParam,
+  account: optionalParam,
+  paidBy: optionalParam,
+});
+
+export type TransactionListParams = z.infer<typeof transactionListParamsSchema>;
+
+function parseDateParam(value?: string | null) {
+  if (!value) return undefined;
+  const date = parse(value, 'yyyy-MM-dd', new Date());
+  return isValid(date) ? date : undefined;
+}
+
+/**
+ * Monta o `where` da listagem de transações a partir dos search params da página
+ * (mesmos params usados pelo export, para que ambos sempre batam):
+ * - `year`/`month`: período por **competência**
+ * - `from`/`to`: intervalo da data de vencimento (`yyyy-MM-dd`)
+ * - `type`, `status`, `category`, `account`, `paidBy`: multi-seleção (`a,b,c`)
+ * - `q`: busca textual
+ */
+export function buildTransactionWhere(
+  rawParams: Record<string, string | string[] | null | undefined>,
+  workspaceId: string,
+): Prisma.TransactionWhereInput {
+  const params = transactionListParamsSchema.parse(
+    Object.fromEntries(
+      Object.entries(rawParams).map(([key, value]) => [
+        key,
+        Array.isArray(value) ? value[0] : value,
+      ]),
+    ),
+  );
+
+  const where: Prisma.TransactionWhereInput = { workspaceId };
+  const and: Prisma.TransactionWhereInput[] = [];
+
+  const competence = competenceRangeFromPeriodParams(params.year, params.month);
+  if (competence) where.competence = competence;
+
+  const from = parseDateParam(params.from);
+  const to = parseDateParam(params.to);
+  if (from || to) {
+    where.date = {
+      ...(from ? { gte: from } : {}),
+      ...(to ? { lte: endOfDay(to) } : {}),
+    };
+  }
+
+  const types = parseMultiParam(params.type).filter((value): value is TransactionType =>
+    Object.values(TransactionType).includes(value as TransactionType),
+  );
+  const statuses = parseMultiParam(params.status).filter((value): value is TransactionStatus =>
+    Object.values(TransactionStatus).includes(value as TransactionStatus),
+  );
+  where.type = toInFilter(types);
+  where.status = toInFilter(statuses);
+  where.categoryId = toInFilter(parseMultiParam(params.category));
+  where.accountId = toInFilter(parseMultiParam(params.account));
+
+  const paidBy = parseMultiParam(params.paidBy);
+  if (paidBy.length > 0) {
+    const userIds = paidBy.filter((value) => value !== PAID_BY_NONE);
+    const includeNone = paidBy.includes(PAID_BY_NONE);
+    and.push({
+      OR: [
+        ...(userIds.length > 0 ? [{ paidById: { in: userIds } }] : []),
+        ...(includeNone ? [{ paidById: null }] : []),
+      ],
+    });
+  }
+
+  if (params.q) {
+    const q = params.q;
+    const statusMatch = STATUS_SEARCH_TERMS[q.toLowerCase()];
+    and.push({
+      OR: [
+        { description: { contains: q, mode: 'insensitive' } },
+        { notes: { contains: q, mode: 'insensitive' } },
+        { category: { name: { contains: q, mode: 'insensitive' } } },
+        { supplier: { name: { contains: q, mode: 'insensitive' } } },
+        { account: { name: { contains: q, mode: 'insensitive' } } },
+        { paidBy: { name: { contains: q, mode: 'insensitive' } } },
+        ...(statusMatch ? [{ status: statusMatch }] : []),
+      ],
+    });
+  }
+
+  if (and.length > 0) where.AND = and;
+  return where;
+}
 
 export type DebtTransactionDTO = {
   id: string;

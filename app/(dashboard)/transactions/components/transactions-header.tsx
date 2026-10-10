@@ -17,7 +17,7 @@ interface TransactionsHeaderProps {
   paymentMethods?: any[];
   creditCards?: any[];
   transactionCounts?: Record<string, number>;
-  monthCounts?: Record<string, number>;
+  users?: { id: string; name: string | null; email: string }[];
   canModify?: boolean;
   paginationSlotRef?: (node: HTMLDivElement | null) => void;
 }
@@ -31,7 +31,7 @@ export function TransactionsHeader({
   paymentMethods = [],
   creditCards = [],
   transactionCounts,
-  monthCounts,
+  users = [],
   canModify,
   paginationSlotRef,
 }: TransactionsHeaderProps) {
@@ -45,7 +45,7 @@ export function TransactionsHeader({
     applyFilters,
     handleSearch,
     handleClearFilters,
-  } = useUrlFilters();
+  } = useUrlFilters({ persistSearch: true, includePeriod: true });
 
   return (
     <>
@@ -54,7 +54,7 @@ export function TransactionsHeader({
         description="Monitore e gerencie todas as suas entradas e saídas."
         headerActions={
           <div className="max-md:w-full">
-            <MonthSelector transactionCounts={transactionCounts} monthCounts={monthCounts} />
+            <MonthSelector transactionCounts={transactionCounts} restoreOnMount={false} />
           </div>
         }
         searchParams={searchParams}
@@ -72,11 +72,14 @@ export function TransactionsHeader({
         paginationSlotRef={paginationSlotRef}
         filtersPanel={
           <Filters
+            // Remonta quando a URL muda (ex.: filtros restaurados) para ressincronizar o rascunho.
+            key={searchParams.toString()}
             searchParams={searchParams}
             applyFilters={applyFilters}
             handleClearFilters={handleClearFilters}
             categories={categories}
             accounts={accounts}
+            users={users}
           />
         }
       />

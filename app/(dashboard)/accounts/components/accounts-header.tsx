@@ -1,20 +1,14 @@
 'use client';
 
 import { ListPageHeader } from '@/components/ui/list-page-header';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { MultiSelect } from '@/components/ui/multi-select';
 
 interface AccountsHeaderProps {
   showControls?: boolean;
   searchParams: URLSearchParams;
   onSearch: (value: string) => void;
-  typeFilter: string;
-  onTypeFilterChange: (value: string) => void;
+  typeFilter: string[];
+  onTypeFilterChange: (value: string[]) => void;
   typeFilterOptions: { value: string; label: string }[];
   onCreate: () => void;
   paginationSlotRef?: (node: HTMLDivElement | null) => void;
@@ -39,18 +33,14 @@ export function AccountsHeader({
       onSearch={onSearch}
       showFilterToggle={false}
       inlineFilters={
-        <Select value={typeFilter} onValueChange={onTypeFilterChange}>
-          <SelectTrigger className="h-10 w-full md:w-56">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            {typeFilterOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelect
+          className="md:w-64"
+          options={typeFilterOptions}
+          value={typeFilter}
+          onValueChange={onTypeFilterChange}
+          placeholder="Todos os tipos"
+          maxVisibleChips={1}
+        />
       }
       createLabel="Nova Conta"
       onCreate={onCreate}

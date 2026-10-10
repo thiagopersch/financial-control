@@ -1,6 +1,8 @@
 import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
+import { parseMultiParam, toInFilter } from '@/lib/utils/filter-params';
 
 export type BudgetDTO = {
   id: string;
@@ -119,7 +121,7 @@ export async function getBudgetsFiltered({
   q,
   category,
   page = 1,
-  pageSize = 10,
+  pageSize = DEFAULT_PAGE_SIZE,
 }: GetBudgetsFilteredParams): Promise<{ budgets: BudgetDTO[]; totalCount: number }> {
   const where: any = {
     workspaceId,
@@ -127,7 +129,7 @@ export async function getBudgetsFiltered({
     year,
   };
 
-  if (category) where.categoryId = category;
+  where.categoryId = toInFilter(parseMultiParam(category));
   if (q) {
     where.category = { name: { contains: q, mode: 'insensitive' } };
   }

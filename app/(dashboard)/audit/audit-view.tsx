@@ -12,13 +12,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Table,
   TableBody,
   TableCell,
@@ -44,6 +37,8 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { parseMultiParam, serializeMultiParam } from '@/lib/utils/filter-params';
 
 const actionLabels: Record<string, string> = {
   CREATE: 'Criação',
@@ -167,19 +162,27 @@ function formatFieldValue(key: string, val: unknown, names: Record<string, strin
 
 export function AuditView() {
   const [search, setSearch] = useState('');
-  const [filterEntity, setFilterEntity] = useState('all');
-  const [filterAction, setFilterAction] = useState('all');
+  const [filterEntity, setFilterEntity] = useState<string[]>([]);
+  const [filterAction, setFilterAction] = useState<string[]>([]);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
-  usePersistedPageFilters('audit', { search, filterEntity, filterAction }, (saved) => {
-    if (saved.search !== undefined) setSearch(saved.search);
-    if (saved.filterEntity) setFilterEntity(saved.filterEntity);
-    if (saved.filterAction) setFilterAction(saved.filterAction);
-  });
+  usePersistedPageFilters(
+    'audit',
+    {
+      search,
+      filterEntity: serializeMultiParam(filterEntity),
+      filterAction: serializeMultiParam(filterAction),
+    },
+    (saved) => {
+      if (saved.search !== undefined) setSearch(saved.search);
+      setFilterEntity(parseMultiParam(saved.filterEntity));
+      setFilterAction(parseMultiParam(saved.filterAction));
+    },
+  );
 
   const { logs, names, availableActions, isLoading } = useAuditLogs({
-    entity: filterEntity,
-    action: filterAction,
+    entity: serializeMultiParam(filterEntity),
+    action: serializeMultiParam(filterAction),
   });
 
   const entities = useMemo(
@@ -265,32 +268,22 @@ export function AuditView() {
             className="pl-10"
           />
         </div>
-        <Select value={filterEntity} onValueChange={(v) => setFilterEntity(v || 'all')}>
-          <SelectTrigger className="w-full sm:w-40">
-            <SelectValue placeholder="Entidade" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            {entities.map((e) => (
-              <SelectItem key={e} value={e}>
-                {entityLabels[e] || e}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filterAction} onValueChange={(v) => setFilterAction(v || 'all')}>
-          <SelectTrigger className="w-full sm:w-40">
-            <SelectValue placeholder="Ação" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            {actions.map((a) => (
-              <SelectItem key={a} value={a}>
-                {actionLabels[a] || a}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelect
+          className="sm:w-64"
+          options={entities.map((e) => ({ value: e, label: entityLabels[e] || e }))}
+          value={filterEntity}
+          onValueChange={setFilterEntity}
+          placeholder="Todas as entidades"
+          maxVisibleChips={1}
+        />
+        <MultiSelect
+          className="sm:w-64"
+          options={actions.map((a) => ({ value: a, label: actionLabels[a] || a }))}
+          value={filterAction}
+          onValueChange={setFilterAction}
+          placeholder="Todas as ações"
+          maxVisibleChips={1}
+        />
       </div>
 
       {isLoading ? (

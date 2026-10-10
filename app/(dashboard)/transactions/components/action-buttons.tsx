@@ -48,12 +48,14 @@ export function ActionButtons({ setIsTransferModalOpen }: ActionButtonsProps) {
 
       const ws = XLSX.utils.json_to_sheet(
         data.transactions.map((t: any) => ({
-          Data: t.date,
+          Vencimento: t.date,
+          Competência: t.competence,
           Tipo: t.type === 'INCOME' ? 'Receita' : 'Despesa',
           Categoria: t.categoryName,
           Fornecedor: t.supplierName || '',
           Valor: t.amount,
           Status: t.status === 'PAID' ? 'Pago' : t.status === 'PENDING' ? 'Pendente' : 'Atrasado',
+          'Pago por': t.paidBy || '',
           Observações: t.notes || '',
         })),
       );
@@ -84,9 +86,10 @@ export function ActionButtons({ setIsTransferModalOpen }: ActionButtonsProps) {
       doc.text(`Exportado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 28);
       doc.text(`Total de transações: ${data.transactions.length}`, 14, 35);
 
-      const tableColumn = ['Data', 'Tipo', 'Categoria', 'Valor', 'Status'];
+      const tableColumn = ['Vencimento', 'Competência', 'Tipo', 'Categoria', 'Valor', 'Status'];
       const tableRows = data.transactions.map((t: any) => [
         t.date,
+        t.competence,
         t.type === 'INCOME' ? 'Receita' : 'Despesa',
         t.categoryName,
         `R$ ${Number(t.amount).toFixed(2)}`,

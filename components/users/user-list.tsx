@@ -4,13 +4,18 @@ import { ActionsDataTable } from '@/components/ui/actions-data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
+import { Switch } from '@/components/ui/switch';
+import { toggleUserActive } from '@/lib/actions/users';
 import { hasPermission } from '@/lib/permissions/has-permission';
+import { cn } from '@/lib/utils';
+import { showError, showSuccess } from '@/lib/utils/toast';
 import type { PermissionProfile, User } from '@prisma/client';
 import { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ArrowUpDown, ShieldCheck, User as UserIcon } from 'lucide-react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { DeleteUserModal } from './delete-user-modal';
 import { UserModal } from './user-modal';
@@ -35,6 +40,25 @@ export function UserList({ users, currentUserId }: UserListProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const router = useRouter();
+
+  const handleToggleActive = async (user: UserWithPermissionProfile, isActive: boolean) => {
+    setTogglingId(user.id);
+    try {
+      const result = await toggleUserActive(user.id, isActive);
+      if (result.success) {
+        showSuccess(isActive ? 'Usuário ativado.' : 'Usuário desativado.');
+        router.refresh();
+      } else {
+        showError(result.error || 'Erro ao atualizar usuário.');
+      }
+    } catch {
+      showError('Erro inesperado ao atualizar usuário.');
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   const searchParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -125,6 +149,37 @@ export function UserList({ users, currentUserId }: UserListProps) {
       },
     },
     {
+      accessorKey: 'isActive',
+      header: 'Status',
+      cell: ({ row }) => {
+        const user = row.original;
+        const isSelf = user.id === currentUserId;
+        return (
+          <div className="flex items-center gap-2">
+            {canUpdate && (
+              <Switch
+                checked={user.isActive}
+                disabled={togglingId === user.id || (isSelf && user.isActive)}
+                onCheckedChange={(checked) => handleToggleActive(user, checked)}
+                aria-label={user.isActive ? 'Desativar usuário' : 'Ativar usuário'}
+              />
+            )}
+            <Badge
+              variant="secondary"
+              className={cn(
+                'border-none',
+                user.isActive
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+              )}
+            >
+              {user.isActive ? 'Ativo' : 'Inativo'}
+            </Badge>
+          </div>
+        );
+      },
+    },
+    {
       accessorKey: 'createdAt',
       header: ({ column }) => (
         <Button
@@ -177,7 +232,10 @@ export function UserList({ users, currentUserId }: UserListProps) {
         data={filteredUsers}
         emptyMessage="Nenhum usuário encontrado."
         getRowClassName={(user) =>
-          user.id === currentUserId ? 'bg-primary/10 dark:bg-primary/5' : ''
+          cn(
+            user.id === currentUserId && 'bg-primary/10 dark:bg-primary/5',
+            !user.isActive && 'text-muted-foreground opacity-70',
+          )
         }
         paginationSlot={paginationSlot}
       />

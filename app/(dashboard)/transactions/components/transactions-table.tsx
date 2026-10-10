@@ -8,7 +8,14 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { markTransactionAsPaid, toggleTransactionAutoMove } from '@/lib/actions/transactions';
 import { cn } from '@/lib/utils';
+import { formatCompetence, isSameCompetence } from '@/lib/utils/competence';
 import { showError, showSuccess } from '@/lib/utils/toast';
+import {
+  getStaticTransactionSituation,
+  getTransactionSituation,
+  TRANSACTION_ROW_CLASSES,
+  TRANSACTION_SITUATION_LEGEND,
+} from '@/lib/utils/transaction-status';
 import {
   Category,
   Supplier,
@@ -17,7 +24,7 @@ import {
   TransactionType,
 } from '@prisma/client';
 import { ColumnDef } from '@tanstack/react-table';
-import { format, isToday, isTomorrow, startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   AlertCircle,
@@ -40,6 +47,7 @@ type SerializedTransaction = Omit<Transaction, 'amount'> & {
   category: Category;
   supplier: Supplier | null;
   account: any | null;
+  paidBy: { id: string; name: string | null; email: string } | null;
   isRecurring: boolean;
   recurrenceType: string | null;
 };
@@ -92,10 +100,9 @@ function SituacaoBadge({ transaction }: { transaction: SerializedTransaction }) 
     );
   }
 
-  const today = startOfDay(new Date());
-  const dueDate = startOfDay(new Date(transaction.dueDate || transaction.date));
+  const situation = getTransactionSituation(transaction);
 
-  if (isToday(dueDate)) {
+  if (situation === 'DUE_TODAY') {
     return (
       <div className="flex w-fit items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-600 dark:bg-amber-900/20 dark:text-amber-400">
         <Clock className="h-3.5 w-3.5" />
@@ -104,7 +111,7 @@ function SituacaoBadge({ transaction }: { transaction: SerializedTransaction }) 
     );
   }
 
-  if (dueDate < today) {
+  if (situation === 'OVERDUE') {
     return (
       <div className="flex w-fit animate-pulse items-center gap-1.5 rounded-md bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
         <AlertCircle className="h-3.5 w-3.5" />
@@ -113,7 +120,7 @@ function SituacaoBadge({ transaction }: { transaction: SerializedTransaction }) 
     );
   }
 
-  if (isTomorrow(dueDate)) {
+  if (situation === 'DUE_TOMORROW') {
     return (
       <div className="flex w-fit items-center gap-1.5 rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
         <Calendar className="h-3.5 w-3.5" />
@@ -313,6 +320,24 @@ export function TransactionsTable({
       },
     },
     {
+      accessorKey: 'competence',
+      header: 'Competência',
+      cell: ({ row }) => {
+        const t = row.original;
+        const moved = !isSameCompetence(t.competence, t.originalCompetence);
+        return (
+          <div className="text-sm whitespace-nowrap tabular-nums">
+            <div>{formatCompetence(t.competence)}</div>
+            {moved && (
+              <div className="text-muted-foreground text-xs">
+                origem {formatCompetence(t.originalCompetence)}
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       accessorKey: 'amount',
       header: 'Valor',
       cell: ({ row }) => {
@@ -365,6 +390,15 @@ export function TransactionsTable({
             {mounted ? format(new Date(paidAt), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
           </div>
         );
+      },
+    },
+    {
+      id: 'paidBy',
+      header: 'Pago por',
+      cell: ({ row }) => {
+        const paidBy = row.original.paidBy;
+        if (!paidBy) return <div className="text-muted-foreground">-</div>;
+        return <div className="text-sm whitespace-nowrap">{paidBy.name || paidBy.email}</div>;
       },
     },
     {
@@ -440,14 +474,35 @@ export function TransactionsTable({
 
   const columns = initialColumns.filter((col) => col.id !== 'actions' || canModify);
 
+  // A situação depende do relógio do client; antes de montar usa só o status (evita mismatch).
+  const getRowSituation = (t: SerializedTransaction) =>
+    mounted && t.type === TransactionType.EXPENSE
+      ? getTransactionSituation(t)
+      : getStaticTransactionSituation(t);
+
   return (
     <div className="flex flex-col gap-4">
+      {transactions.length > 0 && (
+        <ul
+          aria-label="Legenda de cores das linhas"
+          className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
+        >
+          {TRANSACTION_SITUATION_LEGEND.map((item) => (
+            <li key={item.label} className="flex items-center gap-1.5">
+              <span className={cn('size-2 rounded-full', item.dotClassName)} />
+              {item.label}
+            </li>
+          ))}
+        </ul>
+      )}
       <DataTable
         columns={columns}
         data={transactions}
         emptyMessage="Nenhuma transação encontrada."
         getRowClassName={(transaction) =>
-          transaction.id === deletingTransaction?.id ? 'bg-red-50/30 dark:bg-red-950/10' : ''
+          transaction.id === deletingTransaction?.id
+            ? 'bg-red-100/60 hover:bg-red-100/60 dark:bg-red-950/40'
+            : TRANSACTION_ROW_CLASSES[getRowSituation(transaction)]
         }
         manualPagination={{
           page,

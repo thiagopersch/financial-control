@@ -4,6 +4,8 @@ import { BudgetsFilters } from '@/app/(dashboard)/budgets/components/budgets-fil
 import { BudgetsTable } from '@/app/(dashboard)/budgets/components/budgets-table';
 import { BudgetDialog } from '@/components/budgets/budget-dialog';
 import { MonthSelector } from '@/components/month-selector';
+import { usePeriodTransition } from '@/components/period-transition';
+import { LoadingOverlay } from '@/components/ui/loading-overlay';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
@@ -15,8 +17,7 @@ import { usePersistedFiltersStore } from '@/hooks/use-filters-store';
 import { PieChart } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-const ALLOWED_PAGE_SIZES = [10, 20, 50, 100];
+import { parsePageSize } from '@/lib/constants/pagination';
 
 interface Category {
   id: string;
@@ -93,6 +94,9 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
   const [budgets, setBudgets] = useState<BudgetData[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  // Depois da primeira carga, recargas mostram overlay sobre a lista em vez do skeleton.
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const { isPending: isPeriodPending } = usePeriodTransition();
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -118,8 +122,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
 
   const { month, year, isAllPeriod, isYear } = parseMonthParams(yearParam, monthParam);
 
-  const pageSizeParam = Number(searchParams.get('pageSize'));
-  const pageSize = ALLOWED_PAGE_SIZES.includes(pageSizeParam) ? pageSizeParam : 10;
+  const pageSize = parsePageSize(searchParams.get('pageSize'));
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
 
   const hasActiveFilters = !!categoryParam;
@@ -158,6 +161,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
       console.error('Error fetching budgets:', error);
     } finally {
       setIsLoading(false);
+      setHasLoadedOnce(true);
     }
   }, [month, year, isAllPeriod, isYear, monthParam, qParam, categoryParam, page, pageSize]);
 
@@ -251,7 +255,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
   return (
     <div className="space-y-6">
       <ListPageHeader
-        headerActions={<MonthSelector useNextYears={true} />}
+        headerActions={<MonthSelector />}
         searchParams={searchParams}
         onSearch={handleSearch}
         hasActiveFilters={hasActiveFilters}
@@ -280,7 +284,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
         ) : null}
       </div>
 
-      {isLoading ? (
+      {isLoading && !hasLoadedOnce ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="animate-pulse">
@@ -293,34 +297,38 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
             </Card>
           ))}
         </div>
-      ) : budgets.length > 0 ? (
-        <BudgetsTable
-          budgets={budgets}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          paginationSlot={paginationSlot}
-          page={page}
-          pageSize={pageSize}
-          totalCount={totalCount}
-        />
       ) : (
-        <Card className="col-span-full py-20">
-          <CardContent className="flex flex-col items-center space-y-4 text-center">
-            <div className="bg-muted rounded-full p-4">
-              <PieChart className="text-muted-foreground h-10 w-10" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-xl font-semibold">Nenhum orçamento configurado</h3>
-              <p className="text-muted-foreground mx-auto max-w-xs">
-                Defina limites para suas categorias e receba alertas quando estiver próximo de
-                atingi-los.
-              </p>
-            </div>
-            <Button variant="outline" className="mt-4" onClick={openCreateBudget}>
-              Começar agora
-            </Button>
-          </CardContent>
-        </Card>
+        <LoadingOverlay size="md" loading={isPeriodPending || isLoading} className="rounded-xl">
+          {budgets.length > 0 ? (
+            <BudgetsTable
+              budgets={budgets}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              paginationSlot={paginationSlot}
+              page={page}
+              pageSize={pageSize}
+              totalCount={totalCount}
+            />
+          ) : (
+            <Card className="col-span-full py-20">
+              <CardContent className="flex flex-col items-center space-y-4 text-center">
+                <div className="bg-muted rounded-full p-4">
+                  <PieChart className="text-muted-foreground h-10 w-10" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-semibold">Nenhum orçamento configurado</h3>
+                  <p className="text-muted-foreground mx-auto max-w-xs">
+                    Defina limites para suas categorias e receba alertas quando estiver próximo de
+                    atingi-los.
+                  </p>
+                </div>
+                <Button variant="outline" className="mt-4" onClick={openCreateBudget}>
+                  Começar agora
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </LoadingOverlay>
       )}
 
       <BudgetDialog

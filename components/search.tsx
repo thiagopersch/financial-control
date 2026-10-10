@@ -13,6 +13,8 @@ export function SearchInput({ searchParams, handleSearch }: SearchInputProps) {
       <div className="relative w-full md:w-[25rem]">
         <Search className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
         <Input
+          // Remonta quando `q` muda fora do input (ex.: busca restaurada ao voltar à página).
+          key={searchParams.get('q') ?? ''}
           placeholder="Buscar por descrição, categoria ou fornecedor..."
           className="bg-background h-10 w-full pl-8 shadow-sm"
           defaultValue={searchParams.get('q') ?? ''}

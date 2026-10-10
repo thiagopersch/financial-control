@@ -11,8 +11,15 @@ import { createAuditLog } from '@/lib/services/audit';
 import { matchCategorizationRule } from '@/lib/services/categorization';
 import { applyConditionalRules } from '@/lib/services/conditional-rules';
 import { resolveDebtStatusFromBalance } from '@/lib/services/debt-status';
+import {
+  addCompetenceMonths,
+  competenceFromYearMonthString,
+  isSameCompetence,
+  isYearMonthString,
+  toCompetence,
+} from '@/lib/utils/competence';
 import { Prisma, TransactionStatus, TransactionType } from '@prisma/client';
-import { addMonths, startOfMonth } from 'date-fns';
+import { addMonths, startOfDay, startOfMonth } from 'date-fns';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -35,6 +42,8 @@ const transactionSchema = z.object({
   amount: z.coerce.number().positive('Valor deve ser maior que zero'),
   date: z.coerce.date(),
   dueDate: z.coerce.date().nullable().optional(),
+  competence: z.string().refine(isYearMonthString, 'Competência inválida (MM/AAAA)'),
+  paidById: z.string().nullable().optional(),
   status: z.enum(TransactionStatus),
   paidAt: z.coerce.date().nullable().optional(),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
@@ -50,6 +59,26 @@ const transactionSchema = z.object({
   installments: z.coerce.number().min(1).nullable().optional(),
   autoMoveEnabled: z.boolean().default(false),
 });
+
+/**
+ * "Pago por" precisa ser um usuário do mesmo workspace. Na criação (ou ao trocar
+ * o usuário) ele também precisa estar ativo; manter um vínculo antigo com um
+ * usuário que foi desativado depois é permitido.
+ */
+async function assertValidPaidBy(
+  workspaceId: string,
+  paidById: string | null | undefined,
+  previousPaidById?: string | null,
+) {
+  if (!paidById) return null;
+  const user = await prisma.user.findFirst({
+    where: { id: paidById, workspaceId },
+    select: { isActive: true },
+  });
+  if (!user) return 'Usuário de "Pago por" inválido';
+  if (!user.isActive && paidById !== previousPaidById) return 'Usuário de "Pago por" está inativo';
+  return null;
+}
 
 async function syncDebtCurrentValueInTx(tx: Prisma.TransactionClient, debtId: string) {
   const debt = await tx.debt.findUnique({ where: { id: debtId } });
@@ -74,6 +103,11 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
   try {
     const session = await requirePermission('transactions', 'CREATE');
     const validated = transactionSchema.parse(data);
+
+    const paidByError = await assertValidPaidBy(session.user.workspaceId, validated.paidById);
+    if (paidByError) return { success: false, error: paidByError };
+
+    const competence = competenceFromYearMonthString(validated.competence);
 
     const matchedCategoryId = await matchCategorizationRule(
       session.user.workspaceId,
@@ -102,6 +136,9 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
             amount: installmentAmount,
             date: validated.date,
             dueDate: validated.dueDate,
+            competence,
+            originalCompetence: competence,
+            paidById: validated.paidById || null,
             status: validated.status,
             paidAt: validated.paidAt,
             autoMoveEnabled: validated.autoMoveEnabled,
@@ -136,6 +173,9 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
             amount: currentInstallmentAmount,
             date: addMonths(validated.date, i),
             dueDate: validated.dueDate ? addMonths(validated.dueDate, i) : null,
+            competence: addCompetenceMonths(competence, i),
+            originalCompetence: addCompetenceMonths(competence, i),
+            paidById: validated.paidById || null,
             status: TransactionStatus.PENDING,
             categoryId: validated.categoryId,
             accountId: validated.accountId,
@@ -199,6 +239,9 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
           amount: validated.amount,
           date: validated.date,
           dueDate: validated.dueDate,
+          competence,
+          originalCompetence: competence,
+          paidById: validated.paidById || null,
           status: validated.status,
           paidAt: validated.paidAt,
           autoMoveEnabled: validated.autoMoveEnabled,
@@ -268,6 +311,21 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
 
     if (!oldTransaction) return { success: false, error: 'Transação não encontrada' };
 
+    const paidByError = await assertValidPaidBy(
+      session.user.workspaceId,
+      validated.paidById,
+      oldTransaction.paidById,
+    );
+    if (paidByError) return { success: false, error: paidByError };
+
+    // Enquanto a transação não foi movida (competência atual = origem), editar a
+    // competência corrige as duas; depois de movida, a origem fica preservada.
+    const competence = competenceFromYearMonthString(validated.competence);
+    const wasMoved = !isSameCompetence(
+      oldTransaction.competence,
+      oldTransaction.originalCompetence,
+    );
+
     const transaction = await prisma.$transaction(async (tx) => {
       const updated = await tx.transaction.update({
         where: { id },
@@ -277,6 +335,9 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
           amount: validated.amount,
           date: validated.date,
           dueDate: validated.dueDate,
+          competence,
+          ...(wasMoved ? {} : { originalCompetence: competence }),
+          paidById: validated.paidById || null,
           status: validated.status,
           paidAt: validated.paidAt,
           autoMoveEnabled: validated.autoMoveEnabled,
@@ -390,6 +451,8 @@ export async function markTransactionAsPaid(id: string) {
           paidAt: now,
           date: newDate,
           dueDate: newDueDate,
+          // Pago em atraso: a competência atual acompanha a data; a de origem é preservada.
+          ...(isPastMonth ? { competence: toCompetence(now) } : {}),
         },
       });
 
@@ -411,11 +474,13 @@ export async function markTransactionAsPaid(id: string) {
         status: transaction.status,
         date: transaction.date,
         dueDate: transaction.dueDate,
+        competence: transaction.competence,
       },
       newValue: {
         status: updated.status,
         date: updated.date,
         dueDate: updated.dueDate,
+        competence: updated.competence,
         paidAt: updated.paidAt,
       },
     });
@@ -443,24 +508,35 @@ export async function autoMoveOverdueTransactions() {
   try {
     const session = await requirePermission('transactions', 'VIEW');
     const now = new Date();
+    const monthStart = startOfMonth(now);
+    const currentCompetence = toCompetence(now);
+    // Move para o mês atual o que venceu em mês anterior, ou o que já venceu mas
+    // ainda está numa competência passada (ex.: competência 09, vencimento 05/10).
     const candidates = await prisma.transaction.findMany({
       where: {
         workspaceId: session.user.workspaceId,
         autoMoveEnabled: true,
         status: { in: [TransactionStatus.PENDING, TransactionStatus.OVERDUE] },
-        date: { lt: startOfMonth(now) },
+        OR: [
+          { date: { lt: monthStart } },
+          { competence: { lt: currentCompetence }, date: { lt: startOfDay(now) } },
+        ],
       },
     });
 
     for (const t of candidates) {
-      const newDate = moveDateToCurrentMonth(t.date, now);
-      const newDueDate = t.dueDate ? moveDateToCurrentMonth(t.dueDate, now) : null;
+      const isPastMonth = t.date < monthStart;
+      const newDate = isPastMonth ? moveDateToCurrentMonth(t.date, now) : t.date;
+      const newDueDate =
+        isPastMonth && t.dueDate ? moveDateToCurrentMonth(t.dueDate, now) : t.dueDate;
 
+      // `originalCompetence` não é alterada: guarda a competência de origem.
       await prisma.transaction.update({
         where: { id: t.id },
         data: {
           date: newDate,
           dueDate: newDueDate,
+          competence: currentCompetence,
           status: TransactionStatus.OVERDUE,
         },
       });
@@ -469,8 +545,13 @@ export async function autoMoveOverdueTransactions() {
         action: 'AUTO_MOVE_TO_CURRENT_MONTH',
         entity: 'Transaction',
         entityId: t.id,
-        oldValue: { date: t.date, dueDate: t.dueDate, status: t.status },
-        newValue: { date: newDate, dueDate: newDueDate, status: TransactionStatus.OVERDUE },
+        oldValue: { date: t.date, dueDate: t.dueDate, competence: t.competence, status: t.status },
+        newValue: {
+          date: newDate,
+          dueDate: newDueDate,
+          competence: currentCompetence,
+          status: TransactionStatus.OVERDUE,
+        },
       });
     }
   } catch (error) {
