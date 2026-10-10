@@ -1,5 +1,6 @@
 'use client';
 
+import { usePeriodTransition } from '@/components/period-transition';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { usePersistedFiltersStore } from './use-filters-store';
@@ -31,6 +32,7 @@ export function useUrlFilters({
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const store = usePersistedFiltersStore();
+  const { startPeriodTransition } = usePeriodTransition();
   const hydrated = useRef(false);
 
   const notPersisted = [
@@ -74,7 +76,11 @@ export function useUrlFilters({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const applyFilters = (params: URLSearchParams) => {
+  /**
+   * `replace` evita uma entrada no histórico por navegação (ex.: busca enquanto digita).
+   * Roda numa transition: a tela atual fica visível (com overlay) até a nova chegar.
+   */
+  const applyFilters = (params: URLSearchParams, { replace = false } = {}) => {
     params.delete('page');
 
     const toPersist = new URLSearchParams(params);
@@ -87,7 +93,8 @@ export function useUrlFilters({
       store.clearPageFilters(pathname);
     }
 
-    router.push(`${window.location.pathname}?${params.toString()}`);
+    const url = `${window.location.pathname}?${params.toString()}`;
+    startPeriodTransition(() => (replace ? router.replace(url) : router.push(url)));
   };
 
   const handleSearch = (value: string) => {
@@ -97,7 +104,7 @@ export function useUrlFilters({
     } else {
       params.set('q', value);
     }
-    applyFilters(params);
+    applyFilters(params, { replace: true });
   };
 
   /** Limpa filtros e busca da página; com `includePeriod`, mantém o período selecionado. */

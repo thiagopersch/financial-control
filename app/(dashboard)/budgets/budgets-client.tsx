@@ -96,7 +96,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
   const [isLoading, setIsLoading] = useState(true);
   // Depois da primeira carga, recargas mostram overlay sobre a lista em vez do skeleton.
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
-  const { isPending: isPeriodPending } = usePeriodTransition();
+  const { isPending: isPeriodPending, startPeriodTransition } = usePeriodTransition();
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -185,7 +185,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const applyFilters = (params: URLSearchParams) => {
+  const applyFilters = (params: URLSearchParams, { replace = false } = {}) => {
     params.delete('page');
 
     const toPersist = new URLSearchParams(params);
@@ -198,7 +198,8 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
       filtersStore.clearPageFilters(pathname);
     }
 
-    router.push(`${window.location.pathname}?${params.toString()}`);
+    const url = `${window.location.pathname}?${params.toString()}`;
+    startPeriodTransition(() => (replace ? router.replace(url) : router.push(url)));
   };
 
   const handleSearch = (value: string) => {
@@ -208,7 +209,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
     } else {
       params.set('q', value);
     }
-    applyFilters(params);
+    applyFilters(params, { replace: true });
   };
 
   const handleClearFilters = () => {
