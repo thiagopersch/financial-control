@@ -10,7 +10,8 @@ import prisma from '@/lib/prisma';
 import { createAuditLog } from '@/lib/services/audit';
 import { matchCategorizationRule } from '@/lib/services/categorization';
 import { applyConditionalRules } from '@/lib/services/conditional-rules';
-import { resolveDebtStatusFromBalance } from '@/lib/services/debt-status';
+import { recalculateDebtTotals } from '@/lib/services/debt-totals';
+import { assertValidPaidBy } from '@/lib/services/paid-by';
 import {
   addCompetenceMonths,
   competenceFromYearMonthString,
@@ -18,7 +19,7 @@ import {
   isYearMonthString,
   toCompetence,
 } from '@/lib/utils/competence';
-import { Prisma, TransactionStatus, TransactionType } from '@prisma/client';
+import { TransactionStatus, TransactionType } from '@prisma/client';
 import { addMonths, startOfDay, startOfMonth } from 'date-fns';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
@@ -60,45 +61,6 @@ const transactionSchema = z.object({
   autoMoveEnabled: z.boolean().default(false),
 });
 
-/**
- * "Pago por" precisa ser um usuário do mesmo workspace. Na criação (ou ao trocar
- * o usuário) ele também precisa estar ativo; manter um vínculo antigo com um
- * usuário que foi desativado depois é permitido.
- */
-async function assertValidPaidBy(
-  workspaceId: string,
-  paidById: string | null | undefined,
-  previousPaidById?: string | null,
-) {
-  if (!paidById) return null;
-  const user = await prisma.user.findFirst({
-    where: { id: paidById, workspaceId },
-    select: { isActive: true },
-  });
-  if (!user) return 'Usuário de "Pago por" inválido';
-  if (!user.isActive && paidById !== previousPaidById) return 'Usuário de "Pago por" está inativo';
-  return null;
-}
-
-async function syncDebtCurrentValueInTx(tx: Prisma.TransactionClient, debtId: string) {
-  const debt = await tx.debt.findUnique({ where: { id: debtId } });
-  if (!debt) return;
-
-  const paidTransactions = await tx.transaction.findMany({
-    where: { debtId, status: TransactionStatus.PAID },
-  });
-  const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
-  const debtNewCurrentValue = Number(debt.initialValue) - totalPaid;
-
-  await tx.debt.update({
-    where: { id: debtId },
-    data: {
-      currentValue: debtNewCurrentValue,
-      status: resolveDebtStatusFromBalance(debt.status, debtNewCurrentValue),
-    },
-  });
-}
-
 export async function createTransaction(data: z.infer<typeof transactionSchema>) {
   try {
     const session = await requirePermission('transactions', 'CREATE');
@@ -135,7 +97,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
             type: validated.type,
             amount: installmentAmount,
             date: validated.date,
-            dueDate: validated.dueDate,
+            dueDate: validated.dueDate ?? validated.date,
             competence,
             originalCompetence: competence,
             paidById: validated.paidById || null,
@@ -172,7 +134,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
             type: validated.type,
             amount: currentInstallmentAmount,
             date: addMonths(validated.date, i),
-            dueDate: validated.dueDate ? addMonths(validated.dueDate, i) : null,
+            dueDate: addMonths(validated.dueDate ?? validated.date, i),
             competence: addCompetenceMonths(competence, i),
             originalCompetence: addCompetenceMonths(competence, i),
             paidById: validated.paidById || null,
@@ -203,7 +165,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
             where: { id: validated.debtId },
             data: { initialValue: { increment: validated.amount } },
           });
-          await syncDebtCurrentValueInTx(tx, validated.debtId);
+          await recalculateDebtTotals(tx, validated.debtId);
         }
 
         return parentTransaction;
@@ -238,7 +200,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
           type: validated.type,
           amount: validated.amount,
           date: validated.date,
-          dueDate: validated.dueDate,
+          dueDate: validated.dueDate ?? validated.date,
           competence,
           originalCompetence: competence,
           paidById: validated.paidById || null,
@@ -263,7 +225,7 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
           where: { id: validated.debtId },
           data: { initialValue: { increment: validated.amount } },
         });
-        await syncDebtCurrentValueInTx(tx, validated.debtId);
+        await recalculateDebtTotals(tx, validated.debtId);
       }
 
       return t;
@@ -334,7 +296,7 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
           type: validated.type,
           amount: validated.amount,
           date: validated.date,
-          dueDate: validated.dueDate,
+          dueDate: validated.dueDate ?? validated.date,
           competence,
           ...(wasMoved ? {} : { originalCompetence: competence }),
           paidById: validated.paidById || null,
@@ -359,8 +321,8 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
       // lib/queries/credit-card-usage.ts) — não há mais contador para ajustar aqui.
 
       // Linking/unlinking/reamounting a transaction adjusts the debt's total (initialValue)
-      // immediately, regardless of paid status — currentValue then falls out of that via
-      // syncDebtCurrentValueInTx (initialValue - sum of PAID), so it reacts too.
+      // immediately, regardless of paid status. For installment debts recalculateDebtTotals
+      // then recomputes the total from the linked rows; currentValue = total - sum of PAID.
       if (oldTransaction.debtId) {
         await tx.debt.update({
           where: { id: oldTransaction.debtId },
@@ -378,7 +340,7 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
       if (oldTransaction.debtId) affectedDebtIds.add(oldTransaction.debtId);
       if (updated.debtId) affectedDebtIds.add(updated.debtId);
       for (const debtId of affectedDebtIds) {
-        await syncDebtCurrentValueInTx(tx, debtId);
+        await recalculateDebtTotals(tx, debtId);
       }
 
       return updated;
@@ -437,11 +399,8 @@ export async function markTransactionAsPaid(id: string) {
     const isPastMonth = transaction.date < startOfMonth(now);
 
     const newDate = isPastMonth ? moveDateToCurrentMonth(transaction.date, now) : transaction.date;
-    const newDueDate = isPastMonth
-      ? transaction.dueDate
-        ? moveDateToCurrentMonth(transaction.dueDate, now)
-        : null
-      : transaction.dueDate;
+    // O vencimento acompanha a data (o formulário só expõe um campo de vencimento).
+    const newDueDate = newDate;
 
     const updated = await prisma.$transaction(async (tx) => {
       const u = await tx.transaction.update({
@@ -460,7 +419,7 @@ export async function markTransactionAsPaid(id: string) {
       // transações PAID — nada para ajustar aqui (ver lib/queries/credit-card-usage.ts).
 
       if (u.debtId) {
-        await syncDebtCurrentValueInTx(tx, u.debtId);
+        await recalculateDebtTotals(tx, u.debtId);
       }
 
       return u;
@@ -535,7 +494,7 @@ export async function updateTransactionStatus(id: string, status: TransactionSta
       });
 
       if (u.debtId) {
-        await syncDebtCurrentValueInTx(tx, u.debtId);
+        await recalculateDebtTotals(tx, u.debtId);
       }
 
       return u;
@@ -589,8 +548,7 @@ export async function autoMoveOverdueTransactions() {
     for (const t of candidates) {
       const isPastMonth = t.date < monthStart;
       const newDate = isPastMonth ? moveDateToCurrentMonth(t.date, now) : t.date;
-      const newDueDate =
-        isPastMonth && t.dueDate ? moveDateToCurrentMonth(t.dueDate, now) : t.dueDate;
+      const newDueDate = newDate;
 
       // `originalCompetence` não é alterada: guarda a competência de origem.
       await prisma.transaction.update({
@@ -675,13 +633,9 @@ export async function deleteTransaction(id: string, deleteSeries = false) {
               initialValue: { decrement: deletedDebtAmount },
             },
           });
+          await recalculateDebtTotals(tx, debtId);
         }
       });
-
-      if (debtId) {
-        const { syncDebtCurrentValue } = await import('@/lib/actions/debts');
-        await syncDebtCurrentValue(debtId);
-      }
 
       await createAuditLog({
         action: 'DELETE_RECURRING_SERIES',
@@ -711,7 +665,7 @@ export async function deleteTransaction(id: string, deleteSeries = false) {
       });
 
       if (transaction.debtId) {
-        await syncDebtCurrentValueInTx(tx, transaction.debtId);
+        await recalculateDebtTotals(tx, transaction.debtId);
       }
     });
 

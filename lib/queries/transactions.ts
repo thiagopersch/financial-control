@@ -128,7 +128,13 @@ export type DebtTransactionDTO = {
   accountId: string | null;
   paymentMethodId: string | null;
   creditCardId: string | null;
+  costCenterId: string | null;
   dueDate: string | null;
+  competence: string;
+  originalCompetence: string;
+  paidAt: string | null;
+  paidById: string | null;
+  notes: string | null;
 };
 
 export async function getTransactionsByDebtId(debtId: string): Promise<DebtTransactionDTO[]> {
@@ -139,7 +145,7 @@ export async function getTransactionsByDebtId(debtId: string): Promise<DebtTrans
     const transactions = await prisma.transaction.findMany({
       where: { debtId, workspaceId: session.user.workspaceId },
       include: { category: { select: { name: true, color: true } } },
-      orderBy: { date: 'asc' },
+      orderBy: [{ competence: 'asc' }, { dueDate: 'asc' }, { date: 'asc' }],
     });
 
     return transactions.map((t) => ({
@@ -154,7 +160,13 @@ export async function getTransactionsByDebtId(debtId: string): Promise<DebtTrans
       accountId: t.accountId ?? null,
       paymentMethodId: t.paymentMethodId ?? null,
       creditCardId: t.creditCardId ?? null,
+      costCenterId: t.costCenterId ?? null,
       dueDate: t.dueDate?.toISOString() ?? null,
+      competence: t.competence.toISOString(),
+      originalCompetence: t.originalCompetence.toISOString(),
+      paidAt: t.paidAt?.toISOString() ?? null,
+      paidById: t.paidById ?? null,
+      notes: t.notes ?? null,
     }));
   } catch (error) {
     console.error('Error fetching transactions by debt:', error);

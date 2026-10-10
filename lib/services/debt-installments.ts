@@ -89,7 +89,7 @@ export async function syncDebtInstallments(
 
   const existing = await tx.transaction.findMany({
     where: { debtId },
-    orderBy: { dueDate: 'asc' },
+    orderBy: [{ competence: 'asc' }, { dueDate: 'asc' }, { createdAt: 'asc' }],
   });
   const paid = existing.filter((t) => t.status === TransactionStatus.PAID);
   const unpaid = existing.filter((t) => t.status !== TransactionStatus.PAID);
@@ -113,16 +113,20 @@ export async function syncDebtInstallments(
   );
 
   const today = startOfDay(new Date());
+  // Com data da 1ª parcela, o calendário é do plano inteiro: a parcela em aberto `i` é a
+  // de número `paidCount + i + 1` e usa a data desse índice (as primeiras são das pagas).
+  // Sem ela, as datas são relativas ao mês atual e já começam pelas parcelas em aberto.
+  const dateOffset = params.firstInstallmentDate ? paidCount : 0;
   const dates = buildInstallmentDates(
     params.firstInstallmentDate,
     params.firstInstallmentMonth,
     params.dueDay,
     params.periodicity,
-    remainingNeeded,
+    dateOffset + remainingNeeded,
   );
 
   for (let i = 0; i < remainingNeeded; i++) {
-    const dueDate = dates[i];
+    const dueDate = dates[dateOffset + i];
     const status = dueDate < today ? TransactionStatus.OVERDUE : TransactionStatus.PENDING;
 
     const data = {

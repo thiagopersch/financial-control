@@ -14,6 +14,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { DEBT_STATUS_BADGE_VARIANT, DEBT_STATUS_LABELS } from '@/lib/constants/debt-status';
 import type { DebtDTO } from '@/lib/queries/debts';
+import { getDebtProgress } from '@/lib/utils/debt-progress';
 import { AlertTriangle, Eye, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 
 interface DebtsCardProps {
@@ -31,8 +32,7 @@ const formatCurrency = (value: number) => {
 };
 
 export function DebtsCard({ debt, onView, onEdit, onDelete }: DebtsCardProps) {
-  const debtPaid = debt.initialValue - debt.currentValue;
-  const debtPercentage = debt.initialValue > 0 ? (debtPaid / debt.initialValue) * 100 : 0;
+  const { remaining: debtRemaining, percentage: debtPercentage } = getDebtProgress(debt);
 
   return (
     <Card>
@@ -108,7 +108,7 @@ export function DebtsCard({ debt, onView, onEdit, onDelete }: DebtsCardProps) {
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Falta Pagar:</span>
-            <span className="font-medium text-red-500">{formatCurrency(debt.currentValue)}</span>
+            <span className="font-medium text-red-500">{formatCurrency(debtRemaining)}</span>
           </div>
           {debt.interestRate && (
             <div className="flex justify-between text-sm">

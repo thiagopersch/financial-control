@@ -2,8 +2,15 @@
 
 import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
+import { createAuditLog } from '@/lib/services/audit';
 import { syncDebtInstallments } from '@/lib/services/debt-installments';
-import { resolveDebtStatusFromBalance } from '@/lib/services/debt-status';
+import { recalculateDebtTotals } from '@/lib/services/debt-totals';
+import { assertValidPaidBy } from '@/lib/services/paid-by';
+import {
+  competenceFromYearMonthString,
+  isSameCompetence,
+  isYearMonthString,
+} from '@/lib/utils/competence';
 import { DebtStatus, Periodicity, TransactionStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
@@ -30,12 +37,18 @@ const debtSchema = z.object({
 });
 
 const installmentSchema = z.object({
-  dueDate: z.coerce.date().optional(),
-  amount: z.coerce.number().positive('Valor deve ser maior que zero').optional(),
-  categoryId: z.string().min(1, 'Categoria é obrigatória').optional(),
-  accountId: z.string().min(1, 'Conta é obrigatória').nullable().optional(),
-  paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório').nullable().optional(),
+  date: z.coerce.date({ message: 'Data de vencimento inválida' }),
+  competence: z.string().refine(isYearMonthString, 'Competência inválida (MM/AAAA)'),
+  amount: z.coerce.number().positive('Valor deve ser maior que zero'),
+  status: z.enum(TransactionStatus),
+  paidAt: z.coerce.date().nullable().optional(),
+  paidById: z.string().nullable().optional(),
+  categoryId: z.string().min(1, 'Categoria é obrigatória'),
+  accountId: z.string().min(1, 'Conta é obrigatória'),
+  paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
   creditCardId: z.string().nullable().optional(),
+  costCenterId: z.string().nullable().optional(),
+  notes: z.string().max(255, 'Máximo de 255 caracteres').optional(),
 });
 
 const DEFAULT_DUE_DAY = 10;
@@ -252,19 +265,15 @@ export async function updateDebt(id: string, data: Partial<z.infer<typeof debtSc
         creditCardId,
       });
 
-      return updatedDebt;
+      // Total, valor atual e status saem das parcelas recém-sincronizadas.
+      return (await recalculateDebtTotals(tx, id)) ?? updatedDebt;
     });
-
-    // currentValue depends on initialValue, which may have just been recomputed above —
-    // resync it (and the derived status) now that the debt row reflects its new total.
-    await syncDebtCurrentValue(id);
-    const freshDebt = await prisma.debt.findUnique({ where: { id } });
 
     revalidatePath('/debts');
     revalidatePath(`/debts/${id}`);
     revalidatePath('/transactions');
     revalidatePath('/forecast');
-    return { success: true, data: serializeDebt(freshDebt ?? debt) };
+    return { success: true, data: serializeDebt(debt) };
   } catch (error) {
     console.error('Error updating debt:', error);
     return {
@@ -325,20 +334,7 @@ export async function syncDebtCurrentValue(debtId: string) {
       return { success: false, error: 'Dívida não encontrada' };
     }
 
-    const paidTransactions = await prisma.transaction.findMany({
-      where: { debtId, status: TransactionStatus.PAID },
-    });
-
-    const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
-    const newCurrentValue = Number(debt.initialValue) - totalPaid;
-
-    await prisma.debt.update({
-      where: { id: debtId },
-      data: {
-        currentValue: newCurrentValue,
-        status: resolveDebtStatusFromBalance(debt.status, newCurrentValue),
-      },
-    });
+    await prisma.$transaction((tx) => recalculateDebtTotals(tx, debtId));
 
     revalidatePath('/debts');
     revalidatePath(`/debts/${debtId}`);
@@ -351,83 +347,75 @@ export async function syncDebtCurrentValue(debtId: string) {
 
 export type UpdateInstallmentInput = z.infer<typeof installmentSchema>;
 
+/**
+ * Edita uma parcela com as mesmas regras da edição de transação: vencimento e
+ * competência independentes, status/pagamento e vínculo de "Pago por". Depois
+ * os totais da dívida são recalculados a partir das parcelas.
+ */
 export async function updateInstallment(transactionId: string, data: UpdateInstallmentInput) {
   try {
     const session = await requirePermission('transactions', 'UPDATE');
     const validated = installmentSchema.parse(data);
+    const workspaceId = session.user.workspaceId;
 
     const transaction = await prisma.transaction.findFirst({
-      where: {
-        id: transactionId,
-        workspaceId: session.user.workspaceId,
-        debtId: { not: null },
-      },
-      include: { debt: true },
+      where: { id: transactionId, workspaceId, debtId: { not: null } },
     });
 
-    if (!transaction) {
-      return { success: false, error: 'Transação não encontrada' };
+    if (!transaction || !transaction.debtId) {
+      return { success: false, error: 'Parcela não encontrada' };
     }
+    const debtId = transaction.debtId;
 
-    if (transaction.status === TransactionStatus.PAID) {
-      return {
-        success: false,
-        error: 'Não é possível editar uma parcela já paga. Preserve o histórico financeiro.',
-      };
-    }
+    const paidByError = await assertValidPaidBy(
+      workspaceId,
+      validated.paidById,
+      transaction.paidById,
+    );
+    if (paidByError) return { success: false, error: paidByError };
 
-    if (!transaction.debt || !transaction.debtId) {
-      return { success: false, error: 'Parcela não vinculada a uma dívida' };
-    }
+    // Mesma regra da transação: enquanto não foi movida, a competência de origem acompanha.
+    const competence = competenceFromYearMonthString(validated.competence);
+    const wasMoved = !isSameCompetence(transaction.competence, transaction.originalCompetence);
+    const isPaid = validated.status === TransactionStatus.PAID;
 
-    const updateData: any = {};
-    if (validated.dueDate) {
-      updateData.dueDate = validated.dueDate;
-      updateData.date = validated.dueDate;
-    }
-    if (validated.amount != null) {
-      updateData.amount = validated.amount;
-    }
-    if (validated.categoryId) {
-      updateData.categoryId = validated.categoryId;
-    }
-    if (validated.accountId !== undefined) {
-      updateData.accountId = validated.accountId;
-    }
-    if (validated.paymentMethodId !== undefined) {
-      updateData.paymentMethodId = validated.paymentMethodId;
-    }
-    if (validated.creditCardId !== undefined) {
-      updateData.creditCardId = validated.creditCardId;
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await tx.transaction.update({
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.transaction.update({
         where: { id: transactionId },
-        data: updateData,
+        data: {
+          amount: validated.amount,
+          date: validated.date,
+          dueDate: validated.date,
+          competence,
+          ...(wasMoved ? {} : { originalCompetence: competence }),
+          status: validated.status,
+          paidAt: isPaid ? (validated.paidAt ?? transaction.paidAt ?? new Date()) : null,
+          paidById: validated.paidById || null,
+          categoryId: validated.categoryId,
+          accountId: validated.accountId,
+          paymentMethodId: validated.paymentMethodId,
+          creditCardId: validated.creditCardId || null,
+          costCenterId: validated.costCenterId || null,
+          notes: validated.notes || null,
+        },
       });
 
-      const paidTransactions = await tx.transaction.findMany({
-        where: { debtId: transaction.debtId, status: TransactionStatus.PAID },
-      });
-      const debt = await tx.debt.findUnique({ where: { id: transaction.debtId! } });
-
-      if (debt) {
-        const totalPaid = paidTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
-        const newCurrentValue = Number(debt.initialValue) - totalPaid;
-        await tx.debt.update({
-          where: { id: debt.id },
-          data: {
-            currentValue: newCurrentValue,
-            status: resolveDebtStatusFromBalance(debt.status, newCurrentValue),
-          },
-        });
-      }
+      await recalculateDebtTotals(tx, debtId);
+      return u;
     });
 
-    revalidatePath(`/debts/${transaction.debtId}`);
+    await createAuditLog({
+      action: 'UPDATE_DEBT_INSTALLMENT',
+      entity: 'Transaction',
+      entityId: transactionId,
+      oldValue: transaction,
+      newValue: updated,
+    });
+
+    revalidatePath(`/debts/${debtId}`);
     revalidatePath('/debts');
     revalidatePath('/transactions');
+    revalidatePath('/dashboard');
     return { success: true };
   } catch (error) {
     console.error('Error updating installment:', error);

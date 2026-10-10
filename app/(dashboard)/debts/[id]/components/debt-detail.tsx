@@ -8,11 +8,15 @@ import { Progress } from '@/components/ui/progress';
 import { DEBT_STATUS_BADGE_VARIANT, DEBT_STATUS_LABELS } from '@/lib/constants/debt-status';
 import type { AccountDTO } from '@/lib/queries/accounts';
 import type { CategoryDTO } from '@/lib/queries/categories';
+import type { CostCenterDTO } from '@/lib/queries/cost-centers';
 import type { CreditCardDTO } from '@/lib/queries/credit-cards';
 import type { DebtDTO } from '@/lib/queries/debts';
 import type { PaymentMethodDTO } from '@/lib/queries/payment-methods';
 import type { DebtTransactionDTO } from '@/lib/queries/transactions';
+import type { WorkspaceUserOption } from '@/lib/queries/users';
 import { formatCurrency } from '@/lib/utils';
+import { formatCompetence } from '@/lib/utils/competence';
+import { getDebtProgress } from '@/lib/utils/debt-progress';
 import { PERIODICITY_LABELS } from '@/lib/constants/periodicity';
 import { Periodicity, TransactionStatus } from '@prisma/client';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -31,6 +35,8 @@ interface DebtDetailProps {
   categories: CategoryDTO[];
   paymentMethods: PaymentMethodDTO[];
   creditCards: CreditCardDTO[];
+  costCenters: CostCenterDTO[];
+  users: WorkspaceUserOption[];
 }
 
 export function DebtDetail({
@@ -40,13 +46,18 @@ export function DebtDetail({
   categories,
   paymentMethods,
   creditCards,
+  costCenters,
+  users,
 }: DebtDetailProps) {
   const router = useRouter();
   const [selectedTransaction, setSelectedTransaction] = useState<DebtTransactionDTO | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const debtPaid = debt.initialValue - debt.currentValue;
-  const debtPercentage = debt.initialValue > 0 ? (debtPaid / debt.initialValue) * 100 : 0;
+  const {
+    paid: debtPaid,
+    remaining: debtRemaining,
+    percentage: debtPercentage,
+  } = getDebtProgress(debt);
   const paidInstallments = transactions.filter((t) => t.status === TransactionStatus.PAID).length;
   const debtPeriodicity =
     debt.periodicity || (debt.installments && debt.installments > 1 ? Periodicity.MONTHLY : null);
@@ -82,9 +93,17 @@ export function DebtDetail({
         ),
     },
     {
-      accessorKey: 'date',
-      header: 'Data',
-      cell: ({ row }) => format(new Date(row.original.date), 'dd/MM/yyyy', { locale: ptBR }),
+      accessorKey: 'dueDate',
+      header: 'Vencimento',
+      cell: ({ row }) =>
+        format(new Date(row.original.dueDate ?? row.original.date), 'dd/MM/yyyy', {
+          locale: ptBR,
+        }),
+    },
+    {
+      accessorKey: 'competence',
+      header: 'Competência',
+      cell: ({ row }) => formatCompetence(row.original.competence),
     },
     {
       accessorKey: 'amount',
@@ -195,7 +214,7 @@ export function DebtDetail({
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Falta Pagar:</span>
-              <span className="font-medium text-red-500">{formatCurrency(debt.currentValue)}</span>
+              <span className="font-medium text-red-500">{formatCurrency(debtRemaining)}</span>
             </div>
             {debt.interestRate != null && (
               <div className="flex justify-between text-sm">
@@ -239,7 +258,7 @@ export function DebtDetail({
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Valor restante:</span>
-              <span className="font-medium text-red-500">{formatCurrency(debt.currentValue)}</span>
+              <span className="font-medium text-red-500">{formatCurrency(debtRemaining)}</span>
             </div>
             {debt.installments != null && (
               <div className="flex justify-between text-sm">
@@ -284,6 +303,8 @@ export function DebtDetail({
         categories={categories}
         paymentMethods={paymentMethods}
         creditCards={creditCards}
+        costCenters={costCenters}
+        users={users}
       />
     </div>
   );

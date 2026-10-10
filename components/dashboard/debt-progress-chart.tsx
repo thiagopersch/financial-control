@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { getDebtProgress } from '@/lib/utils/debt-progress';
 import Link from 'next/link';
 
 interface DebtProgressChartProps {
@@ -33,15 +34,12 @@ export function DebtProgressChart({ debts }: DebtProgressChartProps) {
       </CardHeader>
       <CardContent className="space-y-5">
         {debts.map((debt) => {
-          const paid = debt.initialValue - debt.currentValue;
-          const percentage = debt.initialValue > 0 ? (paid / debt.initialValue) * 100 : 0;
+          const { remaining, percentage } = getDebtProgress(debt);
           return (
             <div key={debt.id} className="space-y-1.5">
               <div className="flex items-center justify-between text-sm">
                 <span className="truncate font-medium">{debt.name}</span>
-                <span className="text-muted-foreground shrink-0">
-                  {formatCurrency(debt.currentValue)}
-                </span>
+                <span className="text-muted-foreground shrink-0">{formatCurrency(remaining)}</span>
               </div>
               <Progress value={percentage} className="h-2" />
               <p className="text-muted-foreground text-right text-xs">
