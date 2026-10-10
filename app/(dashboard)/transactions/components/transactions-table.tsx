@@ -41,6 +41,8 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { DeleteConfirmModal } from './delete-confirm-modal';
+import type { TransactionTotals } from '@/lib/utils/transaction-totals';
+import { TransactionsTotals } from './transactions-totals';
 
 type SerializedTransaction = Omit<Transaction, 'amount'> & {
   amount: number;
@@ -60,11 +62,7 @@ interface TransactionsTableProps {
   costCenters?: { id: string; name: string }[];
   canModify?: boolean;
   totalCount: number;
-  totalAmount: number;
-  totalExpenseAmount: number;
-  totalIncomeAmount: number;
-  expenseCount: number;
-  incomeCount: number;
+  totals: TransactionTotals;
   page: number;
   pageSize: number;
   paginationSlot?: HTMLDivElement | null;
@@ -145,10 +143,7 @@ export function TransactionsTable({
   costCenters = [],
   canModify,
   totalCount,
-  totalExpenseAmount,
-  totalIncomeAmount,
-  expenseCount,
-  incomeCount,
+  totals,
   page,
   pageSize,
   paginationSlot,
@@ -518,23 +513,13 @@ export function TransactionsTable({
         }}
         paginationSlot={paginationSlot}
         footer={
-          <TableRow className="dark:bg-accent bg-slate-50/50 font-semibold hover:bg-transparent">
-            <TableCell colSpan={columns.length - (canModify ? 2 : 1)}>
-              Total: {totalCount} transaç{totalCount === 1 ? 'ão' : 'ões'}
-            </TableCell>
-            <TableCell colSpan={canModify ? 2 : 1} className="text-right">
-              <div className="flex flex-col items-end gap-0.5">
-                <span className="text-rose-600 dark:text-rose-400">
-                  {expenseCount} Despesa{expenseCount === 1 ? '' : 's'}:{' '}
-                  {formatCurrency(totalExpenseAmount)}
-                </span>
-                <span className="text-emerald-600 dark:text-emerald-400">
-                  {incomeCount} Receita{incomeCount === 1 ? '' : 's'}:{' '}
-                  {formatCurrency(totalIncomeAmount)}
-                </span>
-              </div>
-            </TableCell>
-          </TableRow>
+          totalCount > 0 ? (
+            <TableRow className="dark:bg-accent bg-slate-50/50 hover:bg-transparent">
+              <TableCell colSpan={columns.length} className="p-3 whitespace-normal">
+                <TransactionsTotals totals={totals} totalCount={totalCount} />
+              </TableCell>
+            </TableRow>
+          ) : undefined
         }
       />
 

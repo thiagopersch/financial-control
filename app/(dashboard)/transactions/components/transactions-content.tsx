@@ -5,6 +5,7 @@ import type { WorkspaceUserOption } from '@/lib/queries/users';
 import { useState } from 'react';
 import { TransactionsHeader } from './transactions-header';
 import { TransactionsTable } from './transactions-table';
+import type { TransactionTotals } from '@/lib/utils/transaction-totals';
 
 interface TransactionsContentProps {
   categories: any[];
@@ -19,11 +20,7 @@ interface TransactionsContentProps {
   canModify?: boolean;
   transactions: any[];
   totalCount: number;
-  totalAmount: number;
-  totalExpenseAmount: number;
-  totalIncomeAmount: number;
-  expenseCount: number;
-  incomeCount: number;
+  totals: TransactionTotals;
   page: number;
   pageSize: number;
 }
@@ -41,11 +38,7 @@ export function TransactionsContent({
   canModify,
   transactions,
   totalCount,
-  totalAmount,
-  totalExpenseAmount,
-  totalIncomeAmount,
-  expenseCount,
-  incomeCount,
+  totals,
   page,
   pageSize,
 }: TransactionsContentProps) {
@@ -75,11 +68,7 @@ export function TransactionsContent({
           costCenters={costCenters}
           canModify={canModify}
           totalCount={totalCount}
-          totalAmount={totalAmount}
-          totalExpenseAmount={totalExpenseAmount}
-          totalIncomeAmount={totalIncomeAmount}
-          expenseCount={expenseCount}
-          incomeCount={incomeCount}
+          totals={totals}
           page={page}
           pageSize={pageSize}
           paginationSlot={paginationSlot}

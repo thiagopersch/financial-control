@@ -12,6 +12,7 @@ import { buildTransactionWhere } from '@/lib/queries/transactions';
 import { getWorkspaceUsers } from '@/lib/queries/users';
 import { parsePageSize } from '@/lib/constants/pagination';
 import { compareTransactionsDefault } from '@/lib/utils/transaction-order';
+import { summarizeTransactions } from '@/lib/utils/transaction-totals';
 import { getServerSession } from 'next-auth';
 
 export default async function TransactionsPage({
@@ -88,15 +89,8 @@ export default async function TransactionsPage({
   const sortedTransactions = [...allTransactions].sort(compareTransactionsDefault);
 
   const totalCount = sortedTransactions.length;
-  const totalAmount = sortedTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
-  const totalExpenseAmount = sortedTransactions
-    .filter((t) => t.type === 'EXPENSE')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-  const totalIncomeAmount = sortedTransactions
-    .filter((t) => t.type === 'INCOME')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-  const expenseCount = sortedTransactions.filter((t) => t.type === 'EXPENSE').length;
-  const incomeCount = sortedTransactions.filter((t) => t.type === 'INCOME').length;
+  // Totais de todas as transações filtradas (não só da página atual).
+  const totals = summarizeTransactions(sortedTransactions);
 
   const pageTransactions = sortedTransactions.slice((page - 1) * pageSize, page * pageSize);
 
@@ -129,11 +123,7 @@ export default async function TransactionsPage({
         canModify={hasPermission(session.user.permissions, 'transactions', 'CREATE')}
         transactions={transactions}
         totalCount={totalCount}
-        totalAmount={totalAmount}
-        totalExpenseAmount={totalExpenseAmount}
-        totalIncomeAmount={totalIncomeAmount}
-        expenseCount={expenseCount}
-        incomeCount={incomeCount}
+        totals={totals}
         page={page}
         pageSize={pageSize}
       />
