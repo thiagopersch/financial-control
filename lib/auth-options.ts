@@ -40,7 +40,7 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Usuário inativo. Fale com o administrador do workspace.');
         }
 
-        const { permissionProfileId, permissionProfileName, permissions } =
+        const { permissionProfileId, permissionProfileName, permissions, mustChangePassword } =
           await loadPermissionsForUser(user.id);
 
         return {
@@ -51,6 +51,7 @@ export const authOptions: NextAuthOptions = {
           permissionProfileId,
           permissionProfileName,
           permissions,
+          mustChangePassword,
         };
       },
     }),
@@ -63,6 +64,7 @@ export const authOptions: NextAuthOptions = {
         token.permissionProfileId = user.permissionProfileId;
         token.permissionProfileName = user.permissionProfileName;
         token.permissions = user.permissions;
+        token.mustChangePassword = user.mustChangePassword;
         return token;
       }
 
@@ -70,11 +72,12 @@ export const authOptions: NextAuthOptions = {
       // Perfil de Permissão feita pelo admin valha para o usuário afetado na
       // próxima navegação, sem precisar deslogar.
       if (token.id) {
-        const { permissionProfileId, permissionProfileName, permissions } =
+        const { permissionProfileId, permissionProfileName, permissions, mustChangePassword } =
           await loadPermissionsForUser(token.id as string);
         token.permissionProfileId = permissionProfileId;
         token.permissionProfileName = permissionProfileName;
         token.permissions = permissions;
+        token.mustChangePassword = mustChangePassword;
       }
 
       return token;
@@ -86,6 +89,7 @@ export const authOptions: NextAuthOptions = {
         session.user.permissionProfileId = token.permissionProfileId as string | null;
         session.user.permissionProfileName = token.permissionProfileName as string | null;
         session.user.permissions = (token.permissions as string[]) ?? [];
+        session.user.mustChangePassword = !!token.mustChangePassword;
       }
       return session;
     },

@@ -31,10 +31,8 @@ import * as z from 'zod';
 
 const loginSchema = z.object({
   email: z.email({ error: 'E-mail inválido' }),
-  password: z
-    .string()
-    .min(6, { error: 'A senha deve ter pelo menos 6 caracteres' })
-    .max(30, { error: 'A senha deve ter no máximo 30 caracteres' }),
+  // Só exige preenchimento: senhas criadas antes da regra forte continuam válidas no login.
+  password: z.string().min(1, { error: 'Informe a senha' }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -130,7 +128,7 @@ function LoginForm() {
                       id="password"
                       placeholder="••••••••"
                       disabled={isLoading}
-                      maxLength={30}
+                      maxLength={32}
                       {...field}
                     />
                   </FormControl>

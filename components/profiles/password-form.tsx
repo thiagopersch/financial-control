@@ -10,9 +10,11 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
+import { PasswordRequirements } from '@/components/ui/password-requirements';
 import { updatePassword } from '@/lib/actions/profiles';
 import { showError, showSuccess } from '@/lib/utils/toast';
+import { passwordSchema as strongPasswordSchema } from '@/lib/validations/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Lock } from 'lucide-react';
 import { useState } from 'react';
@@ -22,8 +24,8 @@ import * as z from 'zod';
 const passwordSchema = z
   .object({
     currentPassword: z.string().min(1, 'Informe a senha atual'),
-    newPassword: z.string().min(6, 'A nova senha deve ter pelo menos 6 caracteres'),
-    confirmPassword: z.string().min(6, 'Confirme a nova senha'),
+    newPassword: strongPasswordSchema(),
+    confirmPassword: z.string().min(1, 'Confirme a nova senha'),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
     message: 'As senhas não coincidem',
@@ -67,7 +69,10 @@ export function PasswordForm() {
           <Lock className="h-5 w-5 text-slate-500" />
           <div>
             <CardTitle className="text-lg">Alterar Senha</CardTitle>
-            <CardDescription>Use uma senha forte com pelo menos 6 caracteres.</CardDescription>
+            <CardDescription>
+              Use uma senha forte: 8 a 32 caracteres, com maiúscula, minúscula, número e caractere
+              especial.
+            </CardDescription>
           </div>
         </div>
       </CardHeader>
@@ -81,7 +86,7 @@ export function PasswordForm() {
                 <FormItem>
                   <FormLabel>Senha atual</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
+                    <PasswordInput placeholder="••••••••" maxLength={32} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -95,8 +100,9 @@ export function PasswordForm() {
                   <FormItem>
                     <FormLabel>Nova senha</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
+                      <PasswordInput placeholder="••••••••" maxLength={32} {...field} />
                     </FormControl>
+                    <PasswordRequirements value={field.value} className="sm:grid-cols-1" />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -108,7 +114,7 @@ export function PasswordForm() {
                   <FormItem>
                     <FormLabel>Confirmar nova senha</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
+                      <PasswordInput placeholder="••••••••" maxLength={32} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

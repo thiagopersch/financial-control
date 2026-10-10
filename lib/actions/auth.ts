@@ -2,16 +2,14 @@
 
 import prisma from '@/lib/prisma';
 import { ensureDefaultPermissionProfiles } from '@/lib/services/permission-profiles';
+import { passwordSchema } from '@/lib/validations/password';
 import bcrypt from 'bcryptjs';
 import * as z from 'zod';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   email: z.email('E-mail inválido'),
-  password: z
-    .string()
-    .min(6, 'A senha deve ter pelo menos 6 caracteres')
-    .max(30, 'A senha deve ter no máximo 30 caracteres'),
+  password: passwordSchema(),
   companyName: z.string().min(2, 'O nome da empresa deve ter pelo menos 2 caracteres'),
 });
 

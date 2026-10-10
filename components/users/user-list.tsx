@@ -5,23 +5,28 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toggleUserActive } from '@/lib/actions/users';
 import { hasPermission } from '@/lib/permissions/has-permission';
 import { cn } from '@/lib/utils';
 import { showError, showSuccess } from '@/lib/utils/toast';
-import type { PermissionProfile, User } from '@prisma/client';
+import type { PermissionProfile, Profile, User } from '@prisma/client';
 import { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowUpDown, ShieldCheck, User as UserIcon } from 'lucide-react';
+import { ArrowUpDown, KeyRound, ShieldCheck, User as UserIcon } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { DeleteUserModal } from './delete-user-modal';
+import { ResetPasswordModal } from './reset-password-modal';
 import { UserModal } from './user-modal';
 import { UsersHeader } from './users-header';
 
-type UserWithPermissionProfile = User & { permissionProfile: PermissionProfile | null };
+type UserWithPermissionProfile = Omit<User, 'password'> & {
+  permissionProfile: PermissionProfile | null;
+  profile: Profile | null;
+};
 
 interface UserListProps {
   users: UserWithPermissionProfile[];
@@ -41,6 +46,7 @@ export function UserList({ users, currentUserId }: UserListProps) {
   const [search, setSearch] = useState('');
   const [paginationSlot, setPaginationSlot] = useState<HTMLDivElement | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [resettingUser, setResettingUser] = useState<UserWithPermissionProfile | null>(null);
   const router = useRouter();
 
   const handleToggleActive = async (user: UserWithPermissionProfile, isActive: boolean) => {
@@ -175,6 +181,14 @@ export function UserList({ users, currentUserId }: UserListProps) {
             >
               {user.isActive ? 'Ativo' : 'Inativo'}
             </Badge>
+            {user.mustChangePassword && (
+              <Badge
+                variant="secondary"
+                className="gap-1 border-none bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+              >
+                <KeyRound className="h-3 w-3" /> Redefinição pendente
+              </Badge>
+            )}
           </div>
         );
       },
@@ -209,6 +223,24 @@ export function UserList({ users, currentUserId }: UserListProps) {
             onEdit={() => setEditingUser(user)}
             onDelete={() => setDeletingId(user.id)}
             disabledDelete={isSelf}
+            extraActions={
+              canUpdate && !isSelf ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setResettingUser(user)}
+                      aria-label="Gerar senha temporária"
+                      className="h-8 w-8 hover:bg-neutral-300 dark:hover:bg-neutral-700"
+                    >
+                      <KeyRound className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Gerar senha temporária</TooltipContent>
+                </Tooltip>
+              ) : undefined
+            }
           />
         );
       },
@@ -246,6 +278,7 @@ export function UserList({ users, currentUserId }: UserListProps) {
         onClose={() => setEditingUser(null)}
         initialData={editingUser}
       />
+      <ResetPasswordModal user={resettingUser} onClose={() => setResettingUser(null)} />
       <DeleteUserModal
         isOpen={!!deletingId}
         onClose={() => setDeletingId(null)}

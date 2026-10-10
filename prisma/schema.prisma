@@ -203,6 +203,8 @@ model User {
   workspaceId         String
   workspace           Workspace         @relation(fields: [workspaceId], references: [id])
   isActive            Boolean           @default(true)
+  /// Força a troca de senha no próximo login (senha provisória/temporária).
+  mustChangePassword  Boolean           @default(false)
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 

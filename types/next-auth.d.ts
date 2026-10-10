@@ -7,6 +7,7 @@ declare module 'next-auth' {
     permissionProfileId: string | null;
     permissionProfileName: string | null;
     permissions: string[];
+    mustChangePassword: boolean;
   }
 
   interface Session {
@@ -16,6 +17,7 @@ declare module 'next-auth' {
       permissionProfileId: string | null;
       permissionProfileName: string | null;
       permissions: string[];
+      mustChangePassword: boolean;
     };
   }
 }
@@ -27,5 +29,6 @@ declare module 'next-auth/jwt' {
     permissionProfileId: string | null;
     permissionProfileName: string | null;
     permissions: string[];
+    mustChangePassword: boolean;
   }
 }

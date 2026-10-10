@@ -2,13 +2,16 @@
 
 import { createUser, updateUser } from '@/lib/actions/users';
 import { showError, showSuccess } from '@/lib/utils/toast';
+import { passwordSchema } from '@/lib/validations/password';
 import * as z from 'zod';
 
 export const createUserSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   email: z.string().email('E-mail inválido'),
-  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
+  password: passwordSchema(),
   permissionProfileId: z.string().min(1, 'Selecione um perfil de permissão'),
+  isActive: z.boolean(),
+  mustChangePassword: z.boolean(),
 });
 
 export const updateUserSchema = z
@@ -18,6 +21,8 @@ export const updateUserSchema = z
     phone: z.string().optional().nullable(),
     notifyEmail: z.boolean().default(false),
     notifyWhatsapp: z.boolean().default(false),
+    isActive: z.boolean(),
+    mustChangePassword: z.boolean(),
   })
   .refine((data) => !data.notifyWhatsapp || !!data.phone, {
     message: 'Informe um telefone para ativar notificações via WhatsApp',
@@ -43,12 +48,17 @@ export function useUserForm({ user, onSuccess, onError }: UseUserFormOptions = {
         phone: user.profile?.phone || '',
         notifyEmail: user.profile?.notifyEmail || false,
         notifyWhatsapp: user.profile?.notifyWhatsapp || false,
+        isActive: user.isActive ?? true,
+        mustChangePassword: user.mustChangePassword ?? false,
       }
     : {
         name: '',
         email: '',
         password: '',
         permissionProfileId: '',
+        isActive: true,
+        // Senha definida pelo admin é provisória: por padrão o usuário troca no 1º acesso.
+        mustChangePassword: true,
       };
 
   async function handleSubmit(values: any) {
@@ -60,6 +70,8 @@ export function useUserForm({ user, onSuccess, onError }: UseUserFormOptions = {
           phone: values.phone,
           notifyEmail: values.notifyEmail,
           notifyWhatsapp: values.notifyWhatsapp,
+          isActive: values.isActive,
+          mustChangePassword: values.mustChangePassword,
         });
         if (result.success) {
           showSuccess('Usuário atualizado!', 'O usuário foi atualizado.');

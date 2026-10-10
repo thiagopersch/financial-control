@@ -1,6 +1,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
+import { normalizePermissionSelection } from '@/lib/permissions/permission-dependency';
 import { requirePermission } from '@/lib/permissions/require-permission';
 import { createAuditLog } from '@/lib/services/audit';
 import { assertPermissionProfileDeletable } from '@/lib/services/permission-profiles';
@@ -15,10 +16,24 @@ const permissionProfileSchema = z.object({
 
 type PermissionProfileFormValues = z.infer<typeof permissionProfileSchema>;
 
+/** Valida os ids recebidos e garante VIEW em todo recurso com Criar/Editar/Excluir. */
+async function normalizePermissionIds(permissionIds: string[]) {
+  const all = await prisma.permission.findMany({
+    select: { id: true, resource: true, action: true },
+  });
+  const normalized = normalizePermissionSelection(permissionIds, all);
+  if (normalized.length === 0) throw new Error('Selecione pelo menos uma permissão');
+  return normalized;
+}
+
 export async function createPermissionProfile(data: PermissionProfileFormValues) {
   try {
     const session = await requirePermission('permission-profiles', 'CREATE');
-    const validated = permissionProfileSchema.parse(data);
+    const parsed = permissionProfileSchema.parse(data);
+    const validated = {
+      ...parsed,
+      permissionIds: await normalizePermissionIds(parsed.permissionIds),
+    };
 
     const existing = await prisma.permissionProfile.findUnique({
       where: { workspaceId_name: { workspaceId: session.user.workspaceId, name: validated.name } },
@@ -60,7 +75,11 @@ export async function createPermissionProfile(data: PermissionProfileFormValues)
 export async function updatePermissionProfile(id: string, data: PermissionProfileFormValues) {
   try {
     const session = await requirePermission('permission-profiles', 'UPDATE');
-    const validated = permissionProfileSchema.parse(data);
+    const parsed = permissionProfileSchema.parse(data);
+    const validated = {
+      ...parsed,
+      permissionIds: await normalizePermissionIds(parsed.permissionIds),
+    };
 
     const current = await prisma.permissionProfile.findFirst({
       where: { id, workspaceId: session.user.workspaceId },

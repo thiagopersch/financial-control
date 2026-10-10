@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const PUBLIC_PATHS = ['/login', '/register'];
+const RESET_PASSWORD_PATH = '/reset-password';
 
 /**
  * Checagem otimista de autenticação/permissão nas rotas do dashboard. A
@@ -31,6 +32,16 @@ export async function proxy(request: NextRequest) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Senha provisória: só a página de redefinição fica acessível até a troca.
+  if (token.mustChangePassword) {
+    return pathname === RESET_PASSWORD_PATH
+      ? NextResponse.next()
+      : NextResponse.redirect(new URL(RESET_PASSWORD_PATH, request.url));
+  }
+  if (pathname === RESET_PASSWORD_PATH) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   const resource = resourceFromHref(pathname);

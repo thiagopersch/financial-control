@@ -42,3 +42,28 @@ export async function getPermissionProfiles(): Promise<PermissionProfileDTO[]> {
     return [];
   }
 }
+
+export async function getPermissionProfileById(id: string): Promise<PermissionProfileDTO | null> {
+  const session = await getServerSession(authOptions);
+  if (!session) return null;
+
+  const profile = await prisma.permissionProfile.findFirst({
+    where: { id, workspaceId: session.user.workspaceId },
+    include: {
+      permissions: { select: { permissionId: true } },
+      _count: { select: { users: true } },
+    },
+  });
+  if (!profile) return null;
+
+  return {
+    id: profile.id,
+    name: profile.name,
+    description: profile.description,
+    isSystem: profile.isSystem,
+    permissionIds: profile.permissions.map((p) => p.permissionId),
+    usersCount: profile._count.users,
+    createdAt: profile.createdAt.toISOString(),
+    updatedAt: profile.updatedAt.toISOString(),
+  };
+}

@@ -20,7 +20,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { register } from '@/lib/actions/auth';
+import { PasswordRequirements } from '@/components/ui/password-requirements';
 import { showError, showSuccess } from '@/lib/utils/toast';
+import { passwordSchema } from '@/lib/validations/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { signIn } from 'next-auth/react';
@@ -37,10 +39,7 @@ const registerSchema = z.object({
   email: z
     .email({ error: 'E-mail inválido' })
     .max(160, { error: 'E-mail deve ter no máximo 160 caracteres' }),
-  password: z
-    .string()
-    .min(6, { error: 'A senha deve ter pelo menos 6 caracteres' })
-    .max(32, { error: 'A senha deve ter no máximo 32 caracteres' }),
+  password: passwordSchema(),
   companyName: z
     .string()
     .min(2, { error: 'O nome da empresa deve ter pelo menos 2 caracteres' })
@@ -190,6 +189,7 @@ export default function RegisterPage() {
                       {...field}
                     />
                   </FormControl>
+                  <PasswordRequirements value={field.value} />
                   <FormMessage />
                 </FormItem>
               )}

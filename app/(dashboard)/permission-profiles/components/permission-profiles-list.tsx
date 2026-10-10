@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
 import { ListPageHeader } from '@/components/ui/list-page-header';
-import { useCrudDialogState } from '@/hooks/use-crud-dialog-state';
 import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
 import { deletePermissionProfile } from '@/lib/actions/permission-profiles';
 import { hasPermission } from '@/lib/permissions/has-permission';
@@ -15,8 +14,8 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ShieldCheck } from 'lucide-react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { PermissionProfileForm } from './permission-profile-form';
 
 interface PermissionProfilesListProps {
   profiles: PermissionProfileDTO[];
@@ -30,13 +29,10 @@ export function PermissionProfilesList({ profiles, onRefresh }: PermissionProfil
   const canUpdate = hasPermission(permissions, 'permission-profiles', 'UPDATE');
   const canDelete = hasPermission(permissions, 'permission-profiles', 'DELETE');
 
-  const {
-    selected: selectedProfile,
-    isFormOpen,
-    openCreate,
-    openEdit,
-    close,
-  } = useCrudDialogState<PermissionProfileDTO>();
+  const router = useRouter();
+  const openCreate = () => router.push('/permission-profiles/new');
+  const openEdit = (profile: PermissionProfileDTO) =>
+    router.push(`/permission-profiles/${profile.id}/edit`);
 
   const {
     isOpen: isDeleteOpen,
@@ -154,13 +150,6 @@ export function PermissionProfilesList({ profiles, onRefresh }: PermissionProfil
         data={filteredProfiles}
         emptyMessage="Nenhum perfil de permissão encontrado."
         paginationSlot={paginationSlot}
-      />
-
-      <PermissionProfileForm
-        isOpen={isFormOpen}
-        onClose={close}
-        profile={selectedProfile}
-        onSuccess={onRefresh}
       />
 
       <DeleteConfirmModal

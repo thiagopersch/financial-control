@@ -5,6 +5,8 @@ export interface LoadedPermissions {
   permissionProfileId: string | null;
   permissionProfileName: string | null;
   permissions: string[];
+  /** Senha provisória pendente de troca: sem permissões até redefinir. */
+  mustChangePassword: boolean;
 }
 
 /**
@@ -17,6 +19,7 @@ export async function loadPermissionsForUser(userId: string): Promise<LoadedPerm
     where: { id: userId },
     select: {
       isActive: true,
+      mustChangePassword: true,
       permissionProfile: {
         select: {
           id: true,
@@ -33,7 +36,23 @@ export async function loadPermissionsForUser(userId: string): Promise<LoadedPerm
 
   // Usuário desativado perde todas as permissões na próxima request, mesmo com sessão aberta.
   if (!user?.isActive || !user.permissionProfile) {
-    return { permissionProfileId: null, permissionProfileName: null, permissions: [] };
+    return {
+      permissionProfileId: null,
+      permissionProfileName: null,
+      permissions: [],
+      mustChangePassword: false,
+    };
+  }
+
+  // Com redefinição de senha pendente, o usuário não acessa nada além de /reset-password:
+  // sem permissões, toda Server Action/API com `requirePermission` também fica bloqueada.
+  if (user.mustChangePassword) {
+    return {
+      permissionProfileId: user.permissionProfile.id,
+      permissionProfileName: user.permissionProfile.name,
+      permissions: [],
+      mustChangePassword: true,
+    };
   }
 
   return {
@@ -42,5 +61,6 @@ export async function loadPermissionsForUser(userId: string): Promise<LoadedPerm
     permissions: user.permissionProfile.permissions.map(({ permission }) =>
       permissionKey(permission.resource, permission.action),
     ),
+    mustChangePassword: false,
   };
 }

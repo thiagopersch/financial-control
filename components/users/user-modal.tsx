@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FormDialog } from '@/components/ui/form-dialog';
 import {
@@ -12,11 +13,17 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/password-input';
+import { PasswordRequirements } from '@/components/ui/password-requirements';
 import { SelectSearch } from '@/components/ui/select-search';
+import { Switch } from '@/components/ui/switch';
 import { usePermissionProfiles } from '@/hooks/use-permission-profiles';
 import { useUserForm } from '@/hooks/forms/use-user-form';
+import { generateTemporaryPassword } from '@/lib/utils/password-generator';
 import { maskPhone } from '@/lib/utils/phone';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { WandSparkles } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -29,6 +36,8 @@ interface UserModalProps {
 export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { profiles } = usePermissionProfiles();
+  const { data: session } = useSession();
+  const isSelf = !!initialData && initialData.id === session?.user?.id;
 
   const profileOptions = useMemo(
     () => profiles.map((profile) => ({ value: profile.id, label: profile.name })),
@@ -50,9 +59,18 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
         phone: initialData.profile?.phone || '',
         notifyEmail: initialData.profile?.notifyEmail || false,
         notifyWhatsapp: initialData.profile?.notifyWhatsapp || false,
+        isActive: initialData.isActive ?? true,
+        mustChangePassword: initialData.mustChangePassword ?? false,
       };
     }
-    return { name: '', email: '', password: '', permissionProfileId: '' };
+    return {
+      name: '',
+      email: '',
+      password: '',
+      permissionProfileId: '',
+      isActive: true,
+      mustChangePassword: true,
+    };
   }, [initialData]);
 
   const form = useForm({
@@ -121,10 +139,32 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Senha provisória</FormLabel>
+                    <div className="flex items-center justify-between gap-2">
+                      <FormLabel>Senha provisória</FormLabel>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() =>
+                          form.setValue('password', generateTemporaryPassword(), {
+                            shouldValidate: true,
+                            shouldDirty: true,
+                          })
+                        }
+                      >
+                        <WandSparkles className="h-3.5 w-3.5" /> Gerar senha
+                      </Button>
+                    </div>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
+                      <PasswordInput
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        maxLength={32}
+                        {...field}
+                      />
                     </FormControl>
+                    <PasswordRequirements value={field.value ?? ''} />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -150,6 +190,56 @@ export function UserModal({ isOpen, onClose, initialData }: UserModalProps) {
               </FormItem>
             )}
           />
+          <div className="space-y-3 rounded-lg border p-4">
+            <p className="text-sm font-medium">Acesso</p>
+            <FormField
+              control={form.control}
+              name="isActive"
+              render={({ field }) => (
+                <div className="flex items-center justify-between gap-3">
+                  <Label
+                    htmlFor="user-isActive"
+                    className="cursor-pointer flex-col items-start gap-0.5"
+                  >
+                    <span>Ativo</span>
+                    <span className="text-muted-foreground text-xs font-normal">
+                      Usuários inativos não conseguem acessar o sistema.
+                    </span>
+                  </Label>
+                  <Switch
+                    id="user-isActive"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    disabled={isSelf}
+                  />
+                </div>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="mustChangePassword"
+              render={({ field }) => (
+                <div className="flex items-start space-x-2">
+                  <Checkbox
+                    id="user-mustChangePassword"
+                    checked={field.value}
+                    onCheckedChange={(checked) => field.onChange(!!checked)}
+                    disabled={isSelf}
+                    className="mt-0.5"
+                  />
+                  <Label
+                    htmlFor="user-mustChangePassword"
+                    className="cursor-pointer flex-col items-start gap-0.5"
+                  >
+                    <span>Forçar redefinição de senha no próximo login</span>
+                    <span className="text-muted-foreground text-xs font-normal">
+                      O acesso ao sistema só é liberado depois que o usuário definir uma nova senha.
+                    </span>
+                  </Label>
+                </div>
+              )}
+            />
+          </div>
           {isEditing && (
             <>
               <FormField

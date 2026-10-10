@@ -1,7 +1,12 @@
 'use server';
 
 import { authOptions } from '@/lib/auth-options';
+import { getFirstAllowedRoute } from '@/lib/permissions/first-allowed-route';
+import { loadPermissionsForUser } from '@/lib/permissions/load-permissions';
 import prisma from '@/lib/prisma';
+import { createAuditLog } from '@/lib/services/audit';
+import { passwordSchema, resetPasswordSchema } from '@/lib/validations/password';
+import bcrypt from 'bcryptjs';
 import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
@@ -62,19 +67,73 @@ export async function updatePassword(data: { currentPassword: string; newPasswor
   const session = await getServerSession(authOptions);
   if (!session) return { success: false, error: 'Não autorizado' };
 
-  const bcrypt = await import('bcryptjs');
-
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) return { success: false, error: 'Usuário não encontrado' };
 
   const isValid = await bcrypt.compare(data.currentPassword, user.password);
   if (!isValid) return { success: false, error: 'Senha atual incorreta' };
 
-  if (data.newPassword.length < 6)
-    return { success: false, error: 'A nova senha deve ter pelo menos 6 caracteres' };
+  const parsed = passwordSchema().safeParse(data.newPassword);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? 'Senha inválida' };
+  }
 
   const hashed = await bcrypt.hash(data.newPassword, 10);
   await prisma.user.update({ where: { id: session.user.id }, data: { password: hashed } });
 
   return { success: true };
+}
+
+/**
+ * Conclui a redefinição obrigatória (senha provisória/temporária). O usuário é sempre
+ * o da sessão; devolve a primeira página que ele pode visualizar para o redirecionamento.
+ */
+export async function completeForcedPasswordReset(data: {
+  newPassword: string;
+  confirmPassword: string;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return { success: false as const, error: 'Sessão inválida' };
+
+    const parsed = resetPasswordSchema.safeParse(data);
+    if (!parsed.success) {
+      return {
+        success: false as const,
+        error: parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, password: true, mustChangePassword: true, isActive: true },
+    });
+    if (!user || !user.isActive) return { success: false as const, error: 'Sessão inválida' };
+    if (!user.mustChangePassword) {
+      return { success: false as const, error: 'Não há redefinição de senha pendente' };
+    }
+
+    if (await bcrypt.compare(parsed.data.newPassword, user.password)) {
+      return {
+        success: false as const,
+        error: 'A nova senha deve ser diferente da senha provisória',
+      };
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: await bcrypt.hash(parsed.data.newPassword, 10),
+        mustChangePassword: false,
+      },
+    });
+
+    await createAuditLog({ action: 'COMPLETE_PASSWORD_RESET', entity: 'User', entityId: user.id });
+
+    const { permissions } = await loadPermissionsForUser(user.id);
+    return { success: true as const, redirectTo: getFirstAllowedRoute(permissions) };
+  } catch (error) {
+    console.error('Error completing forced password reset:', error);
+    return { success: false as const, error: 'Erro ao redefinir a senha' };
+  }
 }
