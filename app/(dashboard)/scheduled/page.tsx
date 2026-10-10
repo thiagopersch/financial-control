@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CalendarClock, Play, Pause } from 'lucide-react';
+import { CalendarClock, CreditCard, FileText, Play, Pause } from 'lucide-react';
 import { ScheduledCard } from '@/components/scheduled/scheduled-card';
 import {
   AlertDialog,
@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
 import { FormDialog } from '@/components/ui/form-dialog';
+import { FormTabContent, FormTabsList, type FormTabDefinition } from '@/components/ui/form-tabs';
+import { Tabs } from '@/components/ui/tabs';
 import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
@@ -44,11 +46,18 @@ import { useDeleteConfirm } from '@/hooks/use-delete-confirm';
 import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 import { hasPermission } from '@/lib/permissions/has-permission';
 import { matchesMulti, parseMultiParam, serializeMultiParam } from '@/lib/utils/filter-params';
-import { showError, showSuccess } from '@/lib/utils/toast';
+import {
+  findFirstTabWithError,
+  focusFirstInvalidField,
+  getInvalidFieldLabels,
+  getTabsWithErrors,
+  type TabFieldMap,
+} from '@/lib/utils/form-tabs';
+import { showError, showSuccess, showWarning } from '@/lib/utils/toast';
 import { useSession } from 'next-auth/react';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { z } from 'zod';
 import {
   useScheduledTransactions,
@@ -72,9 +81,14 @@ import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 const scheduledSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   type: z.enum(['INCOME', 'EXPENSE']),
-  amount: z.string().min(1, 'Valor é obrigatório'),
+  amount: z.string().refine((value) => Number(value) > 0, 'Valor deve ser maior que zero'),
   frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'BUSINESS_DAYS']),
-  dayOfMonth: z.string().min(1, 'Dia do mês é obrigatório'),
+  dayOfMonth: z
+    .string()
+    .refine(
+      (value) => Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 31,
+      'Dia do mês deve ser entre 1 e 31',
+    ),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
   accountId: z.string().min(1, 'Conta é obrigatória'),
   paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
@@ -89,6 +103,48 @@ function coerceSelectChange(onChange: (value: string) => void) {
 }
 
 type ScheduledFormData = z.infer<typeof scheduledSchema>;
+
+/** Cartão é obrigatório quando o meio de pagamento escolhido é de cartão de crédito. */
+function buildScheduledSchema(creditCardMethodIds: Set<string>) {
+  return scheduledSchema.superRefine((data, ctx) => {
+    if (creditCardMethodIds.has(data.paymentMethodId) && !data.creditCardId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['creditCardId'],
+        message: 'Cartão é obrigatório para este meio de pagamento',
+      });
+    }
+  });
+}
+
+type ScheduledTab = 'identification' | 'schedule' | 'payment';
+
+const SCHEDULED_TABS: readonly FormTabDefinition<ScheduledTab>[] = [
+  { value: 'identification', label: 'Identificação', icon: <FileText /> },
+  { value: 'schedule', label: 'Agendamento', icon: <CalendarClock /> },
+  { value: 'payment', label: 'Pagamento', icon: <CreditCard /> },
+];
+
+const SCHEDULED_TAB_ORDER = SCHEDULED_TABS.map((tab) => tab.value);
+
+const SCHEDULED_TAB_FIELDS: TabFieldMap<ScheduledTab> = {
+  identification: ['name', 'type', 'amount', 'categoryId', 'supplierId'],
+  schedule: ['frequency', 'dayOfMonth'],
+  payment: ['accountId', 'paymentMethodId', 'creditCardId'],
+};
+
+const SCHEDULED_FIELD_LABELS: Record<string, string> = {
+  name: 'Nome',
+  type: 'Tipo',
+  amount: 'Valor',
+  categoryId: 'Categoria',
+  supplierId: 'Fornecedor',
+  frequency: 'Frequência',
+  dayOfMonth: 'Dia do mês',
+  accountId: 'Conta',
+  paymentMethodId: 'Meio de pagamento',
+  creditCardId: 'Cartão',
+};
 
 const TYPE_FILTER_OPTIONS: MultiSelectOption[] = [
   { value: 'INCOME', label: 'Receita', color: '#10b981' },
@@ -112,6 +168,7 @@ const STATUS_FILTER_OPTIONS: MultiSelectOption[] = [
 
 export default function ScheduledPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<ScheduledTab>('identification');
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
@@ -179,8 +236,15 @@ export default function ScheduledPage() {
     onSuccess: () => refresh(),
   });
 
+  // Meios de pagamento chegam via SWR depois do mount: o resolver lê a lista atual por ref.
+  const creditCardMethodIdsRef = useRef<Set<string>>(new Set());
+  creditCardMethodIdsRef.current = new Set(
+    paymentMethods.filter((pm) => pm.isCreditCard).map((pm) => pm.id),
+  );
+
   const form = useForm<ScheduledFormData>({
-    resolver: zodResolver(scheduledSchema),
+    resolver: (values, context, options) =>
+      zodResolver(buildScheduledSchema(creditCardMethodIdsRef.current))(values, context, options),
     defaultValues: {
       name: '',
       type: 'EXPENSE',
@@ -240,18 +304,21 @@ export default function ScheduledPage() {
 
   const closeDialog = () => {
     setIsDialogOpen(false);
+    setActiveTab('identification');
     setEditingId(null);
     form.reset();
   };
 
   const openCreate = () => {
     setEditingId(null);
+    setActiveTab('identification');
     form.reset();
     setIsDialogOpen(true);
   };
 
   const openEdit = (item: ScheduledTransaction) => {
     setEditingId(item.id);
+    setActiveTab('identification');
     form.reset({
       name: item.name,
       type: item.type as 'INCOME' | 'EXPENSE',
@@ -268,13 +335,6 @@ export default function ScheduledPage() {
   };
 
   const handleSubmit = async (data: ScheduledFormData) => {
-    if (selectedPaymentMethod?.isCreditCard && !data.creditCardId) {
-      form.setError('creditCardId', {
-        message: 'Cartão é obrigatório para este meio de pagamento',
-      });
-      return;
-    }
-
     try {
       const payload = {
         name: data.name,
@@ -335,9 +395,25 @@ export default function ScheduledPage() {
     }
   };
 
+  const errorTabs = getTabsWithErrors(form.formState.errors, SCHEDULED_TAB_FIELDS);
+
+  /** Lista os campos pendentes e leva o usuário à aba do primeiro deles. */
+  const onInvalid = (errors: FieldErrors<ScheduledFormData>) => {
+    const labels = getInvalidFieldLabels(
+      errors,
+      SCHEDULED_TAB_FIELDS,
+      SCHEDULED_TAB_ORDER,
+      SCHEDULED_FIELD_LABELS,
+    );
+    showWarning('Preencha os campos obrigatórios', labels.join(', '));
+    const tab = findFirstTabWithError(errors, SCHEDULED_TAB_FIELDS, SCHEDULED_TAB_ORDER);
+    if (tab) setActiveTab(tab);
+    focusFirstInvalidField(document.querySelector<HTMLElement>('[role="dialog"]'));
+  };
+
   const onSubmit = form.handleSubmit(async (data) => {
     await handleSubmit(data);
-  });
+  }, onInvalid);
 
   const toggleActive = async (id: string, currentStatus: boolean) => {
     try {
@@ -590,274 +666,290 @@ export default function ScheduledPage() {
         isSubmitting={form.formState.isSubmitting}
       >
         <Form {...form}>
-          <div className="space-y-4">
-            <p className="bg-muted/50 text-muted-foreground rounded-lg border p-3 text-xs">
-              Uma transação pendente é gerada automaticamente sempre que a data de execução for
-              atingida, seguindo a frequência escolhida.
-            </p>
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel required>Nome</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Aluguel, Salário" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ScheduledTab)}>
+            <FormTabsList tabs={SCHEDULED_TABS} errorTabs={errorTabs} />
+
+            <FormTabContent value="identification">
+              <p className="bg-muted/50 text-muted-foreground rounded-lg border p-3 text-xs">
+                Uma transação pendente é gerada automaticamente sempre que a data de execução for
+                atingida, seguindo a frequência escolhida.
+              </p>
               <FormField
                 control={form.control}
-                name="type"
+                name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Tipo</FormLabel>
-                    <Select onValueChange={coerceSelectChange(field.onChange)} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="INCOME">
-                          <div className="flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                            Receita
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="EXPENSE">
-                          <div className="flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-rose-500" />
-                            Despesa
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => {
-                  const displayValue = field.value
-                    ? Number(field.value).toLocaleString('pt-BR', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })
-                    : '';
-                  return (
-                    <FormItem>
-                      <FormLabel>Valor</FormLabel>
-                      <FormControl>
-                        <Input
-                          inputMode="decimal"
-                          placeholder="0,00"
-                          value={displayValue}
-                          onChange={(e) => {
-                            const digits = e.target.value.replace(/\D/g, '');
-                            const numeric = digits ? parseInt(digits, 10) / 100 : 0;
-                            field.onChange(String(numeric));
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  );
-                }}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-              <FormField
-                control={form.control}
-                name="frequency"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel required className="flex items-center gap-1">
-                      Frequência
-                      <InfoTooltip text="Com que intervalo a transação deve ser gerada: diariamente, semanalmente, mensalmente (usa o 'Dia do mês' abaixo) ou apenas em dias úteis." />
-                    </FormLabel>
-                    <Select onValueChange={coerceSelectChange(field.onChange)} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="DAILY">Diário</SelectItem>
-                        <SelectItem value="WEEKLY">Semanal</SelectItem>
-                        <SelectItem value="MONTHLY">Mensal</SelectItem>
-                        <SelectItem value="BUSINESS_DAYS">Dias úteis</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="dayOfMonth"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-1">
-                      Dia do mês
-                      <InfoTooltip text="Usado apenas quando a frequência é 'Mensal': dia (1 a 31) em que a transação será gerada todo mês." />
-                    </FormLabel>
+                    <FormLabel required>Nome</FormLabel>
                     <FormControl>
-                      <Input type="number" min="1" max="31" {...field} />
+                      <Input placeholder="Ex: Aluguel, Salário" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
-            <FormField
-              control={form.control}
-              name="categoryId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel required>Categoria</FormLabel>
-                  <FormControl>
-                    <SelectSearch
-                      options={filteredCategories.map((cat) => ({
-                        value: cat.id,
-                        label: cat.name,
-                        icon: (
-                          <div
-                            className="h-2 w-2 shrink-0 rounded-full"
-                            style={{ backgroundColor: cat.color || '#666' }}
-                          />
-                        ),
-                      }))}
-                      value={field.value}
-                      onValueChange={(v) => field.onChange(v ?? '')}
-                      placeholder="Selecione uma categoria"
-                      emptyText="Nenhuma categoria encontrada."
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="supplierId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel required>Fornecedor</FormLabel>
-                  <FormControl>
-                    <SelectSearch
-                      options={suppliers.map((sup) => ({ value: sup.id, label: sup.name }))}
-                      value={field.value}
-                      onValueChange={(v) => field.onChange(v ?? '')}
-                      placeholder="Selecione um fornecedor"
-                      emptyText="Nenhum fornecedor encontrado."
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="accountId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel required>Conta</FormLabel>
-                  <FormControl>
-                    <SelectSearch
-                      options={accounts.map((acc) => ({
-                        value: acc.id,
-                        label: acc.name,
-                        icon: (
-                          <div
-                            className="h-2 w-2 shrink-0 rounded-full"
-                            style={{ backgroundColor: acc.color || '#94a3b8' }}
-                          />
-                        ),
-                      }))}
-                      value={field.value}
-                      onValueChange={(v) => field.onChange(v ?? '')}
-                      placeholder="Selecione a conta"
-                      emptyText="Nenhuma conta encontrada."
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-              <FormField
-                control={form.control}
-                name="paymentMethodId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel required>Meio de Pagamento</FormLabel>
-                    <Select
-                      onValueChange={(v) => {
-                        field.onChange(v ?? '');
-                        form.setValue('creditCardId', null);
-                      }}
-                      value={field.value}
-                      disabled={!selectedAccountId}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue
-                            placeholder={
-                              selectedAccountId
-                                ? 'Selecione o meio de pagamento'
-                                : 'Selecione a conta primeiro'
-                            }
-                          />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {accountPaymentMethods.length === 0 && (
-                          <div className="text-muted-foreground px-2 py-1.5 text-sm">
-                            Nenhum meio de pagamento vinculado a esta conta.
-                          </div>
-                        )}
-                        {accountPaymentMethods.map((pm) => (
-                          <SelectItem key={pm.id} value={pm.id}>
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="h-2 w-2 rounded-full"
-                                style={{ backgroundColor: pm.color || '#6366f1' }}
-                              />
-                              {pm.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {selectedPaymentMethod?.isCreditCard && (
+              <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
                 <FormField
                   control={form.control}
-                  name="creditCardId"
+                  name="type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Cartão</FormLabel>
-                      <CreditCardSelect
-                        cards={accountCreditCards}
+                      <FormLabel required>Tipo</FormLabel>
+                      <Select
+                        onValueChange={coerceSelectChange(field.onChange)}
                         value={field.value}
-                        onValueChange={field.onChange}
-                      />
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="INCOME">
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                              Receita
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="EXPENSE">
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-2 rounded-full bg-rose-500" />
+                              Despesa
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              )}
-            </div>
-          </div>
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({ field }) => {
+                    const displayValue = field.value
+                      ? Number(field.value).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : '';
+                    return (
+                      <FormItem>
+                        <FormLabel required>Valor</FormLabel>
+                        <FormControl>
+                          <Input
+                            inputMode="decimal"
+                            placeholder="0,00"
+                            value={displayValue}
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/\D/g, '');
+                              const numeric = digits ? parseInt(digits, 10) / 100 : 0;
+                              field.onChange(String(numeric));
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="categoryId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel required>Categoria</FormLabel>
+                    <FormControl>
+                      <SelectSearch
+                        options={filteredCategories.map((cat) => ({
+                          value: cat.id,
+                          label: cat.name,
+                          icon: (
+                            <div
+                              className="h-2 w-2 shrink-0 rounded-full"
+                              style={{ backgroundColor: cat.color || '#666' }}
+                            />
+                          ),
+                        }))}
+                        value={field.value}
+                        onValueChange={(v) => field.onChange(v ?? '')}
+                        placeholder="Selecione uma categoria"
+                        emptyText="Nenhuma categoria encontrada."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="supplierId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel required>Fornecedor</FormLabel>
+                    <FormControl>
+                      <SelectSearch
+                        options={suppliers.map((sup) => ({ value: sup.id, label: sup.name }))}
+                        value={field.value}
+                        onValueChange={(v) => field.onChange(v ?? '')}
+                        placeholder="Selecione um fornecedor"
+                        emptyText="Nenhum fornecedor encontrado."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </FormTabContent>
+
+            <FormTabContent value="schedule">
+              <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+                <FormField
+                  control={form.control}
+                  name="frequency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required className="flex items-center gap-1">
+                        Frequência
+                        <InfoTooltip text="Com que intervalo a transação deve ser gerada: diariamente, semanalmente, mensalmente (usa o 'Dia do mês' abaixo) ou apenas em dias úteis." />
+                      </FormLabel>
+                      <Select
+                        onValueChange={coerceSelectChange(field.onChange)}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="DAILY">Diário</SelectItem>
+                          <SelectItem value="WEEKLY">Semanal</SelectItem>
+                          <SelectItem value="MONTHLY">Mensal</SelectItem>
+                          <SelectItem value="BUSINESS_DAYS">Dias úteis</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="dayOfMonth"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required className="flex items-center gap-1">
+                        Dia do mês
+                        <InfoTooltip text="Usado apenas quando a frequência é 'Mensal': dia (1 a 31) em que a transação será gerada todo mês." />
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="number" min="1" max="31" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </FormTabContent>
+
+            <FormTabContent value="payment">
+              <FormField
+                control={form.control}
+                name="accountId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel required>Conta</FormLabel>
+                    <FormControl>
+                      <SelectSearch
+                        options={accounts.map((acc) => ({
+                          value: acc.id,
+                          label: acc.name,
+                          icon: (
+                            <div
+                              className="h-2 w-2 shrink-0 rounded-full"
+                              style={{ backgroundColor: acc.color || '#94a3b8' }}
+                            />
+                          ),
+                        }))}
+                        value={field.value}
+                        onValueChange={(v) => field.onChange(v ?? '')}
+                        placeholder="Selecione a conta"
+                        emptyText="Nenhuma conta encontrada."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+                <FormField
+                  control={form.control}
+                  name="paymentMethodId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required>Meio de Pagamento</FormLabel>
+                      <Select
+                        onValueChange={(v) => {
+                          field.onChange(v ?? '');
+                          form.setValue('creditCardId', null);
+                        }}
+                        value={field.value}
+                        disabled={!selectedAccountId}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue
+                              placeholder={
+                                selectedAccountId
+                                  ? 'Selecione o meio de pagamento'
+                                  : 'Selecione a conta primeiro'
+                              }
+                            />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {accountPaymentMethods.length === 0 && (
+                            <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                              Nenhum meio de pagamento vinculado a esta conta.
+                            </div>
+                          )}
+                          {accountPaymentMethods.map((pm) => (
+                            <SelectItem key={pm.id} value={pm.id}>
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="h-2 w-2 rounded-full"
+                                  style={{ backgroundColor: pm.color || '#6366f1' }}
+                                />
+                                {pm.name}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {selectedPaymentMethod?.isCreditCard && (
+                  <FormField
+                    control={form.control}
+                    name="creditCardId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel required>Cartão</FormLabel>
+                        <CreditCardSelect
+                          cards={accountCreditCards}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
+            </FormTabContent>
+          </Tabs>
         </Form>
       </FormDialog>
 

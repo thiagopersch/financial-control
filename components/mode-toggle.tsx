@@ -1,41 +1,48 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Monitor, Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/app/theme-provider';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Monitor, Moon, Sun } from 'lucide-react';
+import { useSyncExternalStore } from 'react';
 
+const THEME_ORDER = ['light', 'dark', 'system'] as const;
+type ThemeOption = (typeof THEME_ORDER)[number];
+
+const THEME_META: Record<ThemeOption, { label: string; icon: typeof Sun }> = {
+  light: { label: 'Claro', icon: Sun },
+  dark: { label: 'Escuro', icon: Moon },
+  system: { label: 'Sistema', icon: Monitor },
+};
+
+const subscribe = () => () => {};
+
+/** Alterna o tema a cada clique: Claro → Escuro → Sistema. */
 export function ModeToggle() {
-  const { setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
+  // O tema salvo só existe no client; antes de hidratar mostra o ícone de "Sistema".
+  const mounted = useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false,
+  );
+
+  const current: ThemeOption = mounted ? theme : 'system';
+  const next = THEME_ORDER[(THEME_ORDER.indexOf(current) + 1) % THEME_ORDER.length];
+  const CurrentIcon = THEME_META[current].icon;
+  const label = `Tema: ${THEME_META[current].label} (clique para ${THEME_META[next].label})`;
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon">
-          <Sun className="h-5 w-5 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-          <Moon className="absolute h-5 w-5 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
-          <span className="sr-only">Mudar tema</span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="outline" size="icon" onClick={() => setTheme(next)} aria-label={label}>
+          <CurrentIcon
+            key={current}
+            className="animate-in fade-in zoom-in-75 h-5 w-5 duration-200"
+          />
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme('light')}>
-          <Sun className="mr-2 h-4 w-4" />
-          Claro
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('dark')}>
-          <Moon className="mr-2 h-4 w-4" />
-          Escuro
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('system')}>
-          <Monitor className="mr-2 h-4 w-4" />
-          Sistema
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }

@@ -7,6 +7,7 @@ import { NotificationChannel, NotificationType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 import { blockTreeSchema } from '@/lib/notification-templates/block-schema';
+import { TEMPLATE_IMAGE_URL_REGEX } from '@/lib/notification-templates/image-url';
 
 const notificationTemplateSchema = z
   .object({
@@ -17,7 +18,7 @@ const notificationTemplateSchema = z
     bodyHtml: z.string().optional().default(''),
     bodyWhatsapp: z.string().optional().default(''),
     content: blockTreeSchema.nullable().optional().default(null),
-    imageUrl: z.string().nullable().optional(),
+    imageUrl: z.string().regex(TEMPLATE_IMAGE_URL_REGEX, 'Imagem inválida').nullable().optional(),
     isActive: z.boolean().optional().default(true),
   })
   .refine((data) => data.channel !== NotificationChannel.EMAIL || data.subject.length > 0, {
@@ -34,6 +35,21 @@ const notificationTemplateSchema = z
   });
 
 export type NotificationTemplateFormValues = z.infer<typeof notificationTemplateSchema>;
+
+const notificationTemplateUpdateSchema = z
+  .object({
+    name: z.string().min(1, 'Nome é obrigatório'),
+    type: z.enum(NotificationType),
+    channel: z.enum(NotificationChannel),
+    subject: z.string(),
+    bodyHtml: z.string(),
+    bodyWhatsapp: z.string(),
+    content: blockTreeSchema.nullable(),
+    imageUrl: z.string().regex(TEMPLATE_IMAGE_URL_REGEX, 'Imagem inválida').nullable(),
+    isActive: z.boolean(),
+  })
+  .partial()
+  .strict();
 
 export async function createNotificationTemplate(data: NotificationTemplateFormValues) {
   try {
@@ -79,11 +95,13 @@ export async function updateNotificationTemplate(
     });
     if (!current) return { success: false, error: 'Template não encontrado' };
 
+    // Só campos editáveis e validados: nunca repassar o objeto recebido (mass assignment).
+    const validated = notificationTemplateUpdateSchema.parse(data);
     const template = await prisma.notificationTemplate.update({
       where: { id, userId: session.user.id, workspaceId: session.user.workspaceId },
       data: {
-        ...data,
-        content: data.content === undefined ? undefined : (data.content ?? undefined),
+        ...validated,
+        content: validated.content === undefined ? undefined : (validated.content ?? undefined),
       },
     });
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { DatePicker } from '@/components/ui/date-picker';
+import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker';
 import { FilterField, FilterPanel } from '@/components/ui/filter-panel';
 import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-select';
 import { PAID_BY_NONE, parseMultiParam, setMultiParam } from '@/lib/utils/filter-params';
@@ -43,8 +43,11 @@ export function Filters({
   accounts,
   users = [],
 }: FiltersProps) {
-  const [dueFrom, setDueFrom] = useState(parseDateParam(searchParams.get('from')));
-  const [dueTo, setDueTo] = useState(parseDateParam(searchParams.get('to')));
+  const [dueRange, setDueRange] = useState<DateRange | undefined>(() => {
+    const from = parseDateParam(searchParams.get('from'));
+    const to = parseDateParam(searchParams.get('to'));
+    return from || to ? { from, to } : undefined;
+  });
   const [types, setTypes] = useState(parseMultiParam(searchParams.get('type')));
   const [statuses, setStatuses] = useState(parseMultiParam(searchParams.get('status')));
   const [categoryIds, setCategoryIds] = useState(parseMultiParam(searchParams.get('category')));
@@ -64,9 +67,9 @@ export function Filters({
 
   const handleApply = () => {
     const params = new URLSearchParams(searchParams);
-    if (dueFrom) params.set('from', format(dueFrom, 'yyyy-MM-dd'));
+    if (dueRange?.from) params.set('from', format(dueRange.from, 'yyyy-MM-dd'));
     else params.delete('from');
-    if (dueTo) params.set('to', format(dueTo, 'yyyy-MM-dd'));
+    if (dueRange?.to) params.set('to', format(dueRange.to, 'yyyy-MM-dd'));
     else params.delete('to');
     setMultiParam(params, 'type', types);
     setMultiParam(params, 'status', statuses);
@@ -77,8 +80,7 @@ export function Filters({
   };
 
   const handleClear = () => {
-    setDueFrom(undefined);
-    setDueTo(undefined);
+    setDueRange(undefined);
     setTypes([]);
     setStatuses([]);
     setCategoryIds([]);
@@ -93,12 +95,8 @@ export function Filters({
       onClear={handleClear}
       gridClassName="sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
     >
-      <FilterField label="Vencimento de">
-        <DatePicker date={dueFrom} setDate={setDueFrom} placeholder="Qualquer data" />
-      </FilterField>
-
-      <FilterField label="Vencimento até">
-        <DatePicker date={dueTo} setDate={setDueTo} placeholder="Qualquer data" />
+      <FilterField label="Vencimento">
+        <DateRangePicker value={dueRange} onChange={setDueRange} placeholder="Qualquer data" />
       </FilterField>
 
       <FilterField label="Tipo">

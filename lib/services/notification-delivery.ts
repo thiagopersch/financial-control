@@ -7,6 +7,8 @@ import { resolveEmailBodyHtml } from '@/lib/notification-templates/render';
 import prisma from '@/lib/prisma';
 import nodemailer from 'nodemailer';
 import path from 'path';
+import { readFile } from 'fs/promises';
+import { isTemplateImageUrl } from '@/lib/notification-templates/image-url';
 
 interface DeliveryTarget {
   userId: string;
@@ -87,6 +89,18 @@ export async function deliverNotification({
   }
 }
 
+const TEMPLATE_UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'notification-templates');
+
+/**
+ * Caminho absoluto da imagem do template, apenas se for um upload válido e estiver
+ * dentro da pasta de uploads (impede path traversal como `/uploads/../../.env`).
+ */
+function resolveTemplateImagePath(imageUrl: string | null) {
+  if (!imageUrl || !isTemplateImageUrl(imageUrl)) return null;
+  const resolved = path.resolve(TEMPLATE_UPLOAD_DIR, path.basename(imageUrl));
+  return resolved.startsWith(TEMPLATE_UPLOAD_DIR + path.sep) ? resolved : null;
+}
+
 export async function sendEmail(
   workspace: {
     smtpHost: string | null;
@@ -107,6 +121,9 @@ export async function sendEmail(
 
   try {
     const transporter = nodemailer.createTransport({
+      // Nunca deixar o conteúdo da mensagem ler arquivos locais ou URLs arbitrárias.
+      disableFileAccess: true,
+      disableUrlAccess: true,
       host: workspace.smtpHost,
       port: workspace.smtpPort || 587,
       secure: workspace.smtpPort === 465,
@@ -116,16 +133,16 @@ export async function sendEmail(
       },
     });
 
-    const attachments =
-      imageUrl && imageUrl.startsWith('/uploads/')
-        ? [
-            {
-              filename: path.basename(imageUrl),
-              path: path.join(process.cwd(), 'public', imageUrl),
-              cid: 'notification-image',
-            },
-          ]
-        : [];
+    const imagePath = resolveTemplateImagePath(imageUrl);
+    const attachments = imagePath
+      ? [
+          {
+            filename: path.basename(imagePath),
+            content: await readFile(imagePath),
+            cid: 'notification-image',
+          },
+        ]
+      : [];
 
     const htmlWithImage =
       html && attachments.length > 0

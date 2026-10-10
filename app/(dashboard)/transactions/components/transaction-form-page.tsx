@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DatePicker } from '@/components/ui/date-picker';
+import { FormTabContent, FormTabsList, type FormTabDefinition } from '@/components/ui/form-tabs';
 import { MonthPicker } from '@/components/ui/month-picker';
+import { Tabs } from '@/components/ui/tabs';
 import {
   Form,
   FormControl,
@@ -37,16 +39,23 @@ import {
   isYearMonthString,
   toYearMonthString,
 } from '@/lib/utils/competence';
-import { showError, showSuccess } from '@/lib/utils/toast';
+import {
+  findFirstTabWithError,
+  focusFirstInvalidField,
+  getInvalidFieldLabels,
+  getTabsWithErrors,
+  type TabFieldMap,
+} from '@/lib/utils/form-tabs';
+import { showError, showSuccess, showWarning } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TransactionStatus, TransactionType } from '@prisma/client';
-import { ArrowLeft, RefreshCw, Repeat } from 'lucide-react';
+import { ArrowLeft, CreditCard, FileText, RefreshCw, Repeat, Tags } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldErrors } from 'react-hook-form';
 import * as z from 'zod';
 
-const transactionSchema = z.object({
+const baseTransactionSchema = z.object({
   description: z.string().min(1, 'Nome é obrigatório').max(100, 'Máximo de 100 caracteres'),
   type: z.enum([TransactionType.INCOME, TransactionType.EXPENSE]),
   amount: z.coerce.number().positive('Valor deve ser maior que zero'),
@@ -71,7 +80,59 @@ const transactionSchema = z.object({
   autoMoveEnabled: z.boolean().default(false),
 });
 
-type TransactionFormValues = z.infer<typeof transactionSchema>;
+/** Cartão é obrigatório quando o meio de pagamento escolhido é de cartão de crédito. */
+function buildTransactionSchema(creditCardMethodIds: Set<string>) {
+  return baseTransactionSchema.superRefine((data, ctx) => {
+    if (creditCardMethodIds.has(data.paymentMethodId) && !data.creditCardId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['creditCardId'],
+        message: 'Cartão é obrigatório para este meio de pagamento',
+      });
+    }
+  });
+}
+
+type TransactionFormValues = z.infer<typeof baseTransactionSchema>;
+
+type TransactionTab = 'identification' | 'payment' | 'classification' | 'recurrence';
+
+const TRANSACTION_TABS: readonly FormTabDefinition<TransactionTab>[] = [
+  { value: 'identification', label: 'Identificação', icon: <FileText /> },
+  { value: 'payment', label: 'Pagamento', icon: <CreditCard /> },
+  { value: 'classification', label: 'Classificação', icon: <Tags /> },
+  { value: 'recurrence', label: 'Recorrência', icon: <Repeat /> },
+];
+
+const TAB_ORDER = TRANSACTION_TABS.map((tab) => tab.value);
+
+const TAB_FIELDS: TabFieldMap<TransactionTab> = {
+  identification: ['description', 'type', 'status', 'categoryId', 'amount', 'date', 'competence'],
+  payment: ['accountId', 'paymentMethodId', 'creditCardId', 'paidAt', 'paidById'],
+  classification: ['supplierId', 'costCenterId', 'debtId', 'notes'],
+  recurrence: ['isRecurring', 'recurrenceType', 'installments', 'autoMoveEnabled'],
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  description: 'Nome',
+  type: 'Tipo',
+  status: 'Status',
+  categoryId: 'Categoria',
+  amount: 'Valor',
+  date: 'Data de vencimento',
+  competence: 'Competência',
+  accountId: 'Conta',
+  paymentMethodId: 'Meio de pagamento',
+  creditCardId: 'Cartão',
+  paidAt: 'Data de pagamento',
+  paidById: 'Pago por',
+  supplierId: 'Fornecedor',
+  costCenterId: 'Centro de custo',
+  debtId: 'Dívida',
+  notes: 'Observações',
+  recurrenceType: 'Frequência',
+  installments: 'Parcelas',
+};
 
 interface TransactionFormPageProps {
   categories: { id: string; name: string; type: string; color: string }[];
@@ -106,6 +167,16 @@ export function TransactionFormPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Enquanto o usuário não escolher a competência manualmente, ela acompanha o vencimento.
   const competenceTouched = useRef(!!initialData);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [activeTab, setActiveTab] = useState<TransactionTab>('identification');
+
+  const transactionSchema = useMemo(
+    () =>
+      buildTransactionSchema(
+        new Set(paymentMethods.filter((pm) => pm.isCreditCard).map((pm) => pm.id)),
+      ),
+    [paymentMethods],
+  );
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema) as any,
@@ -224,14 +295,18 @@ export function TransactionFormPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccountId]);
 
-  async function onSubmit(data: TransactionFormValues) {
-    if (selectedPaymentMethod?.isCreditCard && !data.creditCardId) {
-      form.setError('creditCardId', {
-        message: 'Cartão é obrigatório para este meio de pagamento',
-      });
-      return;
-    }
+  const errorTabs = getTabsWithErrors(form.formState.errors, TAB_FIELDS);
 
+  /** Lista os campos pendentes e leva o usuário à aba do primeiro deles. */
+  function onInvalid(errors: FieldErrors<TransactionFormValues>) {
+    const labels = getInvalidFieldLabels(errors, TAB_FIELDS, TAB_ORDER, FIELD_LABELS);
+    showWarning('Preencha os campos obrigatórios', labels.join(', '));
+    const tab = findFirstTabWithError(errors, TAB_FIELDS, TAB_ORDER);
+    if (tab) setActiveTab(tab);
+    focusFirstInvalidField(formRef.current);
+  }
+
+  async function onSubmit(data: TransactionFormValues) {
     setIsSubmitting(true);
     try {
       let result;
@@ -278,450 +353,311 @@ export function TransactionFormPage({
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel required>Nome</FormLabel>
-                    <FormControl>
-                      <Input maxLength={100} placeholder="Ex: Supermercado" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div
-                className={
-                  selectedType === TransactionType.INCOME
-                    ? 'grid grid-cols-1 gap-4'
-                    : 'grid grid-cols-2 gap-4 max-md:grid-cols-1'
-                }
-              >
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel required>Tipo</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Tipo" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={TransactionType.INCOME}>
-                            <div className="flex items-center gap-2">
-                              <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                              Receita
-                            </div>
-                          </SelectItem>
-                          <SelectItem value={TransactionType.EXPENSE}>
-                            <div className="flex items-center gap-2">
-                              <div className="h-2 w-2 rounded-full bg-rose-500" />
-                              Despesa
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                {selectedType !== TransactionType.INCOME && (
+            <form
+              onSubmit={form.handleSubmit(onSubmit, onInvalid)}
+              className="flex flex-col gap-4"
+              ref={formRef}
+              noValidate
+            >
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TransactionTab)}>
+                <FormTabsList tabs={TRANSACTION_TABS} errorTabs={errorTabs} />
+
+                <FormTabContent value="identification">
                   <FormField
                     control={form.control}
-                    name="status"
+                    name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Status</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value={TransactionStatus.PAID}>
-                              <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                                Pago
-                              </div>
-                            </SelectItem>
-                            <SelectItem value={TransactionStatus.PENDING}>
-                              <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full bg-amber-500" />
-                                Pendente
-                              </div>
-                            </SelectItem>
-                            <SelectItem value={TransactionStatus.OVERDUE}>
-                              <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full bg-rose-500" />
-                                Atrasado
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormLabel required>Nome</FormLabel>
+                        <FormControl>
+                          <Input maxLength={100} placeholder="Ex: Supermercado" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                )}
-              </div>
-              {selectedStatus === TransactionStatus.PAID && (
-                <FormField
-                  control={form.control}
-                  name="paidAt"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Data de pagamento</FormLabel>
-                      <FormControl>
-                        <DatePicker
-                          date={field.value || undefined}
-                          setDate={(date) => field.onChange(date || null)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-              <FormField
-                control={form.control}
-                name="accountId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel required>Conta</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Selecione a conta" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {accounts.map((acc) => (
-                          <SelectItem key={acc.id} value={acc.id}>
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="h-2 w-2 rounded-full"
-                                style={{ backgroundColor: acc.color || '#94a3b8' }}
-                              />
-                              {acc.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-                <FormField
-                  control={form.control}
-                  name="paymentMethodId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel required>Meio de Pagamento</FormLabel>
-                      <Select
-                        onValueChange={(v) => {
-                          field.onChange(v);
-                          form.setValue('creditCardId', null);
-                        }}
-                        value={field.value}
-                        disabled={!selectedAccountId}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue
-                              placeholder={
-                                selectedAccountId
-                                  ? 'Selecione o meio de pagamento'
-                                  : 'Selecione a conta primeiro'
-                              }
-                            />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {accountPaymentMethods.length === 0 && (
-                            <div className="text-muted-foreground px-2 py-1.5 text-sm">
-                              Nenhum meio de pagamento vinculado a esta conta.
-                            </div>
-                          )}
-                          {accountPaymentMethods.map((pm) => (
-                            <SelectItem key={pm.id} value={pm.id}>
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="h-2 w-2 rounded-full"
-                                  style={{ backgroundColor: pm.color || '#6366f1' }}
-                                />
-                                {pm.name}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                {selectedPaymentMethod?.isCreditCard && (
-                  <FormField
-                    control={form.control}
-                    name="creditCardId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel required>Cartão</FormLabel>
-                        <CreditCardSelect
-                          cards={accountCreditCards}
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        />
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-                <FormField
-                  control={form.control}
-                  name="categoryId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel required>Categoria</FormLabel>
-                      <FormControl>
-                        <SelectSearch
-                          options={filteredCategories.map((cat) => ({
-                            value: cat.id,
-                            label: cat.name,
-                            icon: (
-                              <div
-                                className="h-2 w-2 shrink-0 rounded-full"
-                                style={{ backgroundColor: cat.color }}
-                              />
-                            ),
-                          }))}
-                          value={field.value}
-                          onValueChange={(v) => field.onChange(v || '')}
-                          placeholder="Selecione a categoria"
-                          emptyText="Nenhuma categoria encontrada."
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel required>Valor (R$)</FormLabel>
-                      <FormControl>
-                        <CurrencyInput value={field.value} onChange={field.onChange} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-                <FormField
-                  control={form.control}
-                  name="date"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel required>Data de vencimento</FormLabel>
-                      <FormControl>
-                        <DatePicker
-                          date={field.value}
-                          setDate={(date) => {
-                            field.onChange(date);
-                            if (date && !competenceTouched.current) {
-                              form.setValue('competence', toYearMonthString(date), {
-                                shouldValidate: true,
-                              });
-                            }
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="competence"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel required>Competência</FormLabel>
-                      <FormControl>
-                        <MonthPicker
-                          value={field.value}
-                          onChange={(value) => {
-                            competenceTouched.current = true;
-                            field.onChange(value);
-                          }}
-                        />
-                      </FormControl>
-                      {movedFromCompetence && (
-                        <p className="text-muted-foreground text-xs">
-                          Competência de origem: {movedFromCompetence}
-                        </p>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-                <FormField
-                  control={form.control}
-                  name="costCenterId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Centro de Custo (opcional)</FormLabel>
-                      <FormControl>
-                        <SelectSearch
-                          options={costCenters.map((cc) => ({ value: cc.id, label: cc.name }))}
-                          value={field.value || null}
-                          onValueChange={(v) => field.onChange(v)}
-                          placeholder="Selecione..."
-                          emptyText="Nenhum centro de custo encontrado."
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="paidById"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Pago por (opcional)</FormLabel>
-                      <FormControl>
-                        <SelectSearch
-                          options={users.map((user) => ({
-                            value: user.id,
-                            label: user.isActive
-                              ? user.name || user.email
-                              : `${user.name || user.email} (inativo)`,
-                          }))}
-                          value={field.value || null}
-                          onValueChange={(v) => field.onChange(v)}
-                          placeholder="Selecione o usuário..."
-                          emptyText="Nenhum usuário encontrado."
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <FormField
-                control={form.control}
-                name="supplierId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fornecedor (opcional)</FormLabel>
-                    <FormControl>
-                      <SelectSearch
-                        options={suppliers.map((sup) => ({ value: sup.id, label: sup.name }))}
-                        value={field.value || null}
-                        onValueChange={(v) => field.onChange(v)}
-                        placeholder="Selecione..."
-                        emptyText="Nenhum fornecedor encontrado."
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="debtId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Dívida (opcional)</FormLabel>
-                    <FormControl>
-                      <SelectSearch
-                        options={debts.map((d) => ({ value: d.id, label: d.name }))}
-                        value={field.value || null}
-                        onValueChange={(v) => field.onChange(v)}
-                        placeholder="Selecione..."
-                        emptyText="Nenhuma dívida encontrada."
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="space-y-4 rounded-lg border p-4">
-                <div className="flex items-center space-x-2">
-                  <FormField
-                    control={form.control}
-                    name="isRecurring"
-                    render={({ field }) => (
-                      <>
-                        <FormControl>
-                          <Checkbox
-                            id="isRecurring"
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <Label
-                          htmlFor="isRecurring"
-                          className="flex cursor-pointer items-center gap-2"
-                        >
-                          <Repeat className="text-muted-foreground h-4 w-4" />
-                          Recorrente?
-                        </Label>
-                      </>
-                    )}
-                  />
-                </div>
-                {isRecurring && (
-                  <div className="grid grid-cols-2 gap-4 pt-2 max-md:grid-cols-1">
+                  <div
+                    className={
+                      selectedType === TransactionType.INCOME
+                        ? 'grid grid-cols-1 gap-4'
+                        : 'grid grid-cols-2 gap-4 max-md:grid-cols-1'
+                    }
+                  >
                     <FormField
                       control={form.control}
-                      name="recurrenceType"
+                      name="type"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Frequência</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ''}>
+                          <FormLabel required>Tipo</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Selecione..." />
+                                <SelectValue placeholder="Tipo" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="CONTINUOUS">Contínua (12m)</SelectItem>
-                              <SelectItem value="INSTALLMENTS">Parcelada</SelectItem>
+                              <SelectItem value={TransactionType.INCOME}>
+                                <div className="flex items-center gap-2">
+                                  <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                                  Receita
+                                </div>
+                              </SelectItem>
+                              <SelectItem value={TransactionType.EXPENSE}>
+                                <div className="flex items-center gap-2">
+                                  <div className="h-2 w-2 rounded-full bg-rose-500" />
+                                  Despesa
+                                </div>
+                              </SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    {recurrenceType === 'INSTALLMENTS' && (
+                    {selectedType !== TransactionType.INCOME && (
                       <FormField
                         control={form.control}
-                        name="installments"
+                        name="status"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Parcelas</FormLabel>
+                            <FormLabel required>Status</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Status" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value={TransactionStatus.PAID}>
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                                    Pago
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value={TransactionStatus.PENDING}>
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-2 w-2 rounded-full bg-amber-500" />
+                                    Pendente
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value={TransactionStatus.OVERDUE}>
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-2 w-2 rounded-full bg-rose-500" />
+                                    Atrasado
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+                    <FormField
+                      control={form.control}
+                      name="categoryId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel required>Categoria</FormLabel>
+                          <FormControl>
+                            <SelectSearch
+                              options={filteredCategories.map((cat) => ({
+                                value: cat.id,
+                                label: cat.name,
+                                icon: (
+                                  <div
+                                    className="h-2 w-2 shrink-0 rounded-full"
+                                    style={{ backgroundColor: cat.color }}
+                                  />
+                                ),
+                              }))}
+                              value={field.value}
+                              onValueChange={(v) => field.onChange(v || '')}
+                              placeholder="Selecione a categoria"
+                              emptyText="Nenhuma categoria encontrada."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel required>Valor (R$)</FormLabel>
+                          <FormControl>
+                            <CurrencyInput value={field.value} onChange={field.onChange} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+                    <FormField
+                      control={form.control}
+                      name="date"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel required>Data de vencimento</FormLabel>
+                          <FormControl>
+                            <DatePicker
+                              date={field.value}
+                              setDate={(date) => {
+                                field.onChange(date);
+                                if (date && !competenceTouched.current) {
+                                  form.setValue('competence', toYearMonthString(date), {
+                                    shouldValidate: true,
+                                  });
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="competence"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel required>Competência</FormLabel>
+                          <FormControl>
+                            <MonthPicker
+                              value={field.value}
+                              onChange={(value) => {
+                                competenceTouched.current = true;
+                                field.onChange(value);
+                              }}
+                            />
+                          </FormControl>
+                          {movedFromCompetence && (
+                            <p className="text-muted-foreground text-xs">
+                              Competência de origem: {movedFromCompetence}
+                            </p>
+                          )}
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </FormTabContent>
+
+                <FormTabContent value="payment">
+                  <FormField
+                    control={form.control}
+                    name="accountId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel required>Conta</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Selecione a conta" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {accounts.map((acc) => (
+                              <SelectItem key={acc.id} value={acc.id}>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="h-2 w-2 rounded-full"
+                                    style={{ backgroundColor: acc.color || '#94a3b8' }}
+                                  />
+                                  {acc.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+                    <FormField
+                      control={form.control}
+                      name="paymentMethodId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel required>Meio de Pagamento</FormLabel>
+                          <Select
+                            onValueChange={(v) => {
+                              field.onChange(v);
+                              form.setValue('creditCardId', null);
+                            }}
+                            value={field.value}
+                            disabled={!selectedAccountId}
+                          >
                             <FormControl>
-                              <Input
-                                type="number"
-                                min="1"
-                                placeholder="Ex: 3"
-                                value={field.value ?? ''}
-                                onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                              <SelectTrigger className="w-full">
+                                <SelectValue
+                                  placeholder={
+                                    selectedAccountId
+                                      ? 'Selecione o meio de pagamento'
+                                      : 'Selecione a conta primeiro'
+                                  }
+                                />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {accountPaymentMethods.length === 0 && (
+                                <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                                  Nenhum meio de pagamento vinculado a esta conta.
+                                </div>
+                              )}
+                              {accountPaymentMethods.map((pm) => (
+                                <SelectItem key={pm.id} value={pm.id}>
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className="h-2 w-2 rounded-full"
+                                      style={{ backgroundColor: pm.color || '#6366f1' }}
+                                    />
+                                    {pm.name}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {selectedPaymentMethod?.isCreditCard && (
+                      <FormField
+                        control={form.control}
+                        name="creditCardId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel required>Cartão</FormLabel>
+                            <CreditCardSelect
+                              cards={accountCreditCards}
+                              value={field.value}
+                              onValueChange={field.onChange}
+                            />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+                    {selectedStatus === TransactionStatus.PAID && (
+                      <FormField
+                        control={form.control}
+                        name="paidAt"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Data de pagamento</FormLabel>
+                            <FormControl>
+                              <DatePicker
+                                date={field.value || undefined}
+                                setDate={(date) => field.onChange(date || null)}
                               />
                             </FormControl>
                             <FormMessage />
@@ -729,51 +665,212 @@ export function TransactionFormPage({
                         )}
                       />
                     )}
+                    <FormField
+                      control={form.control}
+                      name="paidById"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Pago por (opcional)</FormLabel>
+                          <FormControl>
+                            <SelectSearch
+                              options={users.map((user) => ({
+                                value: user.id,
+                                label: user.isActive
+                                  ? user.name || user.email
+                                  : `${user.name || user.email} (inativo)`,
+                              }))}
+                              value={field.value || null}
+                              onValueChange={(v) => field.onChange(v)}
+                              placeholder="Selecione o usuário..."
+                              emptyText="Nenhum usuário encontrado."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                )}
-              </div>
-              <div className="flex items-center space-x-2 rounded-lg border p-4">
-                <FormField
-                  control={form.control}
-                  name="autoMoveEnabled"
-                  render={({ field }) => (
-                    <>
-                      <FormControl>
-                        <Checkbox
-                          id="autoMoveEnabled"
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <Label
-                        htmlFor="autoMoveEnabled"
-                        className="flex cursor-pointer items-center gap-2"
-                      >
-                        <RefreshCw className="text-muted-foreground h-4 w-4" />
-                        Mover automaticamente para o mês vigente quando vencida
-                      </Label>
-                    </>
-                  )}
-                />
-              </div>
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Observações</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        rows={4}
-                        maxLength={255}
-                        placeholder="Detalhes da transação..."
-                        {...field}
+                </FormTabContent>
+
+                <FormTabContent value="classification">
+                  <FormField
+                    control={form.control}
+                    name="supplierId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fornecedor (opcional)</FormLabel>
+                        <FormControl>
+                          <SelectSearch
+                            options={suppliers.map((sup) => ({ value: sup.id, label: sup.name }))}
+                            value={field.value || null}
+                            onValueChange={(v) => field.onChange(v)}
+                            placeholder="Selecione..."
+                            emptyText="Nenhum fornecedor encontrado."
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+                    <FormField
+                      control={form.control}
+                      name="costCenterId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Centro de Custo (opcional)</FormLabel>
+                          <FormControl>
+                            <SelectSearch
+                              options={costCenters.map((cc) => ({ value: cc.id, label: cc.name }))}
+                              value={field.value || null}
+                              onValueChange={(v) => field.onChange(v)}
+                              placeholder="Selecione..."
+                              emptyText="Nenhum centro de custo encontrado."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="debtId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Dívida (opcional)</FormLabel>
+                          <FormControl>
+                            <SelectSearch
+                              options={debts.map((d) => ({ value: d.id, label: d.name }))}
+                              value={field.value || null}
+                              onValueChange={(v) => field.onChange(v)}
+                              placeholder="Selecione..."
+                              emptyText="Nenhuma dívida encontrada."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Observações</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            rows={4}
+                            maxLength={255}
+                            placeholder="Detalhes da transação..."
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </FormTabContent>
+
+                <FormTabContent value="recurrence">
+                  <div className="space-y-4 rounded-lg border p-4">
+                    <div className="flex items-center space-x-2">
+                      <FormField
+                        control={form.control}
+                        name="isRecurring"
+                        render={({ field }) => (
+                          <>
+                            <FormControl>
+                              <Checkbox
+                                id="isRecurring"
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <Label
+                              htmlFor="isRecurring"
+                              className="flex cursor-pointer items-center gap-2"
+                            >
+                              <Repeat className="text-muted-foreground h-4 w-4" />
+                              Recorrente?
+                            </Label>
+                          </>
+                        )}
                       />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    </div>
+                    {isRecurring && (
+                      <div className="grid grid-cols-2 gap-4 pt-2 max-md:grid-cols-1">
+                        <FormField
+                          control={form.control}
+                          name="recurrenceType"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Frequência</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || ''}>
+                                <FormControl>
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Selecione..." />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="CONTINUOUS">Contínua (12m)</SelectItem>
+                                  <SelectItem value="INSTALLMENTS">Parcelada</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        {recurrenceType === 'INSTALLMENTS' && (
+                          <FormField
+                            control={form.control}
+                            name="installments"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Parcelas</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    placeholder="Ex: 3"
+                                    value={field.value ?? ''}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2 rounded-lg border p-4">
+                    <FormField
+                      control={form.control}
+                      name="autoMoveEnabled"
+                      render={({ field }) => (
+                        <>
+                          <FormControl>
+                            <Checkbox
+                              id="autoMoveEnabled"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <Label
+                            htmlFor="autoMoveEnabled"
+                            className="flex cursor-pointer items-center gap-2"
+                          >
+                            <RefreshCw className="text-muted-foreground h-4 w-4" />
+                            Mover automaticamente para o mês vigente quando vencida
+                          </Label>
+                        </>
+                      )}
+                    />
+                  </div>
+                </FormTabContent>
+              </Tabs>
               <div className="flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end">
                 <Button
                   type="button"

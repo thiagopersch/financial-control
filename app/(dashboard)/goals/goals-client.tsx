@@ -5,7 +5,7 @@ import { DepositDialog } from '@/components/goals/deposit-dialog';
 import { GoalDialog } from '@/components/goals/goal-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { DatePicker } from '@/components/ui/date-picker';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
 import { FilterField, FilterPanel } from '@/components/ui/filter-panel';
 import { Input } from '@/components/ui/input';
@@ -362,23 +362,17 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
             />
           </FilterField>
 
-          <FilterField label="Prazo de">
-            <DatePicker
-              date={deadlineFrom}
-              setDate={(date) => {
-                setDeadlineFrom(date);
+          <FilterField label="Prazo">
+            <DateRangePicker
+              value={
+                deadlineFrom || deadlineTo ? { from: deadlineFrom, to: deadlineTo } : undefined
+              }
+              onChange={(range) => {
+                setDeadlineFrom(range?.from);
+                setDeadlineTo(range?.to);
                 setPage(1);
               }}
-            />
-          </FilterField>
-
-          <FilterField label="Prazo até">
-            <DatePicker
-              date={deadlineTo}
-              setDate={(date) => {
-                setDeadlineTo(date);
-                setPage(1);
-              }}
+              placeholder="Qualquer prazo"
             />
           </FilterField>
         </FilterPanel>
