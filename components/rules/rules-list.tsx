@@ -1,10 +1,11 @@
 'use client';
 
+import { ActionsDataTable } from '@/components/ui/actions-data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { ColumnDef } from '@tanstack/react-table';
-import { ArrowRight, ArrowUpDown, Edit, Trash, Zap } from 'lucide-react';
+import { ArrowRight, ArrowUpDown, Zap } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { DeleteRuleModal } from './delete-rule-modal';
@@ -104,24 +105,7 @@ export function RulesList({
       id: 'actions',
       header: () => <div className="text-right">Ações</div>,
       cell: ({ row }) => (
-        <div className="space-x-1 text-right whitespace-nowrap">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setEditingRule(row.original)}
-            className="h-8 w-8 hover:bg-slate-200 dark:hover:bg-slate-700"
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDeletingId(row.original.id)}
-            className="h-8 w-8 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20"
-          >
-            <Trash className="h-4 w-4" />
-          </Button>
-        </div>
+        <ActionsDataTable row={row} onEdit={setEditingRule} onDelete={setDeletingId} />
       ),
     },
   ];

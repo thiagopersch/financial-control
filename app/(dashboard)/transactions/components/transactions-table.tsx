@@ -1,10 +1,9 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { ActionsDataTable } from '@/components/ui/actions-data-table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DataTable } from '@/components/ui/data-table';
-import { TableCell, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { markTransactionAsPaid, toggleTransactionAutoMove } from '@/lib/actions/transactions';
 import { cn } from '@/lib/utils';
@@ -32,11 +31,8 @@ import {
   ArrowUpCircle,
   Calendar,
   CheckCircle,
-  CheckCircle2,
   Clock,
-  Edit,
   RepeatIcon,
-  Trash,
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -426,42 +422,13 @@ export function TransactionsTable({
       cell: ({ row }) => {
         const t = row.original;
         return (
-          <div className="space-x-1 text-right whitespace-nowrap">
-            {t.status !== TransactionStatus.PAID && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleMarkAsPaid(t)}
-                    disabled={processingId === t.id}
-                    className="h-8 w-8 text-emerald-600 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10"
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Marcar como pago</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push(`/transactions/${t.id}/edit`)}
-              className="hover:bg-foreground/10 dark:hover:bg-foreground/10 h-8 w-8"
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setDeletingTransaction(t)}
-              className="h-8 w-8 text-red-500 hover:bg-red-500/10 dark:hover:bg-red-500/10"
-            >
-              <Trash className="h-4 w-4 text-red-500" />
-            </Button>
-          </div>
+          <ActionsDataTable
+            row={row}
+            onMarkAsPaid={t.status !== TransactionStatus.PAID ? handleMarkAsPaid : undefined}
+            disabledMarkAsPaid={processingId === t.id}
+            onEdit={() => router.push(`/transactions/${t.id}/edit`)}
+            onDelete={() => setDeletingTransaction(t)}
+          />
         );
       },
     },
@@ -514,11 +481,7 @@ export function TransactionsTable({
         paginationSlot={paginationSlot}
         footer={
           totalCount > 0 ? (
-            <TableRow className="dark:bg-accent bg-slate-50/50 hover:bg-transparent">
-              <TableCell colSpan={columns.length} className="p-3 whitespace-normal">
-                <TransactionsTotals totals={totals} totalCount={totalCount} />
-              </TableCell>
-            </TableRow>
+            <TransactionsTotals totals={totals} totalCount={totalCount} />
           ) : undefined
         }
       />

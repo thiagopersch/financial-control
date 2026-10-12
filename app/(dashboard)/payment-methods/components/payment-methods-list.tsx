@@ -1,5 +1,6 @@
 'use client';
 
+import { ActionsDataTable } from '@/components/ui/actions-data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
@@ -10,7 +11,7 @@ import { deletePaymentMethod } from '@/lib/actions/payment-methods';
 import type { AccountDTO } from '@/lib/queries/accounts';
 import type { PaymentMethodDTO } from '@/lib/queries/payment-methods';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, Edit, Trash2, Wallet } from 'lucide-react';
+import { ArrowUpDown, Wallet } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { PaymentMethodsForm } from './payment-methods-form';
@@ -108,26 +109,7 @@ export function PaymentMethodsList({
     {
       id: 'actions',
       header: () => <div className="text-right">Ações</div>,
-      cell: ({ row }) => (
-        <div className="space-x-2 text-right whitespace-nowrap">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => openEdit(row.original)}
-            className="h-8 w-8 hover:bg-slate-200 dark:hover:bg-slate-700"
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleDelete(row.original.id)}
-            className="h-8 w-8 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => <ActionsDataTable row={row} onEdit={openEdit} onDelete={handleDelete} />,
     },
   ];
 

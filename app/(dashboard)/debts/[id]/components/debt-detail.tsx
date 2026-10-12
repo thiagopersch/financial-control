@@ -1,5 +1,6 @@
 'use client';
 
+import { ActionsDataTable } from '@/components/ui/actions-data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -121,19 +122,8 @@ export function DebtDetail({
     },
     {
       id: 'actions',
-      header: '',
-      cell: ({ row }) => (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => openEditDialog(row.original)}
-          className="h-8 w-8 p-0"
-        >
-          <Pencil className="h-4 w-4" />
-          <span className="sr-only">Editar parcela</span>
-        </Button>
-      ),
+      header: () => <div className="text-right">Ações</div>,
+      cell: ({ row }) => <ActionsDataTable row={row} onEdit={openEditDialog} />,
     },
   ];
 

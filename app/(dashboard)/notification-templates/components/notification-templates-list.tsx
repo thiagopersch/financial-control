@@ -4,7 +4,6 @@ import { TestSendDialog } from '@/components/notification-templates/test-send-di
 import { NotificationTemplatesFilters } from './notification-templates-filters';
 import { ActionsDataTable } from '@/components/ui/actions-data-table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmModal } from '@/components/ui/delete-confirm-modal';
 import { ListPageHeader } from '@/components/ui/list-page-header';
@@ -200,17 +199,9 @@ export function NotificationTemplatesList({
             row={row}
             onEdit={() => router.push(`/notification-templates/${template.id}`)}
             onDelete={() => handleDelete(template.id)}
-            extraActions={
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setTestSendTarget(template)}
-                className="h-8 w-8 hover:bg-neutral-300 dark:hover:bg-neutral-700"
-                title="Testar envio"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            }
+            extraActions={[
+              { label: 'Testar envio', icon: Send, onSelect: () => setTestSendTarget(template) },
+            ]}
           />
         );
       },

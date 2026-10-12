@@ -1,5 +1,6 @@
 'use client';
 
+import { ActionsDataTable } from '@/components/ui/actions-data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
@@ -11,7 +12,7 @@ import { hasPermission } from '@/lib/permissions/has-permission';
 import type { CategoryDTO } from '@/lib/queries/categories';
 import { TransactionType } from '@prisma/client';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, Edit, Trash2 } from 'lucide-react';
+import { ArrowUpDown } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
@@ -122,26 +123,7 @@ export function CategoriesList({
     {
       id: 'actions',
       header: () => <div className="text-right">Ações</div>,
-      cell: ({ row }) => (
-        <div className="space-x-2 text-right whitespace-nowrap">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => openEdit(row.original)}
-            className="h-8 w-8 hover:bg-neutral-200"
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleDelete(row.original.id)}
-            className="text-destructive hover:bg-destructive/20 h-8 w-8"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => <ActionsDataTable row={row} onEdit={openEdit} onDelete={handleDelete} />,
     },
   ];
 

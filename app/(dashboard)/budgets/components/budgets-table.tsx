@@ -1,12 +1,11 @@
 'use client';
 
+import { ActionsDataTable } from '@/components/ui/actions-data-table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { Progress } from '@/components/ui/progress';
 import { cn, formatCurrency } from '@/lib/utils';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Edit, Trash2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const monthNames = [
@@ -156,24 +155,7 @@ export function BudgetsTable({
       id: 'actions',
       header: () => <div className="text-right">Ações</div>,
       cell: ({ row }) => (
-        <div className="space-x-1 text-right whitespace-nowrap">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onEdit(row.original)}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-destructive hover:bg-destructive/20 h-8 w-8"
-            onClick={() => onDelete(row.original)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+        <ActionsDataTable row={row} onEdit={onEdit} onDelete={() => onDelete(row.original)} />
       ),
     },
   ];

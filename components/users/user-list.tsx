@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { Switch } from '@/components/ui/switch';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toggleUserActive } from '@/lib/actions/users';
 import { hasPermission } from '@/lib/permissions/has-permission';
 import { cn } from '@/lib/utils';
@@ -224,22 +223,15 @@ export function UserList({ users, currentUserId }: UserListProps) {
             onDelete={() => setDeletingId(user.id)}
             disabledDelete={isSelf}
             extraActions={
-              canUpdate && !isSelf ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setResettingUser(user)}
-                      aria-label="Gerar senha temporária"
-                      className="h-8 w-8 hover:bg-neutral-300 dark:hover:bg-neutral-700"
-                    >
-                      <KeyRound className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Gerar senha temporária</TooltipContent>
-                </Tooltip>
-              ) : undefined
+              canUpdate && !isSelf
+                ? [
+                    {
+                      label: 'Gerar senha temporária',
+                      icon: KeyRound,
+                      onSelect: () => setResettingUser(user),
+                    },
+                  ]
+                : undefined
             }
           />
         );

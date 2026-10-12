@@ -11,7 +11,12 @@ interface TransactionsTotalsProps {
 
 function TotalsBlock({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('bg-background/60 flex flex-col gap-1.5 rounded-lg border p-3', className)}>
+    <div
+      className={cn(
+        'bg-background/60 flex min-w-0 flex-col gap-1.5 rounded-lg border p-3',
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -27,11 +32,11 @@ function BlockHeader({
   className?: string;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3">
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
       <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
         {label}
       </span>
-      <span className={cn('text-base font-bold tabular-nums', className)}>
+      <span className={cn('text-base font-bold whitespace-nowrap tabular-nums', className)}>
         {formatCurrency(value)}
       </span>
     </div>
@@ -63,7 +68,9 @@ function BreakdownLine({
         {icon}
         {label} ({data.count})
       </span>
-      <span className="font-medium tabular-nums">{formatCurrency(data.amount)}</span>
+      <span className="font-medium whitespace-nowrap tabular-nums">
+        {formatCurrency(data.amount)}
+      </span>
     </div>
   );
 }
@@ -73,12 +80,12 @@ export function TransactionsTotals({ totals, totalCount }: TransactionsTotalsPro
   const { expense, income } = totals;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="@container flex flex-col gap-3">
       <span className="text-sm font-semibold">
         Total: {totalCount} transaç{totalCount === 1 ? 'ão' : 'ões'}
       </span>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 @3xl:grid-cols-3">
         <TotalsBlock>
           <BlockHeader
             label={`Despesas (${expense.count})`}
