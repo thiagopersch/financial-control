@@ -45,7 +45,7 @@ export function TransactionsHeader({
     applyFilters,
     handleSearch,
     handleClearFilters,
-  } = useUrlFilters({ persistSearch: true, includePeriod: true });
+  } = useUrlFilters({ includePeriod: true });
 
   return (
     <>
@@ -65,7 +65,10 @@ export function TransactionsHeader({
         createActions={
           isEditing ? (
             <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
-              <ActionButtons setIsTransferModalOpen={setIsTransferModalOpen} />
+              <ActionButtons
+                setIsTransferModalOpen={setIsTransferModalOpen}
+                exportParams={searchParams}
+              />
             </div>
           ) : undefined
         }

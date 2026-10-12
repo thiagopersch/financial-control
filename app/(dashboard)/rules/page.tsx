@@ -1,3 +1,4 @@
+import { getPageFilters } from '@/lib/queries/page-filters';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { hasPermission } from '@/lib/permissions/has-permission';
@@ -16,7 +17,11 @@ export default async function RulesPage({
     pageSize?: string;
   }>;
 }) {
-  const searchParams = await searchParamsPromise;
+  // Filtros/busca vêm do cookie (espelho do localStorage); a URL traz só período e paginação.
+  const searchParams: Awaited<typeof searchParamsPromise> = {
+    ...(await getPageFilters('/rules')),
+    ...(await searchParamsPromise),
+  };
   const session = await getServerSession(authOptions);
   if (!session) return null;
 

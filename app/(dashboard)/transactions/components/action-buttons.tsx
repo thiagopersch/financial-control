@@ -10,21 +10,22 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { ArrowRightLeft, Download, FileSpreadsheet, FileText, Plus } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 type ActionButtonsProps = {
   setIsTransferModalOpen: (open: boolean) => void;
+  /** Filtros + período aplicados na listagem, repassados para a exportação. */
+  exportParams: URLSearchParams;
 };
 
-export function ActionButtons({ setIsTransferModalOpen }: ActionButtonsProps) {
+export function ActionButtons({ setIsTransferModalOpen, exportParams }: ActionButtonsProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const exportCSV = async () => {
-    const params = new URLSearchParams(searchParams);
+    const params = new URLSearchParams(exportParams);
     const url = `/api/transactions/export?${params.toString()}`;
     const a = document.createElement('a');
     a.href = url;
@@ -37,7 +38,7 @@ export function ActionButtons({ setIsTransferModalOpen }: ActionButtonsProps) {
 
   const exportXLSX = async () => {
     try {
-      const params = new URLSearchParams(searchParams);
+      const params = new URLSearchParams(exportParams);
       const response = await fetch(`/api/transactions/export?format=json&${params.toString()}`);
       const data = await response.json();
 
@@ -70,7 +71,7 @@ export function ActionButtons({ setIsTransferModalOpen }: ActionButtonsProps) {
 
   const exportPDF = async () => {
     try {
-      const params = new URLSearchParams(searchParams);
+      const params = new URLSearchParams(exportParams);
       const response = await fetch(`/api/transactions/export?format=json&${params.toString()}`);
       const data = await response.json();
 

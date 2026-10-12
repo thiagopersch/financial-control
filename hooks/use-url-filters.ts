@@ -1,55 +1,96 @@
 'use client';
 
 import { usePeriodTransition } from '@/components/period-transition';
+import {
+  PERIOD_PARAMS,
+  pickFilterParams,
+  readPageFiltersCookie,
+  writePageFiltersCookie,
+} from '@/lib/utils/page-filters';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { usePersistedFiltersStore } from './use-filters-store';
 
-const DEFAULT_IGNORED_PARAMS = ['page', 'pageSize', 'q'];
-/** Geridas separadamente pelo MonthSelector (período global) — nunca persistidas por página. */
-const PERIOD_PARAMS = ['year', 'month'];
+/** Params que não contam como "filtro ativo" (a busca tem indicador próprio). */
+const DEFAULT_IGNORED_PARAMS = ['q'];
 
 interface UseUrlFiltersOptions {
   /** Params que não contam como "filtro ativo". */
   ignoredParams?: string[];
-  /** Persiste também a busca (`q`) junto com os filtros da página. */
-  persistSearch?: boolean;
   /**
-   * Restaura também o período global (`year`/`month`) no mesmo `router.replace` dos
-   * filtros. Use junto com `<MonthSelector restoreOnMount={false} />` — dois replaces
-   * concorrentes no mount fazem um sobrescrever o outro.
+   * Restaura também o período global (`year`/`month`) da URL no mount e o inclui no
+   * `searchParams` retornado. Use junto com `<MonthSelector restoreOnMount={false} />` —
+   * dois replaces concorrentes no mount fazem um sobrescrever o outro.
    */
   includePeriod?: boolean;
 }
 
+const subscribeNoop = () => () => {};
+
+/**
+ * Filtros e busca de uma listagem, fora da URL: ficam no localStorage (store Zustand) e são
+ * espelhados num cookie (`pf_<página>`) que o Server Component lê via `getPageFilters`.
+ * A URL guarda só o período (`year`/`month`) e a paginação (`page`/`pageSize`).
+ */
 export function useUrlFilters({
   ignoredParams = DEFAULT_IGNORED_PARAMS,
-  persistSearch = false,
   includePeriod = false,
 }: UseUrlFiltersOptions = {}) {
   const [showFilters, setShowFilters] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const urlParams = useSearchParams();
   const pathname = usePathname();
   const store = usePersistedFiltersStore();
   const { startPeriodTransition } = usePeriodTransition();
-  const hydrated = useRef(false);
-
-  const notPersisted = [
-    ...DEFAULT_IGNORED_PARAMS.filter((key) => !(persistSearch && key === 'q')),
-    ...PERIOD_PARAMS,
-  ];
-
-  const hasActiveFilters = Array.from(searchParams.keys()).some(
-    (key) => !ignoredParams.includes(key) && !(includePeriod && PERIOD_PARAMS.includes(key)),
+  const initialized = useRef(false);
+  // O servidor não enxerga o localStorage: até hidratar, expõe filtros vazios para o HTML do
+  // client bater com o do servidor (os dados já chegam filtrados pelo cookie).
+  const hydrated = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
   );
 
-  useEffect(() => {
-    if (hydrated.current) return;
-    hydrated.current = true;
+  const savedFilters = hydrated ? (store.filtersByPage[pathname] ?? '') : '';
+  const yearParam = urlParams.get('year');
+  const monthParam = urlParams.get('month');
 
-    const params = new URLSearchParams(searchParams);
-    let changed = false;
+  const searchParams = useMemo(() => {
+    const params = new URLSearchParams(savedFilters);
+    if (includePeriod) {
+      if (yearParam) params.set('year', yearParam);
+      if (monthParam) params.set('month', monthParam);
+    }
+    return params;
+  }, [savedFilters, includePeriod, yearParam, monthParam]);
+
+  const hasActiveFilters = Array.from(new URLSearchParams(savedFilters).keys()).some(
+    (key) => !ignoredParams.includes(key),
+  );
+
+  const persistFilters = (filters: URLSearchParams) => {
+    const query = filters.toString();
+    if (query) store.setPageFilters(pathname, query);
+    else store.clearPageFilters(pathname);
+    writePageFiltersCookie(pathname, query);
+  };
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    let urlChanged = false;
+
+    // Links/bookmarks antigos com filtros na URL: migra para o storage e limpa a URL.
+    const legacyFilters = pickFilterParams(params);
+    let saved = store.filtersByPage[pathname] ?? '';
+    if (legacyFilters.toString()) {
+      saved = legacyFilters.toString();
+      store.setPageFilters(pathname, saved);
+      for (const key of Array.from(legacyFilters.keys())) params.delete(key);
+      urlChanged = true;
+    }
 
     if (includePeriod && !params.has('year') && !params.has('month')) {
       const now = new Date();
@@ -59,66 +100,55 @@ export function useUrlFilters({
             year: String(now.getFullYear()),
             month: String(now.getMonth() + 1).padStart(2, '0'),
           });
-      for (const [key, value] of period) params.set(key, value);
-      changed = true;
+      for (const key of PERIOD_PARAMS) {
+        const value = period.get(key);
+        if (value) params.set(key, value);
+      }
+      urlChanged = true;
     }
 
-    const hasPageFilters = Array.from(searchParams.keys()).some(
-      (key) => !notPersisted.includes(key),
-    );
-    const saved = store.filtersByPage[pathname];
-    if (!hasPageFilters && saved) {
-      for (const [key, value] of new URLSearchParams(saved)) params.set(key, value);
-      changed = true;
-    }
+    // Cookie ausente/desatualizado (expirou, foi limpo): o servidor renderizou sem os filtros.
+    const cookieOutOfSync = readPageFiltersCookie(pathname) !== saved;
+    if (cookieOutOfSync) writePageFiltersCookie(pathname, saved);
 
-    if (changed) router.replace(`${pathname}?${params.toString()}`);
+    if (urlChanged) {
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname);
+    } else if (cookieOutOfSync) {
+      router.refresh();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /**
-   * `replace` evita uma entrada no histórico por navegação (ex.: busca enquanto digita).
-   * Roda numa transition: a tela atual fica visível (com overlay) até a nova chegar.
-   */
-  const applyFilters = (params: URLSearchParams, { replace = false } = {}) => {
+  /** Re-renderiza o Server Component com o cookie novo, voltando para a página 1. */
+  const reload = () => {
+    const params = new URLSearchParams(window.location.search);
+    const hadPage = params.has('page');
     params.delete('page');
+    const query = params.toString();
+    const url = query ? `${pathname}?${query}` : pathname;
+    startPeriodTransition(() => (hadPage ? router.replace(url) : router.refresh()));
+  };
 
-    const toPersist = new URLSearchParams(params);
-    for (const key of notPersisted) {
-      toPersist.delete(key);
-    }
-    if (Array.from(toPersist.keys()).length > 0) {
-      store.setPageFilters(pathname, toPersist.toString());
-    } else {
-      store.clearPageFilters(pathname);
-    }
-
-    const url = `${window.location.pathname}?${params.toString()}`;
-    startPeriodTransition(() => (replace ? router.replace(url) : router.push(url)));
+  const applyFilters = (params: URLSearchParams) => {
+    persistFilters(pickFilterParams(params));
+    reload();
   };
 
   const handleSearch = (value: string) => {
-    const params = new URLSearchParams(searchParams);
+    const params = new URLSearchParams(savedFilters);
     if (!value) {
       params.delete('q');
     } else {
       params.set('q', value);
     }
-    applyFilters(params, { replace: true });
+    applyFilters(params);
   };
 
-  /** Limpa filtros e busca da página; com `includePeriod`, mantém o período selecionado. */
+  /** Limpa filtros e busca da página; mantém o período selecionado. */
   const handleClearFilters = () => {
-    store.clearPageFilters(pathname);
-    const params = new URLSearchParams();
-    if (includePeriod) {
-      for (const key of PERIOD_PARAMS) {
-        const value = searchParams.get(key);
-        if (value) params.set(key, value);
-      }
-    }
-    const query = params.toString();
-    router.push(query ? `${window.location.pathname}?${query}` : window.location.pathname);
+    persistFilters(new URLSearchParams());
+    reload();
   };
 
   const toggleFilters = () => setShowFilters((prev) => !prev);

@@ -1,3 +1,4 @@
+import { getPageFilters } from '@/lib/queries/page-filters';
 import { TransactionsContent } from '@/app/(dashboard)/transactions/components/transactions-content';
 import { authOptions } from '@/lib/auth-options';
 import { autoMoveOverdueTransactions } from '@/lib/actions/transactions';
@@ -33,7 +34,11 @@ export default async function TransactionsPage({
     pageSize?: string;
   }>;
 }) {
-  const searchParams = await searchParamsPromise;
+  // Filtros/busca vêm do cookie (espelho do localStorage); a URL traz só período e paginação.
+  const searchParams: Awaited<typeof searchParamsPromise> = {
+    ...(await getPageFilters('/transactions')),
+    ...(await searchParamsPromise),
+  };
   const session = await getServerSession(authOptions);
 
   await autoMoveOverdueTransactions();

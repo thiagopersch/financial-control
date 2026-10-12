@@ -1,3 +1,4 @@
+import { getPageFilters } from '@/lib/queries/page-filters';
 import { getSuppliersPaginated } from '@/lib/queries/suppliers';
 import { SuppliersClient } from './suppliers-client';
 import { parsePageSize } from '@/lib/constants/pagination';
@@ -13,7 +14,11 @@ export default async function SuppliersPage({
     pageSize?: string;
   }>;
 }) {
-  const searchParams = await searchParamsPromise;
+  // Filtros/busca vêm do cookie (espelho do localStorage); a URL traz só período e paginação.
+  const searchParams: Awaited<typeof searchParamsPromise> = {
+    ...(await getPageFilters('/suppliers')),
+    ...(await searchParamsPromise),
+  };
 
   const pageSize = parsePageSize(searchParams.pageSize);
   const page = Math.max(1, parseInt(searchParams.page || '1', 10) || 1);

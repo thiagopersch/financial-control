@@ -2,7 +2,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface PersistedFiltersState {
-  /** pathname -> querystring de filtros de conteúdo (sem `page`/`year`/`month`) */
+  /**
+   * pathname -> querystring de filtros/busca (sem `page`/`pageSize`/`year`/`month`). Fonte de
+   * verdade dos filtros das listagens — fora da URL, espelhada no cookie `pf_*` (ver `useUrlFilters`).
+   */
   filtersByPage: Record<string, string>;
   /** querystring global de período (`year`/`month`), compartilhada entre páginas com MonthSelector */
   period: string;
