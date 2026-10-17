@@ -90,3 +90,31 @@ export async function getAuditLogsByEntity(workspaceId: string, entity: string, 
     },
   });
 }
+
+/**
+ * Audit entry for background jobs (cron) that run without a session — the
+ * acting user must be given explicitly (e.g. the schedule's creator).
+ */
+export async function createSystemAuditLog({
+  workspaceId,
+  userId,
+  action,
+  entity,
+  entityId,
+  newValue,
+}: {
+  workspaceId: string;
+  userId: string;
+  action: string;
+  entity: string;
+  entityId?: string;
+  newValue?: any;
+}) {
+  try {
+    await prisma.auditLog.create({
+      data: { workspaceId, userId, action, entity, entityId, newValue, userAgent: 'system:cron' },
+    });
+  } catch (error) {
+    console.error('Failed to create system audit log:', error);
+  }
+}

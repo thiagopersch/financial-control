@@ -26,7 +26,12 @@ import { requirePermission } from '@/lib/permissions/require-permission';
 import { getCreditCardCurrentUsage } from '@/lib/queries/credit-card-usage';
 import prisma from '@/lib/prisma';
 import { createAuditLog } from '@/lib/services/audit';
-import { sendEmail, sendWhatsApp } from '@/lib/services/notification-delivery';
+import { buildReport, detectDataSources } from '@/lib/services/email-reports';
+import {
+  sendEmail,
+  sendWhatsApp,
+  type EmailAttachment,
+} from '@/lib/services/notification-delivery';
 
 interface TestSendEntityIds {
   transactionId?: string;
@@ -98,7 +103,7 @@ export async function sendTestNotificationTemplate(input: {
     }
 
     const entityPages = detectTemplateEntityPages(template).filter(
-      (page) => page !== 'general' && page !== 'user',
+      (page) => page !== 'general' && page !== 'user' && page !== 'report',
     );
 
     let vars: Record<string, unknown> = buildUserVars(recipient);
@@ -190,8 +195,27 @@ export async function sendTestNotificationTemplate(input: {
       const workspace = await prisma.workspace.findUnique({
         where: { id: session.user.workspaceId },
       });
+      const bodyHtml = resolveEmailBodyHtml(template);
+      let attachments: EmailAttachment[] = [];
+      // Report templates are tested with the workspace's real data (all sections, last 7 days).
+      if (template.type === 'PENDING_ITEMS_DIGEST' || template.type === 'EXPENSE_SUMMARY') {
+        const report = await buildReport(
+          {
+            name: template.name,
+            reportType: template.type,
+            workspaceId: session.user.workspaceId,
+            includeOverdueTransactions: true,
+            includeOverdueInstallments: true,
+            includeOpenDebts: true,
+            summaryPeriodDays: 7,
+          },
+          detectDataSources(bodyHtml),
+        );
+        vars = { ...vars, ...report.vars };
+        attachments = report.attachments;
+      }
       const subject = interpolate(template.subject, vars);
-      const htmlBody = interpolate(applyConditionals(resolveEmailBodyHtml(template), vars), vars);
+      const htmlBody = interpolate(applyConditionals(bodyHtml, vars), vars);
       await sendEmail(
         workspace,
         recipient.email,
@@ -199,6 +223,7 @@ export async function sendTestNotificationTemplate(input: {
         stripHtml(htmlBody),
         htmlBody,
         template.imageUrl,
+        attachments,
       );
     } else {
       const workspace = await prisma.workspace.findUnique({

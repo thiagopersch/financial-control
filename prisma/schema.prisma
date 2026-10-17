@@ -103,7 +103,27 @@ enum NotificationType {
   ANOMALY_DETECTED
   CARD_LIMIT_WARNING
   CARD_LIMIT_EXCEEDED
+  PENDING_ITEMS_DIGEST
+  EXPENSE_SUMMARY
   SYSTEM
+}
+
+enum EmailReportType {
+  PENDING_ITEMS_DIGEST
+  EXPENSE_SUMMARY
+}
+
+enum EmailScheduleFrequency {
+  DAILY
+  WEEKLY
+  EVERY_N_DAYS
+  MONTHLY
+}
+
+enum EmailDeliveryStatus {
+  SENT
+  SKIPPED
+  FAILED
 }
 
 enum NotificationChannel {
@@ -191,6 +211,7 @@ model Workspace {
   paymentMethods        PaymentMethod[]
   notificationTemplates NotificationTemplate[]
   permissionProfiles    PermissionProfile[]
+  scheduledEmails       ScheduledEmail[]
 }
 
 model User {
@@ -208,14 +229,15 @@ model User {
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
-  profile               Profile?
-  paidTransactions      Transaction[]          @relation("TransactionPaidBy")
-  auditLogs             AuditLog[]
-  notifications         Notification[]
-  aiConversations       AIConversation[]
-  createdRules          ConditionalRule[]      @relation("RuleCreator")
-  createdReports        CustomReport[]         @relation("ReportCreator")
-  notificationTemplates NotificationTemplate[]
+  profile                Profile?
+  paidTransactions       Transaction[]          @relation("TransactionPaidBy")
+  auditLogs              AuditLog[]
+  notifications          Notification[]
+  aiConversations        AIConversation[]
+  createdRules           ConditionalRule[]      @relation("RuleCreator")
+  createdReports         CustomReport[]         @relation("ReportCreator")
+  notificationTemplates  NotificationTemplate[]
+  createdScheduledEmails ScheduledEmail[]       @relation("ScheduledEmailCreator")
 }
 
 model Profile {
@@ -789,7 +811,59 @@ model NotificationTemplate {
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
+  scheduledEmails ScheduledEmail[]
+
   @@index([userId, type, isActive])
+}
+
+model ScheduledEmail {
+  id                         String                 @id @default(cuid())
+  name                       String
+  reportType                 EmailReportType
+  templateId                 String?
+  template                   NotificationTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  frequency                  EmailScheduleFrequency
+  intervalDays               Int?
+  dayOfWeek                  Int?
+  dayOfMonth                 Int?
+  sendTime                   String                 @default("08:00")
+  timezone                   String                 @default("America/Sao_Paulo")
+  toEmails                   String[]
+  ccEmails                   String[]
+  includeOverdueTransactions Boolean                @default(true)
+  includeOverdueInstallments Boolean                @default(true)
+  includeOpenDebts           Boolean                @default(false)
+  skipIfEmpty                Boolean                @default(true)
+  summaryPeriodDays          Int                    @default(7)
+  nextRun                    DateTime
+  lastRun                    DateTime?
+  isActive                   Boolean                @default(true)
+  workspaceId                String
+  workspace                  Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdById                String
+  createdBy                  User                   @relation("ScheduledEmailCreator", fields: [createdById], references: [id])
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
+
+  logs ScheduledEmailLog[]
+
+  @@index([isActive, nextRun])
+  @@index([workspaceId])
+}
+
+model ScheduledEmailLog {
+  id               String              @id @default(cuid())
+  scheduledEmailId String
+  scheduledEmail   ScheduledEmail      @relation(fields: [scheduledEmailId], references: [id], onDelete: Cascade)
+  status           EmailDeliveryStatus
+  recipients       String[]
+  subject          String              @default("")
+  error            String?
+  itemsCount       Int                 @default(0)
+  manual           Boolean             @default(false)
+  sentAt           DateTime            @default(now())
+
+  @@index([scheduledEmailId, sentAt])
 }
 
 model AuditLog {

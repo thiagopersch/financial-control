@@ -31,12 +31,12 @@ import {
   removeColumnFromRow,
   removeTopLevelBlock,
 } from '@/lib/notification-templates/block-tree-utils';
-import { renderBlockTreeToHtml } from '@/lib/notification-templates/render';
+import { renderBlockTreePreviewHtml } from '@/lib/notification-templates/render';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronUp, GripVertical, Plus, Trash2 } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 
-const COLUMN_CHILD_TYPES: BlockType[] = ['text', 'image', 'table', 'button', 'divider'];
+const COLUMN_CHILD_TYPES: BlockType[] = ['text', 'image', 'table', 'button', 'divider', 'data'];
 
 interface CanvasProps {
   blocks: BlockTree;
@@ -155,7 +155,7 @@ function TopLevelBlockItem({
           setBlocks={setBlocks}
         />
       ) : (
-        <div dangerouslySetInnerHTML={{ __html: renderBlockTreeToHtml([block]) }} />
+        <div dangerouslySetInnerHTML={{ __html: renderBlockTreePreviewHtml([block]) }} />
       )}
     </div>
   );
@@ -309,7 +309,7 @@ function ColumnDropZone({
                 <Trash2 className="h-3 w-3" />
               </button>
             </div>
-            <div dangerouslySetInnerHTML={{ __html: renderBlockTreeToHtml([child]) }} />
+            <div dangerouslySetInnerHTML={{ __html: renderBlockTreePreviewHtml([child]) }} />
           </div>
         );
       })}
@@ -460,7 +460,7 @@ function ContainerView({
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
-                <div dangerouslySetInnerHTML={{ __html: renderBlockTreeToHtml([child]) }} />
+                <div dangerouslySetInnerHTML={{ __html: renderBlockTreePreviewHtml([child]) }} />
               </div>
             );
           })}

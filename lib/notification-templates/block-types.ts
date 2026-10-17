@@ -1,5 +1,7 @@
 export type BlockType =
-  'text' | 'image' | 'row' | 'column' | 'container' | 'table' | 'button' | 'divider';
+  'text' | 'image' | 'row' | 'column' | 'container' | 'table' | 'button' | 'divider' | 'data';
+
+import type { DataBlockSource } from './data-sources';
 
 export type BlockAlign = 'left' | 'center' | 'right';
 
@@ -116,12 +118,28 @@ export interface DividerBlock extends BaseBlock {
   };
 }
 
+/** Dynamic list/chart filled at delivery time by scheduled report e-mails (see data-sources.ts). */
+export interface DataBlock extends BaseBlock {
+  type: 'data';
+  props: {
+    source: DataBlockSource;
+  };
+}
+
 /** Blocks allowed inside a column: everything except row/column (max nesting depth = 2). */
-export type ColumnChildBlock = TextBlock | ImageBlock | TableBlock | ButtonBlock | DividerBlock;
+export type ColumnChildBlock =
+  TextBlock | ImageBlock | TableBlock | ButtonBlock | DividerBlock | DataBlock;
 
 /** Blocks allowed at the top level of a template. */
 export type Block =
-  TextBlock | ImageBlock | RowBlock | ContainerBlock | TableBlock | ButtonBlock | DividerBlock;
+  | TextBlock
+  | ImageBlock
+  | RowBlock
+  | ContainerBlock
+  | TableBlock
+  | ButtonBlock
+  | DividerBlock
+  | DataBlock;
 
 export type BlockTree = Block[];
 
@@ -134,4 +152,5 @@ export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   table: 'Tabela',
   button: 'Botão',
   divider: 'Divisor',
+  data: 'Dados do relatório',
 };

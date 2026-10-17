@@ -15,6 +15,11 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { ThemeColorInput } from '@/components/ui/theme-color-input';
 import type { Block, BlockAlign, ColumnChildBlock } from '@/lib/notification-templates/block-types';
+import {
+  DATA_BLOCK_SOURCE_LABELS,
+  DATA_BLOCK_SOURCES,
+  type DataBlockSource,
+} from '@/lib/notification-templates/data-sources';
 import { flattenVariableCatalog } from '@/lib/notification-templates/variable-catalog';
 import { Minus, Plus } from 'lucide-react';
 import { VariablePicker } from './variable-picker';
@@ -88,6 +93,37 @@ export function InspectorPanel({ block, onChange: update }: InspectorPanelProps)
         <div className="text-muted-foreground text-xs">
           Este elemento não possui propriedades adicionais além do texto editado acima.
         </div>
+      )}
+
+      {block.type === 'data' && (
+        <>
+          <Field label="Conteúdo">
+            <Select
+              value={block.props.source}
+              onValueChange={(v) =>
+                update((b) => ({
+                  ...b,
+                  props: { ...(b as any).props, source: v as DataBlockSource },
+                }))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DATA_BLOCK_SOURCES.map((source) => (
+                  <SelectItem key={source} value={source}>
+                    {DATA_BLOCK_SOURCE_LABELS[source]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <p className="text-muted-foreground text-xs">
+            Preenchido automaticamente com os dados reais nos e-mails agendados (página Agendamentos
+            → E-mails). O canvas mostra apenas um exemplo.
+          </p>
+        </>
       )}
 
       {block.type === 'image' && (

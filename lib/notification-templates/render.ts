@@ -1,4 +1,5 @@
 import { resolveAppLink } from '@/lib/notification-templates/app-link';
+import { buildSampleDataVars, dataBlockToken } from '@/lib/notification-templates/data-sources';
 import { resolveThemeColor } from '@/lib/notification-templates/theme-color';
 import type {
   AlignItems,
@@ -8,6 +9,7 @@ import type {
   ButtonBlock,
   ColumnChildBlock,
   ContainerBlock,
+  DataBlock,
   DividerBlock,
   FlexDirection,
   GapUnit,
@@ -90,7 +92,7 @@ function renderImageBlock(block: ImageBlock): string {
     .join(' ');
   const widthStyle = width ? `width:${width}${widthUnit === '%' ? '%' : 'px'};` : '';
   const heightStyle = height ? `height:${height}${heightUnit === '%' ? '%' : 'px'};` : '';
-  const img = `<img src="${src}" alt="${alt}" ${dimensions} style="display:block;max-width:100%;border-radius:${borderRadius}px;${widthStyle}${heightStyle}">`;
+  const img = `<img src="${resolveImageSrc(src)}" alt="${alt}" ${dimensions} style="display:block;max-width:100%;border-radius:${borderRadius}px;${widthStyle}${heightStyle}">`;
   const linked = href
     ? `<a href="${resolveAppLink(href)}" target="_blank" rel="noopener noreferrer">${img}</a>`
     : img;
@@ -133,8 +135,23 @@ function renderTableBlock(block: TableBlock): string {
   return `<td style="padding:8px 0;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${rowsHtml}</table></td>`;
 }
 
+function renderDataBlock(block: DataBlock): string {
+  return `<td style="padding:8px 0;">{{${dataBlockToken(block.props.source)}}}</td>`;
+}
+
+/**
+ * Upload paths are stored relative (`/uploads/...`), which only resolve inside
+ * this app — e-mail clients need an absolute URL.
+ */
+function resolveImageSrc(src: string): string {
+  if (!src.startsWith('/')) return src;
+  return resolveAppLink(`app-slug:${src}`);
+}
+
 function renderColumnChildBlock(block: ColumnChildBlock): string {
   switch (block.type) {
+    case 'data':
+      return renderDataBlock(block);
     case 'text':
       return renderTextBlock(block);
     case 'image':
@@ -292,6 +309,18 @@ function renderTopLevelBlock(block: Block): string {
 export function renderBlockTreeToHtml(blocks: BlockTree): string {
   const rowsHtml = blocks.map(renderTopLevelBlock).join('');
   return `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;">${rowsHtml}</table>`;
+}
+
+/**
+ * Same as renderBlockTreeToHtml, but fills data-block tokens with sample
+ * markup so the builder canvas/preview shows what the list/chart looks like.
+ * Never use for delivery — real sends fill tokens via lib/services/email-reports.ts.
+ */
+export function renderBlockTreePreviewHtml(blocks: BlockTree): string {
+  const sample = buildSampleDataVars();
+  return renderBlockTreeToHtml(blocks).replace(/\{\{(__data_\w+)\}\}/g, (match, key) =>
+    key in sample ? sample[key] : match,
+  );
 }
 
 /**

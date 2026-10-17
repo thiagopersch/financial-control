@@ -88,6 +88,19 @@ Se preferir rodar sem Docker, você precisará de um banco PostgreSQL ativo.
 
 ---
 
+## ⏰ E-mails agendados (cron)
+
+A página **Agendamentos → E-mails** envia lembretes de pendências e resumos de despesas
+nos horários configurados. Para que os envios aconteçam mesmo sem ninguém acessar o
+sistema, chame a rota de cron a cada 15 minutos com o `CRON_SECRET` definido no `.env`:
+
+```bash
+*/15 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://SEU_DOMINIO/api/cron/scheduled-emails
+```
+
+Funciona com crontab do servidor, Vercel Cron, cron-job.org etc. O SMTP é configurado em
+**Configurações do sistema**. Envios concorrentes são seguros (cada ocorrência é enviada uma vez).
+
 ## 📜 Scripts Disponíveis
 
 | Comando                   | Descrição                                        |

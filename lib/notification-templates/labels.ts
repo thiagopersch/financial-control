@@ -16,6 +16,8 @@ export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   ANOMALY_DETECTED: 'Anomalia detectada',
   CARD_LIMIT_WARNING: 'Cartão perto do limite',
   CARD_LIMIT_EXCEEDED: 'Limite do cartão estourado',
+  PENDING_ITEMS_DIGEST: 'Lembrete de pendências (vencidas/atraso/dívidas)',
+  EXPENSE_SUMMARY: 'Resumo de despesas',
   SYSTEM: 'Geral / Automação',
 };
 
@@ -55,6 +57,10 @@ export const NOTIFICATION_TYPE_GROUPS: { label: string; types: string[] }[] = [
   {
     label: 'Metas',
     types: ['GOAL_PROGRESS'],
+  },
+  {
+    label: 'Relatórios agendados',
+    types: ['PENDING_ITEMS_DIGEST', 'EXPENSE_SUMMARY'],
   },
   {
     label: 'Outros',

@@ -121,6 +121,8 @@ export function createDefaultBlock(type: BlockType, existingBlocks: BlockTree): 
         },
         children: [],
       };
+    case 'data':
+      return { id, name, type: 'data', props: { source: 'overdueTransactionsTable' } };
     case 'column':
       throw new Error('Column blocks can only be created inside a row');
   }

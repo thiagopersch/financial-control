@@ -62,6 +62,8 @@ const createNotificationSchema = z.object({
     'ANOMALY_DETECTED',
     'CARD_LIMIT_WARNING',
     'CARD_LIMIT_EXCEEDED',
+    'PENDING_ITEMS_DIGEST',
+    'EXPENSE_SUMMARY',
     'SYSTEM',
   ] as const),
   title: z.string().min(1),

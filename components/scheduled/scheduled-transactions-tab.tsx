@@ -166,7 +166,7 @@ const STATUS_FILTER_OPTIONS: MultiSelectOption[] = [
   { value: 'inactive', label: 'Inativo', color: '#94a3b8' },
 ];
 
-export default function ScheduledPage() {
+export function ScheduledTransactionsTab() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<ScheduledTab>('identification');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -494,10 +494,8 @@ export default function ScheduledPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <ListPageHeader
-        title="Agendamentos"
-        description="Gerencie transações recorrentes e agendadas"
         searchParams={searchParams}
         onSearch={handleSearch}
         hasActiveFilters={hasActiveFilters}

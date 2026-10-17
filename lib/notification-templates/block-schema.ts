@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import { DATA_BLOCK_SOURCES } from './data-sources';
 
 const alignSchema = z.enum(['left', 'center', 'right']);
 
@@ -67,8 +68,18 @@ const tableBlockSchema = z.object({
   }),
 });
 
+const dataBlockSchema = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+  type: z.literal('data'),
+  props: z.object({
+    source: z.enum(DATA_BLOCK_SOURCES),
+  }),
+});
+
 /** Blocks allowed inside a column (no row/column nesting — max depth = 2). */
 const columnChildBlockSchema = z.discriminatedUnion('type', [
+  dataBlockSchema,
   textBlockSchema,
   imageBlockSchema,
   buttonBlockSchema,
@@ -123,6 +134,7 @@ const containerBlockSchema = z.object({
 });
 
 export const blockSchema = z.discriminatedUnion('type', [
+  dataBlockSchema,
   textBlockSchema,
   imageBlockSchema,
   buttonBlockSchema,

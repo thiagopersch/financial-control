@@ -101,62 +101,99 @@ function resolveTemplateImagePath(imageUrl: string | null) {
   return resolved.startsWith(TEMPLATE_UPLOAD_DIR + path.sep) ? resolved : null;
 }
 
+type SmtpWorkspace = {
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpUser: string | null;
+  smtpPassword: string | null;
+  smtpFrom: string | null;
+} | null;
+
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+  cid?: string;
+  contentType?: string;
+}
+
+export interface EmailMessage {
+  to: string | string[];
+  cc?: string[];
+  subject: string;
+  text: string;
+  html: string | null;
+  imageUrl?: string | null;
+  attachments?: EmailAttachment[];
+}
+
+export function isSmtpConfigured(workspace: SmtpWorkspace): boolean {
+  return Boolean(workspace?.smtpHost && workspace.smtpUser && workspace.smtpPassword);
+}
+
+/**
+ * Sends an e-mail and throws on failure (missing SMTP config included) — for
+ * callers that must record the outcome, like scheduled report e-mails.
+ */
+export async function sendEmailOrThrow(workspace: SmtpWorkspace, message: EmailMessage) {
+  if (!workspace || !isSmtpConfigured(workspace)) {
+    throw new Error('SMTP não configurado no workspace');
+  }
+
+  const transporter = nodemailer.createTransport({
+    // Nunca deixar o conteúdo da mensagem ler arquivos locais ou URLs arbitrárias.
+    disableFileAccess: true,
+    disableUrlAccess: true,
+    host: workspace.smtpHost!,
+    port: workspace.smtpPort || 587,
+    secure: workspace.smtpPort === 465,
+    auth: {
+      user: workspace.smtpUser!,
+      pass: workspace.smtpPassword!,
+    },
+  });
+
+  const imagePath = resolveTemplateImagePath(message.imageUrl ?? null);
+  const imageAttachments = imagePath
+    ? [
+        {
+          filename: path.basename(imagePath),
+          content: await readFile(imagePath),
+          cid: 'notification-image',
+        },
+      ]
+    : [];
+
+  const htmlWithImage =
+    message.html && imageAttachments.length > 0
+      ? `${message.html}<p><img src="cid:notification-image" style="max-width:100%;margin-top:12px" alt="" /></p>`
+      : message.html;
+
+  await transporter.sendMail({
+    from: workspace.smtpFrom || workspace.smtpUser!,
+    to: message.to,
+    cc: message.cc?.length ? message.cc : undefined,
+    subject: message.subject,
+    text: message.text,
+    html: htmlWithImage || undefined,
+    attachments: [...imageAttachments, ...(message.attachments ?? [])],
+  });
+}
+
 export async function sendEmail(
-  workspace: {
-    smtpHost: string | null;
-    smtpPort: number | null;
-    smtpUser: string | null;
-    smtpPassword: string | null;
-    smtpFrom: string | null;
-  } | null,
+  workspace: SmtpWorkspace,
   to: string,
   subject: string,
   text: string,
   html: string | null,
   imageUrl: string | null,
+  attachments?: EmailAttachment[],
 ) {
-  if (!workspace?.smtpHost || !workspace.smtpUser || !workspace.smtpPassword) {
+  if (!isSmtpConfigured(workspace)) {
     return;
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      // Nunca deixar o conteúdo da mensagem ler arquivos locais ou URLs arbitrárias.
-      disableFileAccess: true,
-      disableUrlAccess: true,
-      host: workspace.smtpHost,
-      port: workspace.smtpPort || 587,
-      secure: workspace.smtpPort === 465,
-      auth: {
-        user: workspace.smtpUser,
-        pass: workspace.smtpPassword,
-      },
-    });
-
-    const imagePath = resolveTemplateImagePath(imageUrl);
-    const attachments = imagePath
-      ? [
-          {
-            filename: path.basename(imagePath),
-            content: await readFile(imagePath),
-            cid: 'notification-image',
-          },
-        ]
-      : [];
-
-    const htmlWithImage =
-      html && attachments.length > 0
-        ? `${html}<p><img src="cid:notification-image" style="max-width:100%;margin-top:12px" alt="" /></p>`
-        : html;
-
-    await transporter.sendMail({
-      from: workspace.smtpFrom || workspace.smtpUser,
-      to,
-      subject,
-      text,
-      html: htmlWithImage || undefined,
-      attachments,
-    });
+    await sendEmailOrThrow(workspace, { to, subject, text, html, imageUrl, attachments });
   } catch (error) {
     console.error('Error sending email notification:', error);
   }

@@ -22,7 +22,7 @@ import {
   updateBlockAnywhere,
 } from '@/lib/notification-templates/block-tree-utils';
 import {
-  renderBlockTreeToHtml,
+  renderBlockTreePreviewHtml,
   wrapEmailPreviewDocument,
 } from '@/lib/notification-templates/render';
 import type { Dispatch, SetStateAction } from 'react';
@@ -46,7 +46,7 @@ export function BlockPropertiesDialog({
   const found = findBlockAnywhere(blocks, selectedId);
   const [draft, setDraft] = useState<Block | ColumnChildBlock | null>(found?.block ?? null);
   const previewDocument = useMemo(
-    () => (draft ? wrapEmailPreviewDocument(renderBlockTreeToHtml([draft])) : ''),
+    () => (draft ? wrapEmailPreviewDocument(renderBlockTreePreviewHtml([draft])) : ''),
     [draft],
   );
 

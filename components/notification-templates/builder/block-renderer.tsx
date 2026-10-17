@@ -1,9 +1,11 @@
 'use client';
 
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { DATA_BLOCK_SAMPLE_HTML } from '@/lib/notification-templates/data-sources';
 import type {
   ButtonBlock,
   ColumnChildBlock,
+  DataBlock,
   DividerBlock,
   ImageBlock,
   TableBlock,
@@ -235,6 +237,11 @@ function TableBlockView({
   );
 }
 
+function DataBlockView({ block }: { block: DataBlock }) {
+  // Static sample markup (no user data) — safe to inject.
+  return <div dangerouslySetInnerHTML={{ __html: DATA_BLOCK_SAMPLE_HTML[block.props.source] }} />;
+}
+
 interface ColumnChildRendererProps {
   block: ColumnChildBlock;
   isSelected: boolean;
@@ -269,6 +276,8 @@ export function ColumnChildRenderer({ block, isSelected, onChange }: ColumnChild
       return <ButtonBlockView block={block} />;
     case 'divider':
       return <DividerBlockView block={block} />;
+    case 'data':
+      return <DataBlockView block={block} />;
     case 'table':
       return (
         <TableBlockView

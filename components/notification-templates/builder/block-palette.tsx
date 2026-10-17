@@ -5,6 +5,7 @@ import { BLOCK_TYPE_LABELS, type BlockType } from '@/lib/notification-templates/
 import { cn } from '@/lib/utils';
 import {
   Box,
+  ChartColumnBig,
   Columns3,
   Divide,
   Image as ImageIcon,
@@ -24,6 +25,7 @@ export const PALETTE_ITEMS: {
   { type: 'table', icon: Table2 },
   { type: 'button', icon: RectangleHorizontal },
   { type: 'divider', icon: Divide },
+  { type: 'data', icon: ChartColumnBig },
 ];
 
 export const PALETTE_ICON_BY_TYPE: Record<

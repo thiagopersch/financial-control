@@ -27,7 +27,10 @@ import type {
   ColumnChildBlock,
 } from '@/lib/notification-templates/block-types';
 import { VARIABLE_CATALOG } from '@/lib/notification-templates/variable-catalog';
-import { renderBlockTreeToHtml } from '@/lib/notification-templates/render';
+import {
+  renderBlockTreePreviewHtml,
+  renderBlockTreeToHtml,
+} from '@/lib/notification-templates/render';
 import {
   createNotificationTemplate,
   updateNotificationTemplate,
@@ -38,6 +41,8 @@ import { NotificationChannel, NotificationType } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { BlockPalette, BlockTypeCard } from './block-palette';
+import { Button } from '@/components/ui/button';
+import { DEFAULT_REPORT_TEMPLATES } from '@/lib/notification-templates/default-report-templates';
 import { BlockPropertiesDialog } from './block-properties-dialog';
 import { Canvas } from './canvas';
 import { PreviewPanel } from './preview-panel';
@@ -68,7 +73,7 @@ export function TemplateBuilder({ template }: TemplateBuilderProps) {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
-  const previewHtml = useMemo(() => renderBlockTreeToHtml(blocks), [blocks]);
+  const previewHtml = useMemo(() => renderBlockTreePreviewHtml(blocks), [blocks]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current as
@@ -220,6 +225,34 @@ export function TemplateBuilder({ template }: TemplateBuilderProps) {
               <VariablePicker onInsert={(key) => setSubject((prev) => `${prev}{{${key}}}`)} />
             </div>
           </div>
+
+          {(type === 'PENDING_ITEMS_DIGEST' || type === 'EXPENSE_SUMMARY') && (
+            <div className="bg-muted/40 flex flex-col gap-2 rounded-lg border p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-muted-foreground">
+                Template de relatório agendado: use o elemento <strong>Dados do relatório</strong>{' '}
+                para inserir tabelas e gráficos, ou comece pelo modelo pronto.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (
+                    blocks.length &&
+                    !window.confirm('Substituir o conteúdo atual pelo modelo padrão?')
+                  ) {
+                    return;
+                  }
+                  const preset = DEFAULT_REPORT_TEMPLATES[type];
+                  setBlocks(structuredClone(preset.blocks));
+                  if (!subject) setSubject(preset.subject);
+                  if (!name) setName(preset.name);
+                }}
+              >
+                Usar modelo padrão
+              </Button>
+            </div>
+          )}
 
           <DndContext
             sensors={sensors}

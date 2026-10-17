@@ -11,7 +11,8 @@
     "prisma:seed": "ts-node -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seed.ts",
     "prisma:backfill-permissions": "ts-node -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/backfill-permission-profiles.ts",
     "docker:dev": "docker compose -f docker-compose.yml up --build",
-    "docker:dev:down": "docker compose -f docker-compose.yml down"
+    "docker:dev:down": "docker compose -f docker-compose.yml down",
+    "test": "vitest run"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -83,7 +84,8 @@
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   },
   "prisma": {
     "seed": "ts-node -r tsconfig-paths/register --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seed.ts"

@@ -60,8 +60,16 @@ export async function createScheduledTransaction(data: z.infer<typeof scheduledT
       },
     });
 
+    await createAuditLog({
+      action: 'CREATE_SCHEDULED_TRANSACTION',
+      entity: 'ScheduledTransaction',
+      entityId: transaction.id,
+      newValue: validated,
+    });
+
     revalidatePath('/scheduled');
-    return { success: true, data: transaction };
+    // Only plain values cross to the client (the Prisma row has a Decimal `amount`).
+    return { success: true, data: { id: transaction.id } };
   } catch (error) {
     console.error('Error creating scheduled transaction:', error);
     return { success: false, error: 'Erro ao criar agendamento' };
@@ -90,8 +98,15 @@ export async function updateScheduledTransaction(
       },
     });
 
+    await createAuditLog({
+      action: 'UPDATE_SCHEDULED_TRANSACTION',
+      entity: 'ScheduledTransaction',
+      entityId: transaction.id,
+      newValue: data,
+    });
+
     revalidatePath('/scheduled');
-    return { success: true, data: transaction };
+    return { success: true };
   } catch (error) {
     console.error('Error updating scheduled transaction:', error);
     return { success: false, error: 'Erro ao atualizar agendamento' };
