@@ -9,6 +9,8 @@ export interface ScheduledTransaction {
   amount: number;
   frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'BUSINESS_DAYS' | 'CUSTOM';
   dayOfMonth: number | null;
+  /** Dia de vencimento (1–31) das transações geradas; null = vence na execução. */
+  dueDay: number | null;
   dayOfWeek: number | null;
   customDays: number[];
   nextRun: string;

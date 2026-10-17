@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
 import { createAuditLog } from '@/lib/services/audit';
 import { runScheduledTransaction } from '@/lib/services/scheduled-transactions';
+import { shiftToDayOfMonth } from '@/lib/utils/scheduled-dates';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -12,7 +13,14 @@ const scheduledTransactionSchema = z.object({
   type: z.enum(['INCOME', 'EXPENSE']),
   amount: z.coerce.number().positive('Valor deve ser maior que zero'),
   frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY', 'BUSINESS_DAYS', 'CUSTOM']),
-  dayOfMonth: z.number().min(1).max(31).optional(),
+  dayOfMonth: z.number().int().min(1).max(31).optional(),
+  dueDay: z
+    .number()
+    .int()
+    .min(1, 'Dia de vencimento deve ser entre 1 e 31')
+    .max(31, 'Dia de vencimento deve ser entre 1 e 31')
+    .nullable()
+    .optional(),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
   accountId: z.string().min(1, 'Conta é obrigatória'),
   paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
@@ -49,6 +57,7 @@ export async function createScheduledTransaction(data: z.infer<typeof scheduledT
         amount: validated.amount,
         frequency: validated.frequency,
         dayOfMonth: validated.dayOfMonth || 1,
+        dueDay: validated.dueDay ?? null,
         nextRun,
         isActive: true,
         categoryId: validated.categoryId,
@@ -82,27 +91,45 @@ export async function updateScheduledTransaction(
 ) {
   try {
     const session = await requirePermission('scheduled', 'UPDATE');
-    if (data.paymentMethodId) {
+    const validated = scheduledTransactionSchema.partial().parse(data);
+
+    const existing = await prisma.scheduledTransaction.findFirst({
+      where: { id, workspaceId: session.user.workspaceId },
+      select: { dayOfMonth: true, frequency: true, nextRun: true },
+    });
+    if (!existing) return { success: false, error: 'Agendamento não encontrado' };
+
+    if (validated.paymentMethodId) {
       const creditCardError = await assertCreditCardWhenRequired(
-        data.paymentMethodId,
-        data.creditCardId,
+        validated.paymentMethodId,
+        validated.creditCardId,
       );
       if (creditCardError) return { success: false, error: creditCardError };
     }
 
+    // Ao trocar o dia de execução, a próxima execução vai para o novo dia no mesmo mês/ano.
+    const frequency = validated.frequency ?? existing.frequency;
+    let nextRun = validated.nextRun ? new Date(validated.nextRun) : undefined;
+    if (
+      !nextRun &&
+      frequency === 'MONTHLY' &&
+      validated.dayOfMonth &&
+      validated.dayOfMonth !== existing.dayOfMonth
+    ) {
+      nextRun = shiftToDayOfMonth(existing.nextRun, validated.dayOfMonth);
+    }
+
     const transaction = await prisma.scheduledTransaction.update({
       where: { id, workspaceId: session.user.workspaceId },
-      data: {
-        ...data,
-        nextRun: data.nextRun ? new Date(data.nextRun) : undefined,
-      },
+      data: { ...validated, nextRun },
     });
 
     await createAuditLog({
       action: 'UPDATE_SCHEDULED_TRANSACTION',
       entity: 'ScheduledTransaction',
       entityId: transaction.id,
-      newValue: data,
+      oldValue: existing,
+      newValue: { ...validated, nextRun },
     });
 
     revalidatePath('/scheduled');

@@ -89,6 +89,14 @@ const scheduledSchema = z.object({
       (value) => Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 31,
       'Dia do mês deve ser entre 1 e 31',
     ),
+  dueDay: z
+    .string()
+    .refine(
+      (value) =>
+        value === '' ||
+        (Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 31),
+      'Dia de vencimento deve ser entre 1 e 31',
+    ),
   categoryId: z.string().min(1, 'Categoria é obrigatória'),
   accountId: z.string().min(1, 'Conta é obrigatória'),
   paymentMethodId: z.string().min(1, 'Meio de pagamento é obrigatório'),
@@ -129,7 +137,7 @@ const SCHEDULED_TAB_ORDER = SCHEDULED_TABS.map((tab) => tab.value);
 
 const SCHEDULED_TAB_FIELDS: TabFieldMap<ScheduledTab> = {
   identification: ['name', 'type', 'amount', 'categoryId', 'supplierId'],
-  schedule: ['frequency', 'dayOfMonth'],
+  schedule: ['frequency', 'dayOfMonth', 'dueDay'],
   payment: ['accountId', 'paymentMethodId', 'creditCardId'],
 };
 
@@ -141,6 +149,7 @@ const SCHEDULED_FIELD_LABELS: Record<string, string> = {
   supplierId: 'Fornecedor',
   frequency: 'Frequência',
   dayOfMonth: 'Dia do mês',
+  dueDay: 'Dia de vencimento',
   accountId: 'Conta',
   paymentMethodId: 'Meio de pagamento',
   creditCardId: 'Cartão',
@@ -251,6 +260,7 @@ export function ScheduledTransactionsTab() {
       amount: '',
       frequency: 'MONTHLY',
       dayOfMonth: '1',
+      dueDay: '',
       categoryId: '',
       accountId: '',
       paymentMethodId: '',
@@ -325,6 +335,7 @@ export function ScheduledTransactionsTab() {
       amount: String(item.amount),
       frequency: item.frequency as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'BUSINESS_DAYS',
       dayOfMonth: String(item.dayOfMonth ?? 1),
+      dueDay: item.dueDay ? String(item.dueDay) : '',
       categoryId: item.categoryId,
       accountId: item.accountId ?? '',
       paymentMethodId: item.paymentMethodId ?? '',
@@ -342,6 +353,7 @@ export function ScheduledTransactionsTab() {
         amount: parseFloat(data.amount),
         frequency: data.frequency as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'BUSINESS_DAYS',
         dayOfMonth: parseInt(data.dayOfMonth),
+        dueDay: data.dueDay ? parseInt(data.dueDay) : null,
         categoryId: data.categoryId,
         accountId: data.accountId,
         paymentMethodId: data.paymentMethodId,
@@ -838,10 +850,26 @@ export function ScheduledTransactionsTab() {
                     <FormItem>
                       <FormLabel required className="flex items-center gap-1">
                         Dia do mês
-                        <InfoTooltip text="Usado apenas quando a frequência é 'Mensal': dia (1 a 31) em que a transação será gerada todo mês." />
+                        <InfoTooltip text="Usado apenas quando a frequência é 'Mensal': dia (1 a 31) em que o agendamento é executado e a transação é gerada todo mês. Ao alterar, a próxima execução passa para o novo dia no mesmo mês." />
                       </FormLabel>
                       <FormControl>
                         <Input type="number" min="1" max="31" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="dueDay"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-1">
+                        Dia de vencimento
+                        <InfoTooltip text="Dia (1 a 31) em que a transação gerada vence, no mesmo mês da execução. Em meses mais curtos, usa o último dia do mês. Vazio = vence no dia da execução." />
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="number" min="1" max="31" placeholder="Opcional" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

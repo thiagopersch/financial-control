@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { toCompetence } from '@/lib/utils/competence';
+import { computeScheduledDueDate } from '@/lib/utils/scheduled-dates';
 import { TransactionStatus } from '@prisma/client';
 import { addDays, addMonths, addWeeks, addYears, isWeekend } from 'date-fns';
 
@@ -114,7 +115,7 @@ export async function runScheduledTransaction(
           type: scheduled.type,
           amount: scheduled.amount,
           date: nextRun,
-          dueDate: nextRun,
+          dueDate: computeScheduledDueDate(nextRun, scheduled.dueDay),
           competence,
           originalCompetence: competence,
           status: TransactionStatus.PENDING,

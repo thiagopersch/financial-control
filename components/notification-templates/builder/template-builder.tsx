@@ -3,29 +3,20 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { DndContext, DragOverlay } from '@dnd-kit/core';
 import {
-  closestCenter,
-  DndContext,
-  DragOverlay,
-  type DragEndEvent,
-  type DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import {
-  addBlockToColumn,
-  addBlockToContainer,
+  canDropAt,
   createDefaultBlock,
-  insertTopLevelBlock,
-  moveTopLevelBlock,
-  removeTopLevelBlock,
+  duplicateBlock,
+  findBlockAnywhere,
+  getChildrenAt,
+  insertBlockAt,
+  moveBlockByOffset,
+  removeBlockAnywhere,
+  TOP_LEVEL_LOCATION,
+  type BlockLocation,
 } from '@/lib/notification-templates/block-tree-utils';
-import type {
-  BlockTree,
-  BlockType,
-  ColumnChildBlock,
-} from '@/lib/notification-templates/block-types';
+import type { BlockType } from '@/lib/notification-templates/block-types';
 import { VARIABLE_CATALOG } from '@/lib/notification-templates/variable-catalog';
 import {
   renderBlockTreePreviewHtml,
@@ -39,7 +30,7 @@ import type { NotificationTemplateDTO } from '@/lib/queries/notification-templat
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { NotificationChannel, NotificationType } from '@prisma/client';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BlockPalette, BlockTypeCard } from './block-palette';
 import { Button } from '@/components/ui/button';
 import { DEFAULT_REPORT_TEMPLATES } from '@/lib/notification-templates/default-report-templates';
@@ -47,6 +38,8 @@ import { BlockPropertiesDialog } from './block-properties-dialog';
 import { Canvas } from './canvas';
 import { PreviewPanel } from './preview-panel';
 import { Toolbar } from './toolbar';
+import { useBlockHistory } from './use-block-history';
+import { useBuilderDnd } from './use-builder-dnd';
 import { VariablePicker } from './variable-picker';
 
 interface TemplateBuilderProps {
@@ -64,95 +57,107 @@ export function TemplateBuilder({ template }: TemplateBuilderProps) {
     (template?.channel as NotificationChannel) ?? NotificationChannel.EMAIL,
   );
   const [subject, setSubject] = useState(template?.subject ?? '');
-  const [blocks, setBlocks] = useState<BlockTree>(template?.content ?? []);
+  const { blocks, setBlocks, undo, redo, canUndo, canRedo } = useBlockHistory(
+    template?.content ?? [],
+  );
   const [bodyWhatsapp, setBodyWhatsapp] = useState(template?.bodyWhatsapp ?? '');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeDragBlockType, setActiveDragBlockType] = useState<BlockType | null>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const selectAndEdit = (id: string) => {
+    setSelectedId(id);
+    setEditingId(id);
+  };
+
+  const dnd = useBuilderDnd({ blocks, setBlocks, onCreated: selectAndEdit });
 
   const previewHtml = useMemo(() => renderBlockTreePreviewHtml(blocks), [blocks]);
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const data = event.active.data.current as
-      { source: 'palette'; blockType: BlockType } | { source: 'block' } | undefined;
-    setActiveDragBlockType(data?.source === 'palette' ? data.blockType : null);
-  };
+  /** Palette click: add next to the selected element (inside it, when it's a container). */
+  const handlePaletteAdd = (type: BlockType) => {
+    const newBlock = createDefaultBlock(type, blocks);
+    const selected = selectedId ? findBlockAnywhere(blocks, selectedId) : null;
+    let location: BlockLocation = TOP_LEVEL_LOCATION;
+    let index: number | undefined;
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveDragBlockType(null);
-    const { active, over } = event;
-    if (!over) return;
-
-    const activeData = active.data.current as
-      { source: 'palette'; blockType: BlockType } | { source: 'block' } | undefined;
-    const overId = String(over.id);
-
-    if (activeData?.source === 'palette') {
-      const newBlock = createDefaultBlock(activeData.blockType, blocks);
-      // Row/Container are container-only blocks (max nesting depth = 2) — they
-      // can never be dropped inside a column or another container, only at
-      // the top level.
-      const canNestInsideContainer = newBlock.type !== 'row' && newBlock.type !== 'container';
-
-      if (canNestInsideContainer && overId.startsWith('column:')) {
-        const [, rowId, columnId] = overId.split(':');
-        setBlocks((prev) => addBlockToColumn(prev, rowId, columnId, newBlock as ColumnChildBlock));
-      } else if (canNestInsideContainer && overId.startsWith('container:')) {
-        const containerId = overId.slice('container:'.length);
-        setBlocks((prev) => addBlockToContainer(prev, containerId, newBlock as ColumnChildBlock));
+    if (selected) {
+      const containerLocation: BlockLocation = {
+        type: 'container',
+        containerId: selected.block.id,
+      };
+      if (selected.block.type === 'container' && canDropAt(type, containerLocation)) {
+        location = containerLocation;
+      } else if (canDropAt(type, selected.location)) {
+        location = selected.location;
+        index = getChildrenAt(blocks, location).findIndex((b) => b.id === selected.block.id) + 1;
       } else {
-        setBlocks((prev) => {
-          if (overId === 'canvas-top-level') return insertTopLevelBlock(prev, newBlock);
-          const idx = prev.findIndex((b) => b.id === overId);
-          return insertTopLevelBlock(prev, newBlock, idx === -1 ? prev.length : idx);
-        });
+        // Row/Container next to a nested element: place it after the parent.
+        const parentId =
+          selected.location.type === 'container'
+            ? selected.location.containerId
+            : selected.location.type === 'column'
+              ? selected.location.rowId
+              : selected.block.id;
+        index = blocks.findIndex((b) => b.id === parentId) + 1;
       }
-      setSelectedId(newBlock.id);
-      return;
     }
 
-    if (activeData?.source === 'block') {
-      const activeId = String(active.id);
-      if (activeId === overId) return;
-
-      // Only top-level blocks are draggable today, so the dragged block is
-      // always found at the top level here.
-      const draggedBlock = blocks.find((b) => b.id === activeId);
-      if (!draggedBlock) return;
-
-      // Row/Container can't nest inside a column or another container.
-      const canNestInsideContainer =
-        draggedBlock.type !== 'row' && draggedBlock.type !== 'container';
-
-      if (canNestInsideContainer && overId.startsWith('column:')) {
-        const [, rowId, columnId] = overId.split(':');
-        setBlocks((prev) => {
-          const without = removeTopLevelBlock(prev, activeId);
-          return addBlockToColumn(without, rowId, columnId, draggedBlock as ColumnChildBlock);
-        });
-        return;
-      }
-
-      if (canNestInsideContainer && overId.startsWith('container:')) {
-        const containerId = overId.slice('container:'.length);
-        setBlocks((prev) => {
-          const without = removeTopLevelBlock(prev, activeId);
-          return addBlockToContainer(without, containerId, draggedBlock as ColumnChildBlock);
-        });
-        return;
-      }
-
-      setBlocks((prev) => {
-        const fromIndex = prev.findIndex((b) => b.id === activeId);
-        const toIndex = prev.findIndex((b) => b.id === overId);
-        if (fromIndex === -1 || toIndex === -1) return prev;
-        return moveTopLevelBlock(prev, fromIndex, toIndex);
-      });
-    }
+    setBlocks((prev) => insertBlockAt(prev, location, newBlock, index));
+    selectAndEdit(newBlock.id);
   };
+
+  useEffect(() => {
+    if (channel !== NotificationChannel.EMAIL || editingId) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const { target } = e;
+      if (
+        target instanceof Element &&
+        target.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')
+      ) {
+        return;
+      }
+      const mod = e.metaKey || e.ctrlKey;
+      const key = e.key.toLowerCase();
+
+      if (mod && key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (mod && key === 'y') {
+        e.preventDefault();
+        redo();
+        return;
+      }
+      if (!selectedId || !findBlockAnywhere(blocks, selectedId)) return;
+
+      if (e.key === 'Escape') {
+        setSelectedId(null);
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        setBlocks((prev) => removeBlockAnywhere(prev, selectedId));
+        setSelectedId(null);
+      } else if (mod && key === 'd') {
+        e.preventDefault();
+        const { tree, newId } = duplicateBlock(blocks, selectedId);
+        setBlocks(tree);
+        setSelectedId(newId);
+      } else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        e.preventDefault();
+        setBlocks((prev) => moveBlockByOffset(prev, selectedId, e.key === 'ArrowUp' ? -1 : 1));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        setEditingId(selectedId);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [channel, editingId, selectedId, blocks, setBlocks, undo, redo]);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -255,35 +260,46 @@ export function TemplateBuilder({ template }: TemplateBuilderProps) {
           )}
 
           <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragCancel={() => setActiveDragBlockType(null)}
+            {...dnd.dndContextProps}
+            onDragStart={dnd.onDragStart}
+            onDragMove={dnd.onDragMove}
+            onDragEnd={dnd.onDragEnd}
+            onDragCancel={dnd.onDragCancel}
           >
-            <div className="grid grid-cols-[200px_1fr] items-start gap-4">
-              <BlockPalette />
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+              <BlockPalette onAdd={handlePaletteAdd} />
               <Canvas
                 blocks={blocks}
                 setBlocks={setBlocks}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
+                onEdit={setEditingId}
+                activeDrag={dnd.activeDrag}
+                dropTarget={dnd.dropTarget}
+                history={{ undo, redo, canUndo, canRedo }}
               />
             </div>
-            <DragOverlay>
-              {activeDragBlockType && (
-                <BlockTypeCard type={activeDragBlockType} className="shadow-lg" />
+            <DragOverlay dropAnimation={null}>
+              {dnd.activeDrag && (
+                <BlockTypeCard
+                  type={dnd.activeDrag.blockType}
+                  label={dnd.activeDrag.kind === 'block' ? dnd.activeDrag.name : undefined}
+                  description={
+                    dnd.activeDrag.kind === 'block' ? 'Movendo elemento' : 'Novo elemento'
+                  }
+                  className="border-primary w-52 -rotate-2 cursor-grabbing shadow-xl"
+                />
               )}
             </DragOverlay>
           </DndContext>
 
-          {selectedId && (
+          {editingId && (
             <BlockPropertiesDialog
-              key={selectedId}
+              key={editingId}
               blocks={blocks}
               setBlocks={setBlocks}
-              selectedId={selectedId}
-              onClose={() => setSelectedId(null)}
+              selectedId={editingId}
+              onClose={() => setEditingId(null)}
             />
           )}
 

@@ -21,6 +21,7 @@ import {
   CalendarCheck,
   CalendarClock,
   CalendarPlus,
+  CalendarRange,
   CreditCard,
   FolderTree,
   Hash,
@@ -256,6 +257,9 @@ export function ScheduledCard({
                 {creditCardName || empty}
               </Detail>
             )}
+            <Detail icon={<CalendarRange />} label="Dia de vencimento">
+              {item.dueDay ? `Dia ${item.dueDay}` : empty}
+            </Detail>
             <Detail icon={<FolderTree />} label="Centro de custo">
               {costCenterName || empty}
             </Detail>

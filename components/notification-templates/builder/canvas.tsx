@@ -1,497 +1,161 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import {
-  BLOCK_TYPE_LABELS,
-  type Block,
-  type BlockTree,
-  type BlockType,
-  type ColumnChildBlock,
-  type ContainerBlock,
-  type RowBlock,
-} from '@/lib/notification-templates/block-types';
-import {
-  addBlockToColumn,
-  addBlockToContainer,
-  addColumnToRow,
-  createDefaultBlock,
-  moveBlockInColumn,
-  moveBlockInContainer,
-  removeBlockFromColumn,
-  removeBlockFromContainer,
-  removeColumnFromRow,
-  removeTopLevelBlock,
-} from '@/lib/notification-templates/block-tree-utils';
-import { renderBlockTreePreviewHtml } from '@/lib/notification-templates/render';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { TOP_LEVEL_LOCATION } from '@/lib/notification-templates/block-tree-utils';
+import type { BlockTree } from '@/lib/notification-templates/block-types';
 import { cn } from '@/lib/utils';
-import { ChevronDown, ChevronUp, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { useTemplateBuilderPrefs } from '@/hooks/use-template-builder-prefs';
+import { LayoutTemplate, Redo2, Undo2 } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
+import { AddBlockMenu, CanvasItems, CanvasProvider, useListDroppable } from './canvas-tree';
+import type { DragData, DropTarget } from './use-builder-dnd';
 
-const COLUMN_CHILD_TYPES: BlockType[] = ['text', 'image', 'table', 'button', 'divider', 'data'];
+const SHORTCUTS_HELP =
+  'Arraste pela etiqueta do elemento para movê-lo — inclusive para dentro ou para fora de contêineres e colunas. ' +
+  'Atalhos com um elemento selecionado: Delete exclui, Ctrl+D duplica, Alt+↑/↓ move, Esc limpa a seleção. ' +
+  'Ctrl+Z desfaz e Ctrl+Shift+Z refaz.';
 
 interface CanvasProps {
   blocks: BlockTree;
   setBlocks: Dispatch<SetStateAction<BlockTree>>;
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (id: string | null) => void;
+  onEdit: (id: string) => void;
+  activeDrag: DragData | null;
+  dropTarget: DropTarget | null;
+  history: { undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean };
 }
 
-export function Canvas({ blocks, setBlocks, selectedId, onSelect }: CanvasProps) {
-  const { setNodeRef, isOver } = useDroppable({ id: 'canvas-top-level' });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        'bg-muted/20 min-h-[480px] flex-1 rounded-lg border border-dashed p-4',
-        isOver && 'border-primary bg-primary/5',
-      )}
-    >
-      {blocks.length === 0 ? (
-        <div className="text-muted-foreground flex h-full min-h-[440px] items-center justify-center text-center text-sm">
-          Arraste elementos da paleta à esquerda para começar a montar o template.
-        </div>
-      ) : (
-        <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
-          <div className="mx-auto flex max-w-[640px] flex-col gap-3">
-            {blocks.map((block) => (
-              <TopLevelBlockItem
-                key={block.id}
-                block={block}
-                blocks={blocks}
-                selectedId={selectedId}
-                onSelect={onSelect}
-                setBlocks={setBlocks}
-              />
-            ))}
-          </div>
-        </SortableContext>
-      )}
-    </div>
-  );
-}
-
-function TopLevelBlockItem({
-  block,
+export function Canvas({
   blocks,
+  setBlocks,
   selectedId,
   onSelect,
-  setBlocks,
-}: {
-  block: Block;
-  blocks: BlockTree;
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  setBlocks: Dispatch<SetStateAction<BlockTree>>;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: block.id,
-    data: { source: 'block' },
-  });
-
-  const style = { transform: CSS.Transform.toString(transform), transition };
-  const isSelected = selectedId === block.id;
+  onEdit,
+  activeDrag,
+  dropTarget,
+  history,
+}: CanvasProps) {
+  const useAppTheme = useTemplateBuilderPrefs((s) => s.useAppTheme);
+  const setUseAppTheme = useTemplateBuilderPrefs((s) => s.setUseAppTheme);
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      onClick={(e) => {
-        // A "button"/"image" block can render a real `<a href>` inside its
-        // preview — prevent it from actually navigating while editing.
-        e.preventDefault();
-        onSelect(block.id);
+    <CanvasProvider
+      value={{
+        blocks,
+        setBlocks,
+        selectedId,
+        onSelect,
+        onEdit,
+        activeDrag,
+        dropTarget,
+        useAppTheme,
       }}
-      className={cn(
-        'group bg-background relative cursor-pointer rounded-md border p-3 pt-5 pl-3 transition-colors',
-        isSelected
-          ? 'border-primary ring-primary/30 ring-2'
-          : 'border-muted-foreground/40 hover:border-primary/60 border-dashed',
-        isDragging && 'opacity-50',
-      )}
     >
-      <span className="text-muted-foreground bg-background absolute -top-2.5 left-2 flex items-center gap-1 rounded border px-1 text-[10px] font-medium">
-        <GripVertical className="h-2.5 w-2.5" />
-        {block.name || BLOCK_TYPE_LABELS[block.type]}
-      </span>
-
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setBlocks((prev) => removeTopLevelBlock(prev, block.id));
-          if (isSelected) onSelect('');
-        }}
-        className="text-muted-foreground hover:text-destructive absolute top-2 right-2 hidden cursor-pointer rounded p-1 group-hover:block"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
-
-      {block.type === 'row' ? (
-        <RowView
-          block={block}
-          blocks={blocks}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          setBlocks={setBlocks}
-        />
-      ) : block.type === 'container' ? (
-        <ContainerView
-          block={block}
-          blocks={blocks}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          setBlocks={setBlocks}
-        />
-      ) : (
-        <div dangerouslySetInnerHTML={{ __html: renderBlockTreePreviewHtml([block]) }} />
-      )}
-    </div>
-  );
-}
-
-function RowView({
-  block,
-  blocks,
-  selectedId,
-  onSelect,
-  setBlocks,
-}: {
-  block: RowBlock;
-  blocks: BlockTree;
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  setBlocks: Dispatch<SetStateAction<BlockTree>>;
-}) {
-  return (
-    <div onClick={(e) => e.stopPropagation()}>
-      <div className="mb-2 flex items-center justify-between">
-        <span
-          className="text-muted-foreground cursor-pointer text-xs font-medium hover:underline"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect(block.id);
-          }}
-        >
-          {block.name || 'Linha'} · {block.children.length} coluna(s)
-        </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-6 cursor-pointer gap-1 text-xs"
-          onClick={(e) => {
-            e.stopPropagation();
-            setBlocks((prev) => addColumnToRow(prev, block.id));
-          }}
-          disabled={block.children.length >= 6}
-        >
-          <Plus className="h-3 w-3" /> Coluna
-        </Button>
-      </div>
-      <div className="flex gap-2">
-        {block.children.map((column) => (
-          <ColumnDropZone
-            key={column.id}
-            rowId={block.id}
-            columnId={column.id}
-            blocks={blocks}
-            widthPercent={column.props.widthPercent}
-            children_={column.children}
-            selectedId={selectedId}
-            onSelect={onSelect}
-            setBlocks={setBlocks}
-            canRemove={block.children.length > 1}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ColumnDropZone({
-  rowId,
-  columnId,
-  blocks,
-  widthPercent,
-  children_,
-  selectedId,
-  onSelect,
-  setBlocks,
-  canRemove,
-}: {
-  rowId: string;
-  columnId: string;
-  blocks: BlockTree;
-  widthPercent: number;
-  children_: ColumnChildBlock[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  setBlocks: Dispatch<SetStateAction<BlockTree>>;
-  canRemove: boolean;
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id: `column:${rowId}:${columnId}` });
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={{ width: `${widthPercent}%` }}
-      className={cn(
-        'bg-background/60 flex min-h-[80px] flex-col gap-2 rounded-md border border-dashed p-2 pt-4',
-        isOver && 'border-primary bg-primary/5',
-      )}
-    >
-      {children_.map((child, index) => {
-        const isSelected = selectedId === child.id;
-        return (
-          <div
-            key={child.id}
-            onClick={(e) => {
-              // A "button"/"image" block can render a real `<a href>` inside
-              // its preview — prevent it from actually navigating while editing.
-              e.preventDefault();
-              e.stopPropagation();
-              onSelect(child.id);
-            }}
-            className={cn(
-              'group/child relative cursor-pointer rounded border p-1.5',
-              isSelected
-                ? 'border-primary ring-primary/30 ring-1'
-                : 'border-muted-foreground/30 hover:border-primary/60 border-dashed',
-            )}
-          >
-            <span className="text-muted-foreground bg-background absolute -top-2.5 left-1 rounded border px-1 text-[10px] font-medium">
-              {child.name || BLOCK_TYPE_LABELS[child.type]}
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border">
+        <div className="bg-card flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-3 py-2">
+          <div className="flex items-center gap-2">
+            <LayoutTemplate className="text-muted-foreground h-4 w-4" />
+            <span className="text-sm font-semibold">Montagem</span>
+            <span className="text-muted-foreground text-xs">
+              {blocks.length} {blocks.length === 1 ? 'elemento' : 'elementos'}
             </span>
-            <div className="absolute -top-1 -right-1 hidden gap-0.5 group-hover/child:flex">
-              <button
-                type="button"
-                disabled={index === 0}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setBlocks((prev) => moveBlockInColumn(prev, rowId, columnId, index, index - 1));
-                }}
-                className="bg-background text-muted-foreground hover:text-foreground cursor-pointer rounded border p-0.5 disabled:opacity-30"
-              >
-                <ChevronUp className="h-3 w-3" />
-              </button>
-              <button
-                type="button"
-                disabled={index === children_.length - 1}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setBlocks((prev) => moveBlockInColumn(prev, rowId, columnId, index, index + 1));
-                }}
-                className="bg-background text-muted-foreground hover:text-foreground cursor-pointer rounded border p-0.5 disabled:opacity-30"
-              >
-                <ChevronDown className="h-3 w-3" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setBlocks((prev) => removeBlockFromColumn(prev, rowId, columnId, child.id));
-                  if (isSelected) onSelect('');
-                }}
-                className="bg-background text-muted-foreground hover:text-destructive cursor-pointer rounded border p-0.5"
-              >
-                <Trash2 className="h-3 w-3" />
-              </button>
-            </div>
-            <div dangerouslySetInnerHTML={{ __html: renderBlockTreePreviewHtml([child]) }} />
+            <InfoTooltip text={SHORTCUTS_HELP} />
           </div>
-        );
-      })}
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 cursor-pointer gap-1 text-xs"
-          >
-            <Plus className="h-3 w-3" /> Adicionar
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          {COLUMN_CHILD_TYPES.map((type) => (
-            <DropdownMenuItem
-              key={type}
-              onSelect={() => {
-                const newBlock = createDefaultBlock(type, blocks) as ColumnChildBlock;
-                setBlocks((prev) => addBlockToColumn(prev, rowId, columnId, newBlock));
-                onSelect(newBlock.id);
-              }}
-            >
-              {BLOCK_TYPE_LABELS[type]}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {canRemove && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground hover:text-destructive h-6 cursor-pointer gap-1 text-xs"
-          onClick={() => setBlocks((prev) => removeColumnFromRow(prev, rowId, columnId))}
-        >
-          <Trash2 className="h-3 w-3" /> Remover coluna
-        </Button>
-      )}
-    </div>
-  );
-}
-
-function ContainerView({
-  block,
-  blocks,
-  selectedId,
-  onSelect,
-  setBlocks,
-}: {
-  block: ContainerBlock;
-  blocks: BlockTree;
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  setBlocks: Dispatch<SetStateAction<BlockTree>>;
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id: `container:${block.id}` });
-
-  const isFlex = block.props.display === 'flex';
-  const childrenStyle: React.CSSProperties = isFlex
-    ? {
-        display: 'flex',
-        flexDirection: block.props.flexDirection ?? 'row',
-        flexWrap: block.props.flexWrap ?? 'nowrap',
-        justifyContent: block.props.justifyContent ?? 'flex-start',
-        alignItems: block.props.alignItems ?? 'stretch',
-        gap: `${block.props.gap ?? 0}${block.props.gapUnit ?? 'px'}`,
-      }
-    : {};
-
-  return (
-    <div onClick={(e) => e.stopPropagation()}>
-      <span
-        className="text-muted-foreground mb-2 block cursor-pointer text-xs font-medium hover:underline"
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect(block.id);
-        }}
-      >
-        {block.name || 'Contêiner'}
-      </span>
-      <div
-        ref={setNodeRef}
-        className={cn(
-          'bg-background/60 min-h-[80px] rounded-md border border-dashed p-2 pt-4',
-          isOver && 'border-primary bg-primary/5',
-        )}
-      >
-        <div style={childrenStyle} className={cn(!isFlex && 'flex flex-col gap-2')}>
-          {block.children.map((child, index) => {
-            const isSelected = selectedId === child.id;
-            return (
-              <div
-                key={child.id}
-                onClick={(e) => {
-                  // A "button"/"image" block can render a real `<a href>`
-                  // inside its preview — prevent it from actually navigating
-                  // while editing.
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onSelect(child.id);
-                }}
-                className={cn(
-                  'group/child relative cursor-pointer rounded border p-1.5',
-                  isSelected
-                    ? 'border-primary ring-primary/30 ring-1'
-                    : 'border-muted-foreground/30 hover:border-primary/60 border-dashed',
-                )}
-              >
-                <span className="text-muted-foreground bg-background absolute -top-2.5 left-1 rounded border px-1 text-[10px] font-medium">
-                  {child.name || BLOCK_TYPE_LABELS[child.type]}
-                </span>
-                <div className="absolute -top-1 -right-1 hidden gap-0.5 group-hover/child:flex">
-                  <button
-                    type="button"
-                    disabled={index === 0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setBlocks((prev) => moveBlockInContainer(prev, block.id, index, index - 1));
-                    }}
-                    className="bg-background text-muted-foreground hover:text-foreground cursor-pointer rounded border p-0.5 disabled:opacity-30"
-                  >
-                    <ChevronUp className="h-3 w-3" />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={index === block.children.length - 1}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setBlocks((prev) => moveBlockInContainer(prev, block.id, index, index + 1));
-                    }}
-                    className="bg-background text-muted-foreground hover:text-foreground cursor-pointer rounded border p-0.5 disabled:opacity-30"
-                  >
-                    <ChevronDown className="h-3 w-3" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setBlocks((prev) => removeBlockFromContainer(prev, block.id, child.id));
-                      if (isSelected) onSelect('');
-                    }}
-                    className="bg-background text-muted-foreground hover:text-destructive cursor-pointer rounded border p-0.5"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-                <div dangerouslySetInnerHTML={{ __html: renderBlockTreePreviewHtml([child]) }} />
-              </div>
-            );
-          })}
-        </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <div className="flex items-center gap-1">
             <Button
               type="button"
               variant="ghost"
-              size="sm"
-              className="mt-2 h-7 cursor-pointer gap-1 text-xs"
+              size="icon"
+              className="h-7 w-7"
+              title="Desfazer (Ctrl+Z)"
+              aria-label="Desfazer"
+              disabled={!history.canUndo}
+              onClick={history.undo}
             >
-              <Plus className="h-3 w-3" /> Adicionar
+              <Undo2 className="h-4 w-4" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {COLUMN_CHILD_TYPES.map((type) => (
-              <DropdownMenuItem
-                key={type}
-                onSelect={() => {
-                  const newBlock = createDefaultBlock(type, blocks) as ColumnChildBlock;
-                  setBlocks((prev) => addBlockToContainer(prev, block.id, newBlock));
-                  onSelect(newBlock.id);
-                }}
-              >
-                {BLOCK_TYPE_LABELS[type]}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              title="Refazer (Ctrl+Shift+Z)"
+              aria-label="Refazer"
+              disabled={!history.canRedo}
+              onClick={history.redo}
+            >
+              <Redo2 className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <Switch
+              id="builder-app-theme"
+              size="sm"
+              checked={useAppTheme}
+              onCheckedChange={setUseAppTheme}
+            />
+            <Label htmlFor="builder-app-theme" className="cursor-pointer text-xs font-medium">
+              Visualizar com o tema do app
+            </Label>
+          </div>
+        </div>
+
+        <CanvasSurface useAppTheme={useAppTheme} blocks={blocks} onSelect={onSelect} />
+      </div>
+    </CanvasProvider>
+  );
+}
+
+function CanvasSurface({
+  useAppTheme,
+  blocks,
+  onSelect,
+}: {
+  useAppTheme: boolean;
+  blocks: BlockTree;
+  onSelect: (id: string | null) => void;
+}) {
+  const { setNodeRef, isTarget } = useListDroppable(TOP_LEVEL_LOCATION);
+
+  return (
+    <div
+      ref={setNodeRef}
+      onClick={() => onSelect(null)}
+      className={cn(
+        // Off: always light, like the real e-mail. On: follows the app theme.
+        !useAppTheme && 'email-canvas-light',
+        'bg-muted/60 text-foreground min-h-[560px] p-4 transition-colors sm:p-8',
+        isTarget && blocks.length > 0 && 'bg-sky-500/5',
+      )}
+    >
+      <div
+        className={cn(
+          'bg-background mx-auto flex max-w-[640px] flex-col gap-[22px] rounded-lg border px-4 pt-7 pb-4 shadow-sm sm:px-6',
+        )}
+      >
+        {blocks.length === 0 ? (
+          <div
+            className={cn(
+              'text-muted-foreground flex min-h-[380px] flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-6 text-center text-sm transition-colors',
+              isTarget && 'border-sky-500 bg-sky-500/5 text-sky-700',
+            )}
+          >
+            <LayoutTemplate className="h-8 w-8 opacity-50" />
+            <p className="font-medium">Seu template está vazio</p>
+            <p className="max-w-xs text-xs">
+              Arraste elementos da paleta para cá ou use o botão abaixo para adicionar.
+            </p>
+          </div>
+        ) : (
+          <CanvasItems location={TOP_LEVEL_LOCATION} items={blocks} emptyLabel="" />
+        )}
+        <AddBlockMenu location={TOP_LEVEL_LOCATION} label="Adicionar elemento" className="py-2" />
       </div>
     </div>
   );
