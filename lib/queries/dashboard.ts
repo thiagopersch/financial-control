@@ -1,17 +1,16 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
+import { cachedForWorkspace } from '@/lib/cache/redis';
 import { CHART_STATUS_COLORS, getCategoricalColor } from '@/lib/chart-colors';
 import { DEBT_OPEN_STATUSES } from '@/lib/constants/debt-status';
 import prisma from '@/lib/prisma';
-import { getCreditCardsCurrentUsage } from '@/lib/queries/credit-card-usage';
 import {
   addCompetenceMonths,
   competenceFromYearMonth,
   competenceRange,
 } from '@/lib/utils/competence';
 import { Prisma, TransactionStatus, TransactionType } from '@prisma/client';
-import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
+import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { getServerSession } from 'next-auth';
 
 /** Intervalo de competência (`{ gte, lte }` na coluna `competence`); `undefined` = todos os períodos. */
 export type CompetenceFilter = { gte: Date; lte: Date } | undefined;
@@ -20,273 +19,199 @@ function competenceWhere(competence: CompetenceFilter): Prisma.TransactionWhereI
   return competence ? { competence } : {};
 }
 
-export async function getDashboardStats(competence?: CompetenceFilter) {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error('Unauthorized');
+/** Dashboard: agregados por workspace/período ficam 60s no Redis e caem a cada escrita em transação. */
+const DASHBOARD_TTL_SEC = 60;
 
-  const workspaceId = session.user.workspaceId;
-
-  const [allTransactions, cardLimitAggregate] = await Promise.all([
-    prisma.transaction.findMany({ where: { workspaceId } }),
-    prisma.creditCard.aggregate({
-      where: { account: { workspaceId } },
-      _sum: { limit: true },
-    }),
-  ]);
-
-  // Limite total dos cartões entra como recurso disponível no patrimônio e nas receitas.
-  const totalCardLimit = Number(cardLimitAggregate._sum.limit || 0);
-
-  // Patrimônio = todas as receitas cadastradas (pagas ou não) + limite dos cartões
-  // − despesas já pagas. Compras no cartão ficam de fora: o pagamento da fatura é
-  // registrado como uma despesa própria (sem creditCardId) e contar as duas duplicaria.
-  const allIncome = allTransactions
-    .filter((t) => t.type === TransactionType.INCOME)
-    .reduce((acc, t) => acc + Number(t.amount), 0);
-  const paidExpenses = allTransactions
-    .filter((t) => t.type === TransactionType.EXPENSE && t.status === 'PAID' && !t.creditCardId)
-    .reduce((acc, t) => acc + Number(t.amount), 0);
-  const totalBalance = allIncome + totalCardLimit - paidExpenses;
-
-  const filteredTransactions = competence
-    ? allTransactions.filter(
-        (t) => t.competence >= competence.gte && t.competence <= competence.lte,
-      )
-    : allTransactions;
-
-  const totalIncome =
-    filteredTransactions
-      .filter((t) => t.type === TransactionType.INCOME)
-      .reduce((acc, t) => acc + Number(t.amount), 0) + totalCardLimit;
-
-  const totalExpense = filteredTransactions
-    .filter((t) => t.type === TransactionType.EXPENSE)
-    .reduce((acc, t) => acc + Number(t.amount), 0);
-
-  const pendingToPay = filteredTransactions
-    .filter((t) => t.type === TransactionType.EXPENSE && t.status === 'PENDING')
-    .reduce((acc, t) => acc + Number(t.amount), 0);
-
-  const balance = totalIncome - totalExpense;
-
-  // Last Month Stats for Comparison
-  let lastMonthIncome = 0;
-  let lastMonthExpense = 0;
-
-  if (competence) {
-    const lastTransactions = await prisma.transaction.findMany({
-      where: {
-        workspaceId,
-        competence: {
-          gte: addCompetenceMonths(competence.gte, -1),
-          lte: addCompetenceMonths(competence.lte, -1),
-        },
-      },
-    });
-
-    lastMonthIncome =
-      lastTransactions
-        .filter((t) => t.type === TransactionType.INCOME)
-        .reduce((acc, t) => acc + Number(t.amount), 0) + totalCardLimit;
-
-    lastMonthExpense = lastTransactions
-      .filter((t) => t.type === TransactionType.EXPENSE)
-      .reduce((acc, t) => acc + Number(t.amount), 0);
-  }
-
-  const incomeGrowth =
-    lastMonthIncome > 0 ? ((totalIncome - lastMonthIncome) / lastMonthIncome) * 100 : 0;
-  const expenseGrowth =
-    lastMonthExpense > 0 ? ((totalExpense - lastMonthExpense) / lastMonthExpense) * 100 : 0;
-
-  return {
-    totalIncome,
-    totalExpense,
-    totalBalance,
-    cardLimit: totalCardLimit,
-    balance,
-    pendingToPay,
-    incomeGrowth,
-    expenseGrowth,
-  };
+function competenceKey(competence: CompetenceFilter) {
+  return competence ? `${competence.gte.toISOString()}_${competence.lte.toISOString()}` : 'all';
 }
 
-export async function getCashFlowProjection(days: number = 30) {
-  const session = await getServerSession(authOptions);
+function sumAmount(rows: { _sum: { amount: Prisma.Decimal | null } }[]) {
+  return rows.reduce((acc, row) => acc + Number(row._sum.amount || 0), 0);
+}
+
+async function requireWorkspaceId() {
+  const session = await getSession();
   if (!session) throw new Error('Unauthorized');
+  return session.user.workspaceId;
+}
 
-  const today = new Date();
-  const futureDate = new Date();
-  futureDate.setDate(today.getDate() + days);
+export async function getDashboardStats(competence?: CompetenceFilter) {
+  const workspaceId = await requireWorkspaceId();
 
-  const transactions = await prisma.transaction.findMany({
-    where: {
-      workspaceId: session.user.workspaceId,
-      date: {
-        gte: startOfMonth(today),
-        lte: futureDate,
-      },
-      status: { in: ['PENDING', 'PAID'] },
+  return cachedForWorkspace(
+    workspaceId,
+    ['tx', 'credit-cards'],
+    ['dash-stats', competenceKey(competence)],
+    DASHBOARD_TTL_SEC,
+    async () => {
+      const previous = competence
+        ? {
+            gte: addCompetenceMonths(competence.gte, -1),
+            lte: addCompetenceMonths(competence.lte, -1),
+          }
+        : undefined;
+
+      // Tudo agregado no banco e em paralelo — nada de carregar a tabela de transações.
+      const [allIncome, paidExpenses, cardLimitAggregate, periodGroups, previousGroups] =
+        await Promise.all([
+          prisma.transaction.aggregate({
+            where: { workspaceId, type: TransactionType.INCOME },
+            _sum: { amount: true },
+          }),
+          prisma.transaction.aggregate({
+            where: {
+              workspaceId,
+              type: TransactionType.EXPENSE,
+              status: TransactionStatus.PAID,
+              creditCardId: null,
+            },
+            _sum: { amount: true },
+          }),
+          prisma.creditCard.aggregate({
+            where: { account: { workspaceId } },
+            _sum: { limit: true },
+          }),
+          prisma.transaction.groupBy({
+            by: ['type', 'status'],
+            where: { workspaceId, ...competenceWhere(competence) },
+            _sum: { amount: true },
+          }),
+          previous
+            ? prisma.transaction.groupBy({
+                by: ['type'],
+                where: { workspaceId, competence: previous },
+                _sum: { amount: true },
+              })
+            : Promise.resolve([]),
+        ]);
+
+      // Limite total dos cartões entra como recurso disponível no patrimônio e nas receitas.
+      const totalCardLimit = Number(cardLimitAggregate._sum.limit || 0);
+
+      // Patrimônio = todas as receitas cadastradas (pagas ou não) + limite dos cartões
+      // − despesas já pagas. Compras no cartão ficam de fora: o pagamento da fatura é
+      // registrado como uma despesa própria (sem creditCardId) e contar as duas duplicaria.
+      const totalBalance =
+        Number(allIncome._sum.amount || 0) + totalCardLimit - Number(paidExpenses._sum.amount || 0);
+
+      const totalIncome =
+        sumAmount(periodGroups.filter((g) => g.type === TransactionType.INCOME)) + totalCardLimit;
+      const totalExpense = sumAmount(
+        periodGroups.filter((g) => g.type === TransactionType.EXPENSE),
+      );
+      const pendingToPay = sumAmount(
+        periodGroups.filter(
+          (g) => g.type === TransactionType.EXPENSE && g.status === TransactionStatus.PENDING,
+        ),
+      );
+      const balance = totalIncome - totalExpense;
+
+      // Comparação com o período anterior
+      const lastMonthIncome = previous
+        ? sumAmount(previousGroups.filter((g) => g.type === TransactionType.INCOME)) +
+          totalCardLimit
+        : 0;
+      const lastMonthExpense = previous
+        ? sumAmount(previousGroups.filter((g) => g.type === TransactionType.EXPENSE))
+        : 0;
+
+      const incomeGrowth =
+        lastMonthIncome > 0 ? ((totalIncome - lastMonthIncome) / lastMonthIncome) * 100 : 0;
+      const expenseGrowth =
+        lastMonthExpense > 0 ? ((totalExpense - lastMonthExpense) / lastMonthExpense) * 100 : 0;
+
+      return {
+        totalIncome,
+        totalExpense,
+        totalBalance,
+        cardLimit: totalCardLimit,
+        balance,
+        pendingToPay,
+        incomeGrowth,
+        expenseGrowth,
+      };
     },
-    orderBy: { date: 'asc' },
-  });
-
-  const accounts = await prisma.account.findMany({
-    where: { workspaceId: session.user.workspaceId },
-    include: { creditCardDetails: true },
-  });
-
-  const allCards = accounts.flatMap((a) => a.creditCardDetails);
-  const usageByCard = await getCreditCardsCurrentUsage(allCards.map((c) => c.id));
-  const creditCardAvailableLimit = allCards.reduce(
-    (sum, card) => sum + (Number(card.limit) - (usageByCard[card.id] || 0)),
-    0,
   );
-
-  const currentBalance = creditCardAvailableLimit;
-
-  const projection = [];
-  let tempBalance = currentBalance;
-
-  // Group by date
-  const groupedDates: Record<string, any[]> = {};
-  transactions.forEach((t) => {
-    if (t.status === 'PAID' && t.date < today) return; // Only future or current balance impact
-    const dStr = format(t.date, 'yyyy-MM-dd');
-    if (!groupedDates[dStr]) groupedDates[dStr] = [];
-    groupedDates[dStr].push(t);
-  });
-
-  for (let i = 0; i < days; i++) {
-    const d = new Date();
-    d.setDate(today.getDate() + i);
-    const dStr = format(d, 'yyyy-MM-dd');
-
-    const dayTransactions = groupedDates[dStr] || [];
-    dayTransactions.forEach((t) => {
-      if (t.status === 'PENDING') {
-        const amt = Number(t.amount);
-        tempBalance += t.type === 'INCOME' ? amt : -amt;
-      }
-    });
-
-    projection.push({
-      date: dStr,
-      balance: tempBalance,
-      label: format(d, 'dd/MM'),
-    });
-  }
-
-  return projection;
 }
 
 export async function getBudgetData(month: number, year: number) {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error('Unauthorized');
+  const workspaceId = await requireWorkspaceId();
 
-  const budgets = await prisma.budget.findMany({
-    where: {
-      workspaceId: session.user.workspaceId,
-      month,
-      year,
+  return cachedForWorkspace(
+    workspaceId,
+    ['tx', 'budgets', 'categories'],
+    ['dash-budgets', year, month],
+    DASHBOARD_TTL_SEC,
+    async () => {
+      const [budgets, spentByCategory] = await Promise.all([
+        prisma.budget.findMany({
+          where: { workspaceId, month, year },
+          include: { category: true },
+        }),
+        prisma.transaction.groupBy({
+          by: ['categoryId'],
+          where: {
+            workspaceId,
+            type: TransactionType.EXPENSE,
+            competence: competenceRange(year, month),
+          },
+          _sum: { amount: true },
+        }),
+      ]);
+
+      const spentMap = new Map(
+        spentByCategory.map((g) => [g.categoryId, Number(g._sum.amount || 0)]),
+      );
+
+      return budgets.map((budget) => {
+        const spent = spentMap.get(budget.categoryId) ?? 0;
+        return {
+          ...budget,
+          amount: Number(budget.amount),
+          spent,
+          percent: (spent / Number(budget.amount)) * 100,
+        };
+      });
     },
-    include: {
-      category: true,
-    },
-  });
-
-  const transactions = await prisma.transaction.findMany({
-    where: {
-      workspaceId: session.user.workspaceId,
-      type: TransactionType.EXPENSE,
-      competence: competenceRange(year, month),
-    },
-  });
-
-  return budgets.map((budget) => {
-    const spent = transactions
-      .filter((t) => t.categoryId === budget.categoryId)
-      .reduce((acc, t) => acc + Number(t.amount), 0);
-
-    return {
-      ...budget,
-      amount: Number(budget.amount),
-      spent,
-      percent: (spent / Number(budget.amount)) * 100,
-    };
-  });
+  );
 }
 
 export async function getGoalsData() {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error('Unauthorized');
+  const workspaceId = await requireWorkspaceId();
 
-  const goals = await prisma.goal.findMany({
-    where: {
-      workspaceId: session.user.workspaceId,
-    },
+  return cachedForWorkspace(workspaceId, 'goals', ['dash-goals'], DASHBOARD_TTL_SEC, async () => {
+    const goals = await prisma.goal.findMany({ where: { workspaceId } });
+
+    return goals.map((goal) => ({
+      ...goal,
+      targetAmount: Number(goal.targetAmount),
+      currentAmount: Number(goal.currentAmount),
+      percent: (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100,
+    }));
   });
-
-  return goals.map((goal) => ({
-    ...goal,
-    targetAmount: Number(goal.targetAmount),
-    currentAmount: Number(goal.currentAmount),
-    percent: (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100,
-  }));
-}
-
-export async function getFinancialInsights() {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error('Unauthorized');
-
-  const today = new Date();
-  const start = startOfMonth(today);
-  const end = endOfMonth(today);
-
-  const transactions = await prisma.transaction.findMany({
-    where: {
-      workspaceId: session.user.workspaceId,
-      date: { gte: start, lte: end },
-    },
-    include: { category: true },
-  });
-
-  // Calculate top spending category
-  const categorySpending: Record<string, number> = {};
-  transactions
-    .filter((t) => t.type === TransactionType.EXPENSE)
-    .forEach((t) => {
-      categorySpending[t.category.name] =
-        (categorySpending[t.category.name] || 0) + Number(t.amount);
-    });
-
-  const topCategory = Object.entries(categorySpending).sort((a, b) => b[1] - a[1])[0];
-
-  return {
-    topCategory: topCategory ? { name: topCategory[0], amount: topCategory[1] } : null,
-    totalCount: transactions.length,
-  };
 }
 
 export async function getRecentTransactions(competence?: CompetenceFilter) {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error('Unauthorized');
+  const workspaceId = await requireWorkspaceId();
 
-  return await prisma.transaction.findMany({
-    where: {
-      workspaceId: session.user.workspaceId,
-      ...competenceWhere(competence),
-    },
-    take: 8,
-    orderBy: {
-      createdAt: 'desc',
-    },
-    include: {
-      category: true,
-      supplier: true,
-      account: true,
-    },
-  });
+  return cachedForWorkspace(
+    workspaceId,
+    'tx',
+    ['dash-recent', competenceKey(competence)],
+    DASHBOARD_TTL_SEC,
+    () =>
+      prisma.transaction.findMany({
+        where: { workspaceId, ...competenceWhere(competence) },
+        take: 8,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          category: true,
+          supplier: true,
+          account: true,
+        },
+      }),
+  );
 }
 
 export async function getChartData(
@@ -294,117 +219,137 @@ export async function getChartData(
   isFullYear: boolean = false,
   isAllPeriod: boolean = false,
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error('Unauthorized');
+  const workspaceId = await requireWorkspaceId();
 
-  let monthsToFetch = isFullYear ? 12 : 6;
-  let baseDate = isFullYear ? new Date(month.getFullYear(), 11, 1) : month;
+  return cachedForWorkspace(
+    workspaceId,
+    'tx',
+    ['dash-chart', format(month, 'yyyy-MM'), Number(isFullYear), Number(isAllPeriod)],
+    DASHBOARD_TTL_SEC,
+    async () => {
+      let monthsToFetch = isFullYear ? 12 : 6;
+      let baseDate = isFullYear ? new Date(month.getFullYear(), 11, 1) : month;
 
-  if (isAllPeriod) {
-    const result = await prisma.transaction.aggregate({
-      where: { workspaceId: session.user.workspaceId },
-      _min: { competence: true },
-      _max: { competence: true },
-    });
-    if (result._min.competence && result._max.competence) {
-      const minDate = new Date(result._min.competence);
-      const maxDate = new Date(result._max.competence);
-      const diffMonths =
-        (maxDate.getUTCFullYear() - minDate.getUTCFullYear()) * 12 +
-        (maxDate.getUTCMonth() - minDate.getUTCMonth()) +
-        1;
-      monthsToFetch = Math.max(diffMonths, 12);
-      baseDate = new Date(maxDate.getUTCFullYear(), maxDate.getUTCMonth(), 1);
-    } else {
-      monthsToFetch = 12;
-      baseDate = new Date();
-    }
-  }
+      if (isAllPeriod) {
+        const result = await prisma.transaction.aggregate({
+          where: { workspaceId },
+          _min: { competence: true },
+          _max: { competence: true },
+        });
+        if (result._min.competence && result._max.competence) {
+          const minDate = new Date(result._min.competence);
+          const maxDate = new Date(result._max.competence);
+          const diffMonths =
+            (maxDate.getUTCFullYear() - minDate.getUTCFullYear()) * 12 +
+            (maxDate.getUTCMonth() - minDate.getUTCMonth()) +
+            1;
+          monthsToFetch = Math.max(diffMonths, 12);
+          baseDate = new Date(maxDate.getUTCFullYear(), maxDate.getUTCMonth(), 1);
+        } else {
+          monthsToFetch = 12;
+          baseDate = new Date();
+        }
+      }
 
-  const periods = Array.from({ length: monthsToFetch })
-    .map((_, i) => {
-      const date = subMonths(baseDate, i);
-      return {
-        competence: competenceFromYearMonth(date.getFullYear(), date.getMonth() + 1),
-        label: format(date, 'MMM', { locale: ptBR }),
-      };
-    })
-    .reverse();
+      const periods = Array.from({ length: monthsToFetch })
+        .map((_, i) => {
+          const date = subMonths(baseDate, i);
+          return {
+            competence: competenceFromYearMonth(date.getFullYear(), date.getMonth() + 1),
+            label: format(date, 'MMM', { locale: ptBR }),
+          };
+        })
+        .reverse();
 
-  const chartData = await Promise.all(
-    periods.map(async (m) => {
-      const transactions = await prisma.transaction.findMany({
+      // Uma única query agrupada por competência/tipo (antes: uma query por mês).
+      const groups = await prisma.transaction.groupBy({
+        by: ['competence', 'type'],
         where: {
-          workspaceId: session.user.workspaceId,
-          competence: m.competence,
+          workspaceId,
+          competence: { in: periods.map((p) => p.competence) },
+          type: { in: [TransactionType.INCOME, TransactionType.EXPENSE] },
         },
+        _sum: { amount: true },
       });
 
-      const income = transactions
-        .filter((t) => t.type === TransactionType.INCOME)
-        .reduce((acc, t) => acc + Number(t.amount), 0);
+      const totals = new Map<string, { income: number; expense: number }>();
+      for (const group of groups) {
+        const key = group.competence.toISOString();
+        const entry = totals.get(key) ?? { income: 0, expense: 0 };
+        if (group.type === TransactionType.INCOME) entry.income += Number(group._sum.amount || 0);
+        else entry.expense += Number(group._sum.amount || 0);
+        totals.set(key, entry);
+      }
 
-      const expense = transactions
-        .filter((t) => t.type === TransactionType.EXPENSE)
-        .reduce((acc, t) => acc + Number(t.amount), 0);
-
-      return {
-        name: m.label,
-        receitas: income,
-        despesas: expense,
-      };
-    }),
+      return periods.map((period) => {
+        const entry = totals.get(period.competence.toISOString());
+        return {
+          name: period.label,
+          receitas: entry?.income ?? 0,
+          despesas: entry?.expense ?? 0,
+        };
+      });
+    },
   );
-
-  return chartData;
 }
 
 export async function getCategoryData(competence?: CompetenceFilter) {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error('Unauthorized');
+  const workspaceId = await requireWorkspaceId();
 
-  const transactions = await prisma.transaction.findMany({
-    where: {
-      workspaceId: session.user.workspaceId,
-      type: TransactionType.EXPENSE,
-      ...competenceWhere(competence),
+  return cachedForWorkspace(
+    workspaceId,
+    ['tx', 'categories'],
+    ['dash-categories', competenceKey(competence)],
+    DASHBOARD_TTL_SEC,
+    async () => {
+      const groups = await prisma.transaction.groupBy({
+        by: ['categoryId'],
+        where: { workspaceId, type: TransactionType.EXPENSE, ...competenceWhere(competence) },
+        _sum: { amount: true },
+      });
+      if (groups.length === 0) return [];
+
+      const categories = await prisma.category.findMany({
+        where: { id: { in: groups.map((g) => g.categoryId) }, workspaceId },
+        select: { id: true, name: true, color: true },
+      });
+      const categoryById = new Map(categories.map((c) => [c.id, c]));
+
+      // Agrupa por nome (categorias homônimas somam juntas, como antes).
+      const categoryMap = new Map<string, { value: number; color: string }>();
+      for (const group of groups) {
+        const category = categoryById.get(group.categoryId);
+        if (!category) continue;
+        const entry = categoryMap.get(category.name) ?? { value: 0, color: category.color };
+        entry.value += Number(group._sum.amount || 0);
+        categoryMap.set(category.name, entry);
+      }
+
+      return Array.from(categoryMap, ([name, data]) => ({
+        name,
+        value: data.value,
+        color: data.color,
+      }));
     },
-    include: {
-      category: true,
-    },
-  });
-
-  const categoryMap: Record<string, { value: number; color: string }> = {};
-
-  transactions.forEach((t) => {
-    const catName = t.category.name;
-    if (!categoryMap[catName]) {
-      categoryMap[catName] = { value: 0, color: t.category.color };
-    }
-    categoryMap[catName].value += Number(t.amount);
-  });
-
-  return Object.entries(categoryMap).map(([name, data]) => ({
-    name,
-    value: data.value,
-    color: data.color,
-  }));
+  );
 }
 
 export async function getStatusData(competence?: CompetenceFilter) {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error('Unauthorized');
+  const workspaceId = await requireWorkspaceId();
 
-  const transactions = await prisma.transaction.groupBy({
-    by: ['status'],
-    where: {
-      workspaceId: session.user.workspaceId,
-      type: TransactionType.EXPENSE,
-      ...competenceWhere(competence),
-    },
-    _sum: { amount: true },
-    _count: true,
-  });
+  const transactions = await cachedForWorkspace(
+    workspaceId,
+    'tx',
+    ['dash-status', competenceKey(competence)],
+    DASHBOARD_TTL_SEC,
+    () =>
+      prisma.transaction.groupBy({
+        by: ['status'],
+        where: { workspaceId, type: TransactionType.EXPENSE, ...competenceWhere(competence) },
+        _sum: { amount: true },
+        _count: true,
+      }),
+  );
 
   const statusLabels: Record<string, { label: string; color: string }> = {
     PAID: { label: 'Pago', color: CHART_STATUS_COLORS.PAID },
@@ -421,30 +366,46 @@ export async function getStatusData(competence?: CompetenceFilter) {
 }
 
 export async function getSupplierData(competence?: CompetenceFilter) {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error('Unauthorized');
+  const workspaceId = await requireWorkspaceId();
 
-  const transactions = await prisma.transaction.findMany({
-    where: {
-      workspaceId: session.user.workspaceId,
-      type: TransactionType.EXPENSE,
-      supplierId: { not: null },
-      ...competenceWhere(competence),
+  return cachedForWorkspace(
+    workspaceId,
+    ['tx', 'suppliers'],
+    ['dash-suppliers', competenceKey(competence)],
+    DASHBOARD_TTL_SEC,
+    async () => {
+      const groups = await prisma.transaction.groupBy({
+        by: ['supplierId'],
+        where: {
+          workspaceId,
+          type: TransactionType.EXPENSE,
+          supplierId: { not: null },
+          ...competenceWhere(competence),
+        },
+        _sum: { amount: true },
+      });
+      const supplierIds = groups.map((g) => g.supplierId).filter((id): id is string => !!id);
+      if (supplierIds.length === 0) return [];
+
+      const suppliers = await prisma.supplier.findMany({
+        where: { id: { in: supplierIds }, workspaceId },
+        select: { id: true, name: true },
+      });
+      const nameById = new Map(suppliers.map((s) => [s.id, s.name]));
+
+      const supplierMap = new Map<string, number>();
+      for (const group of groups) {
+        const name = group.supplierId ? nameById.get(group.supplierId) : undefined;
+        if (!name) continue;
+        supplierMap.set(name, (supplierMap.get(name) ?? 0) + Number(group._sum.amount || 0));
+      }
+
+      return Array.from(supplierMap, ([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 8)
+        .map((entry, index) => ({ ...entry, color: getCategoricalColor(index) }));
     },
-    include: { supplier: true },
-  });
-
-  const supplierMap: Record<string, number> = {};
-  transactions.forEach((t) => {
-    if (!t.supplier) return;
-    supplierMap[t.supplier.name] = (supplierMap[t.supplier.name] || 0) + Number(t.amount);
-  });
-
-  return Object.entries(supplierMap)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 8)
-    .map((entry, index) => ({ ...entry, color: getCategoricalColor(index) }));
+  );
 }
 
 /**
@@ -452,28 +413,35 @@ export async function getSupplierData(competence?: CompetenceFilter) {
  * sem usuário vinculado entram no grupo "Não informado".
  */
 export async function getPaidByData(competence?: CompetenceFilter) {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error('Unauthorized');
+  const workspaceId = await requireWorkspaceId();
 
-  const groups = await prisma.transaction.groupBy({
-    by: ['paidById'],
-    where: {
-      workspaceId: session.user.workspaceId,
-      type: TransactionType.EXPENSE,
-      status: TransactionStatus.PAID,
-      ...competenceWhere(competence),
+  const { groups, users } = await cachedForWorkspace(
+    workspaceId,
+    'tx',
+    ['dash-paid-by', competenceKey(competence)],
+    DASHBOARD_TTL_SEC,
+    async () => {
+      const groups = await prisma.transaction.groupBy({
+        by: ['paidById'],
+        where: {
+          workspaceId,
+          type: TransactionType.EXPENSE,
+          status: TransactionStatus.PAID,
+          ...competenceWhere(competence),
+        },
+        _sum: { amount: true },
+        _count: true,
+      });
+      const userIds = groups.map((g) => g.paidById).filter((id): id is string => !!id);
+      const users = userIds.length
+        ? await prisma.user.findMany({
+            where: { id: { in: userIds }, workspaceId },
+            select: { id: true, name: true, email: true },
+          })
+        : [];
+      return { groups, users };
     },
-    _sum: { amount: true },
-    _count: true,
-  });
-
-  const userIds = groups.map((g) => g.paidById).filter((id): id is string => !!id);
-  const users = userIds.length
-    ? await prisma.user.findMany({
-        where: { id: { in: userIds }, workspaceId: session.user.workspaceId },
-        select: { id: true, name: true, email: true },
-      })
-    : [];
+  );
   const userNames = new Map(users.map((u) => [u.id, u.name || u.email]));
 
   return groups
@@ -490,44 +458,24 @@ export async function getPaidByData(competence?: CompetenceFilter) {
     }));
 }
 
-export async function getAvailableRange() {
-  const session = await getServerSession(authOptions);
-  if (!session) return { minDate: null, maxDate: null };
-
-  const result = await prisma.transaction.aggregate({
-    where: {
-      workspaceId: session.user.workspaceId,
-    },
-    _min: {
-      date: true,
-    },
-    _max: {
-      date: true,
-    },
-  });
-
-  return {
-    minDate: result._min.date?.toISOString() || null,
-    maxDate: result._max.date?.toISOString() || null,
-  };
-}
-
 export async function getTransactionCountsByYear() {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error('Unauthorized');
+  const workspaceId = await requireWorkspaceId();
 
-  const transactions = await prisma.transaction.findMany({
-    where: { workspaceId: session.user.workspaceId },
-    select: { competence: true },
+  return cachedForWorkspace(workspaceId, 'tx', ['tx-counts-year'], 300, async () => {
+    // Agrupa por competência no banco (no máximo 12 linhas por ano) e soma por ano.
+    const groups = await prisma.transaction.groupBy({
+      by: ['competence'],
+      where: { workspaceId },
+      _count: { _all: true },
+    });
+
+    const counts: Record<string, number> = {};
+    for (const group of groups) {
+      const year = group.competence.getUTCFullYear().toString();
+      counts[year] = (counts[year] || 0) + group._count._all;
+    }
+    return counts;
   });
-
-  const counts: Record<string, number> = {};
-  transactions.forEach((t) => {
-    const year = t.competence.getUTCFullYear().toString();
-    counts[year] = (counts[year] || 0) + 1;
-  });
-
-  return counts;
 }
 
 export async function getSummaryCount(
@@ -536,44 +484,43 @@ export async function getSummaryCount(
   month: number,
   year: number,
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error('Unauthorized');
-
-  const workspaceId = session.user.workspaceId;
-
-  const budgetCount = await prisma.budget.count({
-    where: { workspaceId, month, year },
-  });
+  const workspaceId = await requireWorkspaceId();
 
   const goalWhere: Prisma.GoalWhereInput = { workspaceId };
   if (startDate && endDate) {
     goalWhere.OR = [{ deadline: null }, { deadline: { gte: startDate, lte: endDate } }];
   }
-  const goalCount = await prisma.goal.count({ where: goalWhere });
 
   const debtWhere: Prisma.DebtWhereInput = { workspaceId, status: { in: DEBT_OPEN_STATUSES } };
   if (startDate && endDate) {
     debtWhere.startDate = { lte: endDate };
     debtWhere.OR = [{ endDate: null }, { endDate: { gte: startDate } }];
   }
-  const debtCount = await prisma.debt.count({ where: debtWhere });
+
+  const [budgetCount, goalCount, debtCount] = await Promise.all([
+    prisma.budget.count({ where: { workspaceId, month, year } }),
+    prisma.goal.count({ where: goalWhere }),
+    prisma.debt.count({ where: debtWhere }),
+  ]);
 
   return { goalsCount: goalCount, budgetsCount: budgetCount, debtsCount: debtCount };
 }
 
 export async function getDebtsData() {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error('Unauthorized');
+  const workspaceId = await requireWorkspaceId();
 
   const debts = await prisma.debt.findMany({
-    where: {
-      workspaceId: session.user.workspaceId,
-      status: { in: DEBT_OPEN_STATUSES },
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
+    where: { workspaceId, status: { in: DEBT_OPEN_STATUSES } },
+    orderBy: { createdAt: 'desc' },
     take: 4,
+    select: {
+      id: true,
+      name: true,
+      currentValue: true,
+      initialValue: true,
+      minimumPayment: true,
+      installments: true,
+    },
   });
 
   const totalDebt = debts.reduce((acc, d) => acc + Number(d.currentValue), 0);

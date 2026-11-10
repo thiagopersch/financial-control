@@ -1,5 +1,7 @@
 'use client';
 
+import NextImage from 'next/image';
+import { isTemplateImageUrl } from '@/lib/notification-templates/image-url';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { DATA_BLOCK_SAMPLE_HTML } from '@/lib/notification-templates/data-sources';
 import type {
@@ -120,7 +122,7 @@ function ImageBlockView({
   if (!isSelected) {
     return (
       <div style={{ display: 'flex', justifyContent: alignToFlex[block.props.align] }}>
-        <img
+        <TemplateImg
           src={block.props.src}
           alt={block.props.alt}
           style={{
@@ -150,7 +152,7 @@ function ImageBlockView({
         }}
         className="!max-w-full"
       >
-        <img
+        <TemplateImg
           src={block.props.src}
           alt={block.props.alt}
           style={{
@@ -291,4 +293,34 @@ export function ColumnChildRenderer({ block, isSelected, onChange }: ColumnChild
         />
       );
   }
+}
+
+/**
+ * Imagem do template no construtor: uploads do próprio app passam pelo
+ * `next/image` (AVIF/WebP redimensionado, lazy); URLs externas digitadas pelo
+ * usuário caem num <img> com lazy loading nativo.
+ */
+function TemplateImg({
+  src,
+  alt,
+  style,
+}: {
+  src: string;
+  alt?: string;
+  style?: React.CSSProperties;
+}) {
+  if (src && isTemplateImageUrl(src)) {
+    return (
+      <NextImage
+        src={src}
+        alt={alt ?? ''}
+        width={1200}
+        height={800}
+        sizes="(max-width: 768px) 100vw, 600px"
+        style={{ height: 'auto', ...style }}
+      />
+    );
+  }
+  // eslint-disable-next-line @next/next/no-img-element -- URL externa arbitrária
+  return <img src={src} alt={alt ?? ''} style={style} loading="lazy" decoding="async" />;
 }

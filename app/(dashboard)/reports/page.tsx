@@ -1,5 +1,6 @@
 'use client';
 
+import { ChartSkeleton } from '@/components/ui/chart-skeleton';
 import { useReports } from '@/lib/queries/reports-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,9 +27,6 @@ import {
 import { useState, useCallback } from 'react';
 import { Download, FileBarChart, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { DataTable } from '@/components/ui/data-table';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 import { usePersistedPageFilters } from '@/hooks/use-persisted-page-filters';
 
 const metrics = [
@@ -99,7 +97,9 @@ export default function ReportsPage() {
     document.body.removeChild(link);
   };
 
-  const exportXLSX = (filename: string) => {
+  const exportXLSX = async (filename: string) => {
+    // xlsx só é baixado quando o usuário exporta.
+    const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
 
     if (summary) {
@@ -135,7 +135,12 @@ export default function ReportsPage() {
     XLSX.writeFile(wb, `${filename}.xlsx`);
   };
 
-  const exportPDF = (filename: string) => {
+  const exportPDF = async (filename: string) => {
+    // jspdf + autotable só são baixados quando o usuário exporta.
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ]);
     const doc = new jsPDF();
     const metricLabel = metrics.find((m) => m.id === selectedMetric)?.label || '';
     const periodLabel = periods.find((p) => p.value === selectedPeriod)?.label || '';
@@ -190,7 +195,7 @@ export default function ReportsPage() {
     doc.save(`${filename}.pdf`);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const timestamp = new Date().toISOString().split('T')[0];
     const metricLabel = metrics.find((m) => m.id === selectedMetric)?.label || 'relatorio';
     const filename = `relatorio_${metricLabel.toLowerCase().replace(/\s+/g, '_')}_${timestamp}`;
@@ -198,9 +203,9 @@ export default function ReportsPage() {
     if (exportFormat === 'csv') {
       exportCSV(filename);
     } else if (exportFormat === 'xlsx') {
-      exportXLSX(filename);
+      await exportXLSX(filename);
     } else if (exportFormat === 'pdf') {
-      exportPDF(filename);
+      await exportPDF(filename);
     }
   };
 
@@ -278,10 +283,10 @@ export default function ReportsPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Receitas</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-500" />
+              <TrendingUp className="h-4 w-4 text-[var(--mui-palette-income-main)]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-[var(--mui-palette-income-main)]">
                 {formatCurrency(summary.totalIncome)}
               </div>
             </CardContent>
@@ -289,10 +294,10 @@ export default function ReportsPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Despesas</CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-500" />
+              <TrendingDown className="h-4 w-4 text-[var(--mui-palette-expense-main)]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">
+              <div className="text-2xl font-bold text-[var(--mui-palette-expense-main)]">
                 {formatCurrency(summary.totalExpense)}
               </div>
             </CardContent>
@@ -300,11 +305,11 @@ export default function ReportsPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Resultado Líquido</CardTitle>
-              <Wallet className="h-4 w-4 text-blue-500" />
+              <Wallet className="h-4 w-4 text-[var(--mui-palette-info-main)]" />
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ${summary.netResult >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                className={`text-2xl font-bold ${summary.netResult >= 0 ? 'text-[var(--mui-palette-income-main)]' : 'text-[var(--mui-palette-expense-main)]'}`}
               >
                 {formatCurrency(summary.netResult)}
               </div>
@@ -339,9 +344,7 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="flex h-[400px] items-center justify-center">
-                  <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
-                </div>
+                <ChartSkeleton />
               ) : chartData.length === 0 ? (
                 <div className="text-muted-foreground flex h-[400px] items-center justify-center">
                   <div className="text-center">

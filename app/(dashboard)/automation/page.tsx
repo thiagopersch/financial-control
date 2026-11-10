@@ -1,5 +1,7 @@
 'use client';
 
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -190,8 +192,10 @@ export default function AutomationPage() {
 
   const activeCount = rules.filter((r) => r.isActive).length;
 
+  // Busca com debounce (300ms) antes de filtrar a lista.
+  const debouncedSearch = useDebouncedValue(search, 300);
   const filteredRules = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = debouncedSearch.trim().toLowerCase();
     return rules.filter((rule) => {
       const matchesSearch =
         !term ||
@@ -203,7 +207,7 @@ export default function AutomationPage() {
         (statusFilter === 'inactive' && !rule.isActive);
       return matchesSearch && matchesStatus;
     });
-  }, [rules, search, statusFilter]);
+  }, [rules, debouncedSearch, statusFilter]);
 
   const totalCount = filteredRules.length;
   const paginatedRules = filteredRules.slice((page - 1) * pageSize, page * pageSize);
@@ -309,7 +313,7 @@ export default function AutomationPage() {
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex items-center gap-2">
                   <Zap
-                    className={`h-5 w-5 ${rule.isActive ? 'text-yellow-500' : 'text-gray-400'}`}
+                    className={`h-5 w-5 ${rule.isActive ? 'text-[var(--mui-palette-income-main)]' : 'text-muted-foreground'}`}
                   />
                   <CardTitle className="text-lg">{rule.name}</CardTitle>
                   <Badge variant={rule.isActive ? 'default' : 'secondary'}>
@@ -333,10 +337,7 @@ export default function AutomationPage() {
                         Editar
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => handleDelete(rule.id)}
-                        className="text-red-600"
-                      >
+                      <DropdownMenuItem onClick={() => handleDelete(rule.id)} variant="destructive">
                         Excluir
                       </DropdownMenuItem>
                     </DropdownMenuContent>

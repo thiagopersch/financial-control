@@ -178,13 +178,15 @@ model Workspace {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  whatsappApiUrl   String?
-  whatsappApiToken String?
-  smtpHost         String?
-  smtpPort         Int?
-  smtpUser         String?
-  smtpPassword     String?
-  smtpFrom         String?
+  whatsappApiUrl       String?
+  whatsappApiToken     String?
+  smtpHost             String?
+  smtpPort             Int?
+  smtpUser             String?
+  smtpPassword         String?
+  smtpFrom             String?
+  /// Timeout (ms) das chamadas a APIs externas (SMTP, WhatsApp, IA). Configurável em Configurações do sistema.
+  externalApiTimeoutMs Int     @default(10000)
 
   users                 User[]
   accounts              Account[]
@@ -306,6 +308,8 @@ model Account {
   bankAccount       BankAccount?
   debts             Debt[]
   paymentMethods    PaymentMethod[] @relation("PaymentMethodAccounts")
+
+  @@index([workspaceId])
 }
 
 model PaymentMethod {
@@ -356,6 +360,7 @@ model Invoice {
   updatedAt    DateTime      @updatedAt
 
   @@unique([creditCardId, month, year])
+  @@index([status, dueDate])
 }
 
 model Transfer {
@@ -391,6 +396,8 @@ model Category {
   recurringTransactions RecurringTransaction[]
   scheduledTransactions ScheduledTransaction[]
   debts                 Debt[]
+
+  @@index([workspaceId])
 }
 
 enum SupplierPersonType {
@@ -414,6 +421,8 @@ model Supplier {
   transactions          Transaction[]
   debts                 Debt[]
   scheduledTransactions ScheduledTransaction[]
+
+  @@index([workspaceId])
 }
 
 model Transaction {
@@ -486,6 +495,13 @@ model Transaction {
 
   @@index([workspaceId, competence])
   @@index([paidById])
+  @@index([workspaceId, date])
+  @@index([workspaceId, status, dueDate])
+  @@index([workspaceId, categoryId, competence])
+  @@index([creditCardId, status, dueDate])
+  @@index([accountId])
+  @@index([debtId])
+  @@index([scheduledTransactionId, competence])
 }
 
 model RecurringTransaction {
@@ -553,6 +569,9 @@ model ScheduledTransaction {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([isActive, nextRun])
+  @@index([workspaceId])
 }
 
 model CategorizationRule {
@@ -601,6 +620,7 @@ model Budget {
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, categoryId, month, year])
+  @@index([workspaceId, year, month])
 }
 
 model Goal {
@@ -616,6 +636,8 @@ model Goal {
   workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  @@index([workspaceId, isActive])
 }
 
 model Debt {
@@ -650,6 +672,8 @@ model Debt {
   transactions          Transaction[]
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
+
+  @@index([workspaceId, status])
 }
 
 model CostCenter {
@@ -774,6 +798,8 @@ model AIConversation {
   user        User      @relation(fields: [userId], references: [id])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId, userId, updatedAt])
 }
 
 model Notification {
@@ -793,6 +819,7 @@ model Notification {
 
   @@index([workspaceId, userId, isRead])
   @@index([createdAt])
+  @@index([workspaceId, userId, type, createdAt])
 }
 
 model NotificationTemplate {

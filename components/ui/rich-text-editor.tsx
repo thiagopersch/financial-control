@@ -75,7 +75,9 @@ export function RichTextEditor({
     extensions: [
       StarterKit,
       Link.configure({ openOnClick: false }),
-      Image.configure({ HTMLAttributes: { class: 'max-w-full rounded-md' } }),
+      Image.configure({
+        HTMLAttributes: { class: 'max-w-full rounded-md', loading: 'lazy', decoding: 'async' },
+      }),
       Underline,
       TextStyle,
       Color,

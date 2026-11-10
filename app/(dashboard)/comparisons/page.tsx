@@ -1,5 +1,6 @@
 'use client';
 
+import { ChartSkeleton } from '@/components/ui/chart-skeleton';
 import { useComparisons } from '@/lib/queries/comparisons-client';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -70,14 +71,14 @@ export default function ComparisonsPage() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Variação Receitas</CardTitle>
               {summary.incomeChange >= 0 ? (
-                <TrendingUp className="h-4 w-4 text-green-500" />
+                <TrendingUp className="h-4 w-4 text-[var(--mui-palette-income-main)]" />
               ) : (
-                <TrendingDown className="h-4 w-4 text-red-500" />
+                <TrendingDown className="h-4 w-4 text-[var(--mui-palette-expense-main)]" />
               )}
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ${summary.incomeChange >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                className={`text-2xl font-bold ${summary.incomeChange >= 0 ? 'text-[var(--mui-palette-income-main)]' : 'text-[var(--mui-palette-expense-main)]'}`}
               >
                 {formatPercentage(summary.incomeChange)}
               </div>
@@ -88,14 +89,14 @@ export default function ComparisonsPage() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Variação Despesas</CardTitle>
               {summary.expenseChange <= 0 ? (
-                <TrendingUp className="h-4 w-4 text-green-500" />
+                <TrendingUp className="h-4 w-4 text-[var(--mui-palette-income-main)]" />
               ) : (
-                <TrendingDown className="h-4 w-4 text-red-500" />
+                <TrendingDown className="h-4 w-4 text-[var(--mui-palette-expense-main)]" />
               )}
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ${summary.expenseChange <= 0 ? 'text-green-600' : 'text-red-600'}`}
+                className={`text-2xl font-bold ${summary.expenseChange <= 0 ? 'text-[var(--mui-palette-income-main)]' : 'text-[var(--mui-palette-expense-main)]'}`}
               >
                 {formatPercentage(summary.expenseChange)}
               </div>
@@ -106,14 +107,14 @@ export default function ComparisonsPage() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Variação Resultado</CardTitle>
               {summary.netChange >= 0 ? (
-                <TrendingUp className="h-4 w-4 text-green-500" />
+                <TrendingUp className="h-4 w-4 text-[var(--mui-palette-income-main)]" />
               ) : (
-                <TrendingDown className="h-4 w-4 text-red-500" />
+                <TrendingDown className="h-4 w-4 text-[var(--mui-palette-expense-main)]" />
               )}
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ${summary.netChange >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                className={`text-2xl font-bold ${summary.netChange >= 0 ? 'text-[var(--mui-palette-income-main)]' : 'text-[var(--mui-palette-expense-main)]'}`}
               >
                 {formatPercentage(summary.netChange)}
               </div>
@@ -129,9 +130,7 @@ export default function ComparisonsPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex h-[400px] items-center justify-center">
-              <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
-            </div>
+            <ChartSkeleton />
           ) : chartData.length === 0 ? (
             <div className="text-muted-foreground flex h-[400px] items-center justify-center">
               Dados insuficientes para comparação

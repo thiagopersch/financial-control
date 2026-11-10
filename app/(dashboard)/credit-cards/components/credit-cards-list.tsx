@@ -134,7 +134,7 @@ export function CreditCardsList({
         {paginatedCreditCards.map((card) => (
           <Card
             key={card.id}
-            className="cursor-pointer overflow-hidden rounded-tl-2xl rounded-bl-2xl border-l-4 transition-all ease-in-out hover:border-l-8 hover:shadow-md"
+            className="hover-elevate cursor-pointer overflow-hidden rounded-tl-2xl rounded-bl-2xl border-l-4 transition-all ease-in-out hover:border-l-8"
             style={{ borderLeftColor: card.color || '#6366f1' }}
             onClick={() => openEdit(card)}
           >
@@ -203,7 +203,7 @@ export function CreditCardsList({
 
         {paginatedCreditCards.length === 0 && (
           <div className="bg-muted/30 col-span-full flex flex-col items-center justify-center rounded-xl border-2 border-dashed py-12">
-            <div className="bg-background mb-4 rounded-full p-4 shadow-sm">
+            <div className="bg-background mb-4 rounded-full p-4">
               <Plus className="text-muted-foreground h-8 w-8" />
             </div>
             <h3 className="text-lg font-medium">Nenhum cartão encontrado</h3>

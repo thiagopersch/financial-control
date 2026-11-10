@@ -1,12 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
 import { getCreditCardsCurrentUsage } from '@/lib/queries/credit-card-usage';
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
@@ -61,7 +60,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }

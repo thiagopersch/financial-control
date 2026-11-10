@@ -1,16 +1,12 @@
 'use client';
 
+import { inputSx } from '@/components/ui/input';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import Autocomplete from '@mui/material/Autocomplete';
+import CircularProgress from '@mui/material/CircularProgress';
+import InputBase from '@mui/material/InputBase';
+import { ChevronDownIcon } from 'lucide-react';
 import * as React from 'react';
-
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from '@/components/ui/combobox';
-import { cn } from '@/lib/utils';
 
 export interface AsyncSelectSearchOption {
   value: string;
@@ -20,17 +16,22 @@ export interface AsyncSelectSearchOption {
 interface AsyncSelectSearchProps {
   value: string | null;
   onValueChange: (value: string | null) => void;
-  /** Called on mount (with '') and, debounced, on every keystroke. */
+  /** Chamado ao montar (com '') e, com debounce, a cada busca digitada. */
   fetchOptions: (query: string) => Promise<AsyncSelectSearchOption[]>;
   placeholder?: string;
   emptyText?: string;
   loadingText?: string;
-  /** Debounce delay before re-fetching while typing. */
+  /** Atraso do debounce antes de consultar de novo enquanto digita. */
   debounceMs?: number;
   className?: string;
   disabled?: boolean;
 }
 
+/**
+ * Autocomplete com busca no servidor (MUI `Autocomplete`): a consulta só é
+ * disparada `debounceMs` depois da última tecla, e respostas antigas que
+ * chegam fora de ordem são descartadas.
+ */
 export function AsyncSelectSearch({
   value,
   onValueChange,
@@ -42,39 +43,36 @@ export function AsyncSelectSearch({
   className,
   disabled,
 }: AsyncSelectSearchProps) {
-  const [options, setOptions] = React.useState<AsyncSelectSearchOption[]>([]);
   const [inputValue, setInputValue] = React.useState('');
-  const [isLoading, setIsLoading] = React.useState(false);
   const [selectedLabel, setSelectedLabel] = React.useState<string | null>(null);
-
-  const requestIdRef = React.useRef(0);
-  const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const runFetch = React.useCallback(
-    async (query: string) => {
-      const requestId = ++requestIdRef.current;
-      setIsLoading(true);
-      try {
-        const results = await fetchOptions(query);
-        if (requestIdRef.current === requestId) setOptions(results);
-      } finally {
-        if (requestIdRef.current === requestId) setIsLoading(false);
-      }
-    },
-    [fetchOptions],
-  );
+  // Resultado da última busca concluída; enquanto a consulta atual não volta, está carregando.
+  const [result, setResult] = React.useState<{
+    query: string;
+    options: AsyncSelectSearchOption[];
+  } | null>(null);
+  const query = useDebouncedValue(inputValue, debounceMs);
+  const fetchRef = React.useRef(fetchOptions);
+  React.useEffect(() => {
+    fetchRef.current = fetchOptions;
+  });
 
   React.useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch to seed the picker's default options
-    runFetch('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    let cancelled = false;
+    fetchRef
+      .current(query)
+      .then((options) => {
+        if (!cancelled) setResult({ query, options });
+      })
+      .catch(() => {
+        if (!cancelled) setResult({ query, options: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [query]);
 
-  const handleInputValueChange = (next: string) => {
-    setInputValue(next);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runFetch(next), debounceMs);
-  };
+  const options = result?.options ?? [];
+  const isLoading = result?.query !== query;
 
   const selectedItem = React.useMemo<AsyncSelectSearchOption | null>(() => {
     if (!value) return null;
@@ -82,35 +80,48 @@ export function AsyncSelectSearch({
   }, [options, value, selectedLabel]);
 
   return (
-    <Combobox
-      items={options}
+    <Autocomplete
+      className={className}
+      options={options}
       value={selectedItem}
       inputValue={inputValue}
-      onInputValueChange={handleInputValueChange}
-      onValueChange={(v) => {
-        const item = v as AsyncSelectSearchOption | null;
+      onInputChange={(_e, next, reason) => {
+        // Ao selecionar, o MUI preenche o texto com o rótulo: não refaz a busca.
+        if (reason !== 'reset') setInputValue(next);
+        else setInputValue('');
+      }}
+      onChange={(_e, item) => {
         onValueChange(item?.value ?? null);
         setSelectedLabel(item?.label ?? null);
       }}
-      isItemEqualToValue={(item, val) => item.value === val.value}
-      filter={null}
+      getOptionLabel={(option) => option.label}
+      isOptionEqualToValue={(option, val) => option.value === val.value}
+      // Filtro feito pelo servidor.
+      filterOptions={(x) => x}
+      loading={isLoading}
+      loadingText={loadingText}
+      noOptionsText={emptyText}
       disabled={disabled}
-    >
-      <ComboboxInput
-        placeholder={placeholder}
-        showClear={!!value}
-        className={cn('w-full', className)}
-      />
-      <ComboboxContent>
-        <ComboboxEmpty>{isLoading ? loadingText : emptyText}</ComboboxEmpty>
-        <ComboboxList>
-          {(option: AsyncSelectSearchOption) => (
-            <ComboboxItem key={option.value} value={option}>
-              {option.label}
-            </ComboboxItem>
-          )}
-        </ComboboxList>
-      </ComboboxContent>
-    </Combobox>
+      size="small"
+      popupIcon={<ChevronDownIcon size={16} />}
+      renderInput={(params) => (
+        <InputBase
+          ref={params.slotProps.input.ref}
+          onMouseDown={params.slotProps.input.onMouseDown}
+          inputProps={params.slotProps.htmlInput}
+          placeholder={placeholder}
+          disabled={params.disabled}
+          fullWidth
+          endAdornment={
+            <>
+              {isLoading ? <CircularProgress color="inherit" size={14} sx={{ mr: 1 }} /> : null}
+              {params.slotProps.input.endAdornment}
+            </>
+          }
+          className={params.slotProps.input.className}
+          sx={{ ...inputSx, pr: '56px !important' }}
+        />
+      )}
+    />
   );
 }

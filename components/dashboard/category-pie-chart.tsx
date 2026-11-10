@@ -22,7 +22,7 @@ export function CategoryPieChart({ data, isFullYear }: CategoryPieChartProps) {
 
   if (data.length === 0) {
     return (
-      <Card className="col-span-1 border-none shadow-md">
+      <Card className="col-span-1">
         <CardHeader>
           <CardTitle className="text-base font-semibold">Despesas por Categoria</CardTitle>
         </CardHeader>
@@ -34,7 +34,7 @@ export function CategoryPieChart({ data, isFullYear }: CategoryPieChartProps) {
   }
 
   return (
-    <Card className="col-span-1 border-none shadow-md">
+    <Card className="col-span-1">
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base font-semibold">Despesas por Categoria</CardTitle>
         <ChartTypeSwitcher value={chartType} onChange={setChartType} />

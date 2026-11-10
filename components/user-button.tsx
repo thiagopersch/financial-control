@@ -45,10 +45,11 @@ export function UserButton() {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          className="cursor-pointer text-red-600 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-600"
+          variant="destructive"
+          className="cursor-pointer"
           onClick={() => signOut()}
         >
-          <LogOut className="mr-2 h-4 w-4 text-red-600 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-600" />
+          <LogOut className="mr-2 h-4 w-4" />
           Sair
         </DropdownMenuItem>
       </DropdownMenuContent>

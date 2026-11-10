@@ -1,21 +1,29 @@
 'use client';
 
+import FormLabel from '@mui/material/FormLabel';
 import * as React from 'react';
-import { Label as LabelPrimitive } from 'radix-ui';
 
-import { cn } from '@/lib/utils';
+export type LabelProps = React.ComponentProps<'label'>;
 
-function Label({ className, ...props }: React.ComponentProps<typeof LabelPrimitive.Root>) {
+/** Rótulo de campo (MUI `FormLabel`). */
+export function Label({ className, children, ...props }: LabelProps) {
   return (
-    <LabelPrimitive.Root
+    <FormLabel
       data-slot="label"
-      className={cn(
-        'flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50',
-        className,
-      )}
-      {...props}
-    />
+      className={className}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        fontSize: '0.875rem',
+        fontWeight: 500,
+        lineHeight: 1,
+        color: 'text.primary',
+        '&.Mui-focused': { color: 'text.primary' },
+      }}
+      {...(props as Record<string, unknown>)}
+    >
+      {children}
+    </FormLabel>
   );
 }
-
-export { Label };

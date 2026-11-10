@@ -299,7 +299,7 @@ export function BudgetsPageClient({ categories }: BudgetsPageClientProps) {
           ))}
         </div>
       ) : (
-        <LoadingOverlay size="md" loading={isPeriodPending || isLoading} className="rounded-xl">
+        <LoadingOverlay size="md" loading={isPeriodPending || isLoading} className="rounded-2xl">
           {budgets.length > 0 ? (
             <BudgetsTable
               budgets={budgets}

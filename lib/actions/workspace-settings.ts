@@ -1,25 +1,19 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import { hasPermission } from '@/lib/permissions/has-permission';
 import prisma from '@/lib/prisma';
+import {
+  type WorkspaceSettingsInput,
+  workspaceSettingsSchema,
+} from '@/lib/schemas/workspace-settings';
+import { createAuditLog } from '@/lib/services/audit';
 import { deliverNotification } from '@/lib/services/notification-delivery';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
-const notificationSettingsSchema = z.object({
-  whatsappApiUrl: z.string().optional().nullable(),
-  whatsappApiToken: z.string().optional().nullable(),
-  smtpHost: z.string().optional().nullable(),
-  smtpPort: z.coerce.number().optional().nullable(),
-  smtpUser: z.string().optional().nullable(),
-  smtpPassword: z.string().optional().nullable(),
-  smtpFrom: z.string().optional().nullable(),
-});
-
 export async function getWorkspaceNotificationSettings() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
 
   const workspace = await prisma.workspace.findUnique({
@@ -32,40 +26,55 @@ export async function getWorkspaceNotificationSettings() {
       smtpUser: true,
       smtpPassword: true,
       smtpFrom: true,
+      externalApiTimeoutMs: true,
     },
   });
 
   return workspace;
 }
 
-export async function updateWorkspaceNotificationSettings(
-  data: z.infer<typeof notificationSettingsSchema>,
-) {
-  const session = await getServerSession(authOptions);
+export async function updateWorkspaceNotificationSettings(data: WorkspaceSettingsInput) {
+  const session = await getSession();
   if (!session) return { success: false, error: 'Não autorizado' };
   if (!hasPermission(session.user.permissions, 'system-settings', 'UPDATE')) {
     return { success: false, error: 'Apenas administradores podem alterar estas configurações' };
   }
 
   try {
-    const validated = notificationSettingsSchema.parse(data);
+    const validated = workspaceSettingsSchema.parse(data);
 
-    await prisma.workspace.update({
+    const previous = await prisma.workspace.update({
       where: { id: session.user.workspaceId },
       data: validated,
+      select: { externalApiTimeoutMs: true, smtpHost: true, whatsappApiUrl: true },
+    });
+
+    // Auditoria sem segredos (senha SMTP/token do WhatsApp ficam de fora).
+    await createAuditLog({
+      action: 'UPDATE_WORKSPACE_SETTINGS',
+      entity: 'Workspace',
+      entityId: session.user.workspaceId,
+      newValue: {
+        smtpHost: previous.smtpHost,
+        whatsappApiUrl: previous.whatsappApiUrl,
+        externalApiTimeoutMs: previous.externalApiTimeoutMs,
+      },
     });
 
     revalidatePath('/profiles');
     revalidatePath('/system-settings');
     return { success: true };
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0]?.message || 'Dados inválidos' };
+    }
     console.error('Error updating workspace notification settings:', error);
     return { success: false, error: 'Erro ao salvar configurações' };
   }
 }
 
 export async function sendTestNotification(userId: string) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return { success: false, error: 'Não autorizado' };
   if (!hasPermission(session.user.permissions, 'system-settings', 'UPDATE')) {
     return { success: false, error: 'Apenas administradores podem enviar notificações de teste' };

@@ -1,12 +1,8 @@
 'use server';
 
-import {
-  checkBudgetAlerts,
-  notifyNewTransaction,
-  notifyTransactionStatusChange,
-} from '@/lib/actions/notifications';
 import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
+import { enqueue } from '@/lib/queue';
 import { createAuditLog } from '@/lib/services/audit';
 import { matchCategorizationRule } from '@/lib/services/categorization';
 import { applyConditionalRules } from '@/lib/services/conditional-rules';
@@ -19,22 +15,15 @@ import {
   isYearMonthString,
   toCompetence,
 } from '@/lib/utils/competence';
+import { moveDateToCurrentMonth } from '@/lib/utils/transaction-dates';
 import { TransactionStatus, TransactionType } from '@prisma/client';
-import { addMonths, startOfDay, startOfMonth } from 'date-fns';
+import { addMonths, startOfMonth } from 'date-fns';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
-function moveDateToCurrentMonth(original: Date, now: Date): Date {
-  const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const clampedDay = Math.min(original.getDate(), daysInCurrentMonth);
-  return new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    clampedDay,
-    original.getHours(),
-    original.getMinutes(),
-    original.getSeconds(),
-  );
+/** Autor das ações em background (fila): o usuário logado no workspace atual. */
+function actorOf(session: { user: { id: string; workspaceId: string } }) {
+  return { workspaceId: session.user.workspaceId, userId: session.user.id };
 }
 
 const transactionSchema = z.object({
@@ -66,15 +55,18 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
     const session = await requirePermission('transactions', 'CREATE');
     const validated = transactionSchema.parse(data);
 
-    const paidByError = await assertValidPaidBy(session.user.workspaceId, validated.paidById);
+    // Validação do "Pago por" e regra de categorização são independentes: em paralelo.
+    const [paidByError, matchedCategoryId] = await Promise.all([
+      assertValidPaidBy(session.user.workspaceId, validated.paidById),
+      matchCategorizationRule(
+        session.user.workspaceId,
+        `${validated.description} ${validated.notes || ''}`,
+      ),
+    ]);
     if (paidByError) return { success: false, error: paidByError };
 
     const competence = competenceFromYearMonthString(validated.competence);
 
-    const matchedCategoryId = await matchCategorizationRule(
-      session.user.workspaceId,
-      `${validated.description} ${validated.notes || ''}`,
-    );
     if (matchedCategoryId) {
       validated.categoryId = matchedCategoryId;
     }
@@ -178,10 +170,14 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
         newValue: validated,
       });
 
-      await notifyNewTransaction({ id: result.id });
       await applyConditionalRules(session.user.workspaceId, result.id);
+      // E-mail/WhatsApp e alertas saem do request: vão para a fila.
+      await enqueue('transactions.notify-created', {
+        ...actorOf(session),
+        transactionId: result.id,
+      });
       if (validated.type === TransactionType.EXPENSE) {
-        await checkBudgetAlerts(session);
+        await enqueue('alerts.budget', actorOf(session));
       }
 
       revalidatePath('/transactions');
@@ -238,10 +234,14 @@ export async function createTransaction(data: z.infer<typeof transactionSchema>)
       newValue: validated,
     });
 
-    await notifyNewTransaction({ id: transaction.id });
     await applyConditionalRules(session.user.workspaceId, transaction.id);
+    // E-mail/WhatsApp e alertas saem do request: vão para a fila.
+    await enqueue('transactions.notify-created', {
+      ...actorOf(session),
+      transactionId: transaction.id,
+    });
     if (transaction.type === TransactionType.EXPENSE) {
-      await checkBudgetAlerts(session);
+      await enqueue('alerts.budget', actorOf(session));
     }
 
     revalidatePath('/transactions');
@@ -355,8 +355,9 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
     });
 
     if (oldTransaction.status !== transaction.status) {
-      await notifyTransactionStatusChange({
-        id: transaction.id,
+      await enqueue('transactions.notify-status', {
+        ...actorOf(session),
+        transactionId: transaction.id,
         oldStatus: oldTransaction.status,
         newStatus: transaction.status,
       });
@@ -364,7 +365,7 @@ export async function updateTransaction(id: string, data: z.infer<typeof transac
 
     await applyConditionalRules(session.user.workspaceId, transaction.id);
     if (transaction.type === TransactionType.EXPENSE) {
-      await checkBudgetAlerts(session);
+      await enqueue('alerts.budget', actorOf(session));
     }
 
     revalidatePath('/transactions');
@@ -445,8 +446,9 @@ export async function markTransactionAsPaid(id: string) {
     });
 
     if (transaction.status !== updated.status) {
-      await notifyTransactionStatusChange({
-        id: updated.id,
+      await enqueue('transactions.notify-status', {
+        ...actorOf(session),
+        transactionId: updated.id,
         oldStatus: transaction.status,
         newStatus: updated.status,
       });
@@ -508,8 +510,9 @@ export async function updateTransactionStatus(id: string, status: TransactionSta
       newValue: { status: updated.status, paidAt: updated.paidAt },
     });
 
-    await notifyTransactionStatusChange({
-      id: updated.id,
+    await enqueue('transactions.notify-status', {
+      ...actorOf(session),
+      transactionId: updated.id,
       oldStatus: transaction.status,
       newStatus: updated.status,
     });
@@ -522,60 +525,6 @@ export async function updateTransactionStatus(id: string, status: TransactionSta
   } catch (error) {
     console.error('Error updating transaction status:', error);
     return { success: false, error: 'Erro ao atualizar status da transação' };
-  }
-}
-
-export async function autoMoveOverdueTransactions() {
-  try {
-    const session = await requirePermission('transactions', 'VIEW');
-    const now = new Date();
-    const monthStart = startOfMonth(now);
-    const currentCompetence = toCompetence(now);
-    // Move para o mês atual o que venceu em mês anterior, ou o que já venceu mas
-    // ainda está numa competência passada (ex.: competência 09, vencimento 05/10).
-    const candidates = await prisma.transaction.findMany({
-      where: {
-        workspaceId: session.user.workspaceId,
-        autoMoveEnabled: true,
-        status: { in: [TransactionStatus.PENDING, TransactionStatus.OVERDUE] },
-        OR: [
-          { date: { lt: monthStart } },
-          { competence: { lt: currentCompetence }, date: { lt: startOfDay(now) } },
-        ],
-      },
-    });
-
-    for (const t of candidates) {
-      const isPastMonth = t.date < monthStart;
-      const newDate = isPastMonth ? moveDateToCurrentMonth(t.date, now) : t.date;
-      const newDueDate = newDate;
-
-      // `originalCompetence` não é alterada: guarda a competência de origem.
-      await prisma.transaction.update({
-        where: { id: t.id },
-        data: {
-          date: newDate,
-          dueDate: newDueDate,
-          competence: currentCompetence,
-          status: TransactionStatus.OVERDUE,
-        },
-      });
-
-      await createAuditLog({
-        action: 'AUTO_MOVE_TO_CURRENT_MONTH',
-        entity: 'Transaction',
-        entityId: t.id,
-        oldValue: { date: t.date, dueDate: t.dueDate, competence: t.competence, status: t.status },
-        newValue: {
-          date: newDate,
-          dueDate: newDueDate,
-          competence: currentCompetence,
-          status: TransactionStatus.OVERDUE,
-        },
-      });
-    }
-  } catch (error) {
-    console.error('Error auto-moving overdue transactions:', error);
   }
 }
 

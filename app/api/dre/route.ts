@@ -1,19 +1,19 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
 import { startOfMonth, endOfMonth, subMonths, eachMonthOfInterval, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
-    const months = parseInt(searchParams.get('months') || '6');
+    // Janela limitada (1–36 meses): `months` vinha sem teto da query string.
+    const months = Math.min(Math.max(parseInt(searchParams.get('months') || '6') || 6, 1), 36);
 
     const now = new Date();
     const startDate = startOfMonth(subMonths(now, months - 1));
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         workspaceId: session.user.workspaceId,
         date: { gte: startDate, lte: endDate },
       },
-      include: { category: true },
+      select: { type: true, amount: true, date: true, category: { select: { name: true } } },
     });
 
     const monthsInterval = eachMonthOfInterval({ start: startDate, end: endDate });

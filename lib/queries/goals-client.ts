@@ -14,7 +14,7 @@ export interface GoalDTO {
   updatedAt: string;
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { fetcher } from '@/lib/queries/fetcher';
 
 const goalsKey = '/api/goals';
 

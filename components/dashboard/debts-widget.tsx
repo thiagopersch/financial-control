@@ -22,7 +22,7 @@ export function DebtsWidget({ debts, totalDebt }: DebtsWidgetProps) {
   if (debts.length === 0) {
     return (
       <Link href="/debts" className="block h-full w-full">
-        <Card className="h-full w-full cursor-pointer transition-all hover:shadow-md">
+        <Card className="hover-elevate h-full w-full cursor-pointer">
           <CardHeader>
             <CardTitle>Dívidas</CardTitle>
             <CardDescription>Acompanhe suas dívidas e financiamentos.</CardDescription>
@@ -40,11 +40,11 @@ export function DebtsWidget({ debts, totalDebt }: DebtsWidgetProps) {
 
   return (
     <Link href="/debts" className="block h-full w-full">
-      <Card className="h-full w-full cursor-pointer transition-all hover:shadow-md">
+      <Card className="hover-elevate h-full w-full cursor-pointer">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div className="flex items-center gap-2">
-            <div className="rounded-full bg-rose-100 p-2">
-              <Banknote className="h-4 w-4 text-rose-600" />
+            <div className="rounded-full bg-[rgba(var(--mui-palette-expense-mainChannel)/0.12)] p-2">
+              <Banknote className="h-4 w-4 text-[var(--mui-palette-expense-main)]" />
             </div>
             <div>
               <CardTitle className="text-base">Dívidas</CardTitle>
@@ -58,7 +58,9 @@ export function DebtsWidget({ debts, totalDebt }: DebtsWidgetProps) {
           {debts.map((debt) => (
             <div key={debt.id} className="flex items-center justify-between text-sm">
               <span className="truncate font-medium">{debt.name}</span>
-              <span className="font-medium text-rose-600">{formatCurrency(debt.currentValue)}</span>
+              <span className="font-medium text-[var(--mui-palette-expense-main)]">
+                {formatCurrency(debt.currentValue)}
+              </span>
             </div>
           ))}
         </CardContent>

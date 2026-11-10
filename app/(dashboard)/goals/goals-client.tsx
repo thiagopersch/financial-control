@@ -305,7 +305,7 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
               <Input
                 type="number"
                 placeholder="De"
-                className="bg-background h-10 shadow-sm"
+                className="bg-background h-10"
                 value={currentMin}
                 onChange={(e) => {
                   setCurrentMin(e.target.value);
@@ -315,7 +315,7 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
               <Input
                 type="number"
                 placeholder="Até"
-                className="bg-background h-10 shadow-sm"
+                className="bg-background h-10"
                 value={currentMax}
                 onChange={(e) => {
                   setCurrentMax(e.target.value);
@@ -330,7 +330,7 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
               <Input
                 type="number"
                 placeholder="De"
-                className="bg-background h-10 shadow-sm"
+                className="bg-background h-10"
                 value={targetMin}
                 onChange={(e) => {
                   setTargetMin(e.target.value);
@@ -340,7 +340,7 @@ export function GoalsPageClient({ initialGoals }: GoalsPageClientProps) {
               <Input
                 type="number"
                 placeholder="Até"
-                className="bg-background h-10 shadow-sm"
+                className="bg-background h-10"
                 value={targetMax}
                 onChange={(e) => {
                   setTargetMax(e.target.value);

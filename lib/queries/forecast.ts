@@ -1,34 +1,20 @@
 import useSWR from 'swr';
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
-export interface ForecastData {
-  month: string;
-  predicted: number;
-  confidence: number;
-  lowerBound: number;
-  upperBound: number;
+export interface ForecastResponse<TChart = unknown, TCategory = unknown> {
+  chartData: TChart[];
+  categoryForecast: TCategory[];
 }
 
-export interface ForecastSummary {
-  totalPredicted: number;
-  averageGrowth: number;
-  trend: 'up' | 'down' | 'stable';
-}
-
-export function useForecast(months: number = 6) {
-  const { data, error, isLoading, mutate } = useSWR<{
-    forecast: ForecastData[];
-    summary: ForecastSummary;
-  }>(`/api/forecast?months=${months}`, fetcher, {
-    revalidateOnFocus: false,
-  });
-
+/** Previsão de despesas para os próximos `months` meses. */
+export function useForecast<TChart, TCategory>(months: string | number) {
+  const { data, error, isLoading, mutate } = useSWR<ForecastResponse<TChart, TCategory>>(
+    `/api/forecast?months=${months}`,
+  );
   return {
-    forecast: data?.forecast || [],
-    summary: data?.summary || null,
+    chartData: data?.chartData ?? [],
+    categoryForecast: data?.categoryForecast ?? [],
     isLoading,
-    isError: error,
+    isError: !!error,
     refresh: mutate,
   };
 }

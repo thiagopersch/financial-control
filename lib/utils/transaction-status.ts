@@ -1,3 +1,5 @@
+import { alpha } from '@mui/material/styles';
+import type { SxProps, Theme } from '@mui/material/styles';
 import { addDays, isSameDay, startOfDay } from 'date-fns';
 
 type SituationTransaction = {
@@ -41,25 +43,39 @@ export function getStaticTransactionSituation(
   return 'PENDING';
 }
 
-/**
- * Classes da linha da tabela por situação: fundo suave, hover no mesmo matiz e
- * marcador à esquerda (inset shadow, para não deslocar o layout).
- */
-export const TRANSACTION_ROW_CLASSES: Record<TransactionSituation, string> = {
-  PAID: 'bg-emerald-50/70 hover:bg-emerald-100/80 dark:bg-emerald-950/25 dark:hover:bg-emerald-900/35 shadow-[inset_3px_0_0_0_var(--color-emerald-500)]',
-  OVERDUE:
-    'bg-red-50/70 hover:bg-red-100/80 dark:bg-red-950/25 dark:hover:bg-red-900/35 shadow-[inset_3px_0_0_0_var(--color-red-500)]',
-  DUE_TODAY:
-    'bg-orange-50/70 hover:bg-orange-100/80 dark:bg-orange-950/25 dark:hover:bg-orange-900/35 shadow-[inset_3px_0_0_0_var(--color-orange-500)]',
-  DUE_TOMORROW:
-    'bg-orange-50/70 hover:bg-orange-100/80 dark:bg-orange-950/25 dark:hover:bg-orange-900/35 shadow-[inset_3px_0_0_0_var(--color-orange-500)]',
-  PENDING:
-    'bg-amber-50/60 hover:bg-amber-100/70 dark:bg-amber-950/20 dark:hover:bg-amber-900/30 shadow-[inset_3px_0_0_0_var(--color-amber-500)]',
+/** Papel do tema usado por cada situação (cor de fundo/friso da linha). */
+const SITUATION_ROLE: Record<TransactionSituation, 'paid' | 'overdue' | 'pending' | 'dueSoon'> = {
+  PAID: 'paid',
+  OVERDUE: 'overdue',
+  DUE_TODAY: 'dueSoon',
+  DUE_TOMORROW: 'dueSoon',
+  PENDING: 'pending',
 };
 
-export const TRANSACTION_SITUATION_LEGEND: { label: string; dotClassName: string }[] = [
-  { label: 'Pago', dotClassName: 'bg-emerald-500' },
-  { label: 'Pendente', dotClassName: 'bg-amber-500' },
-  { label: 'Vence hoje/amanhã', dotClassName: 'bg-orange-500' },
-  { label: 'Atrasado', dotClassName: 'bg-red-500' },
+/**
+ * Estilo da linha da tabela por situação: fundo suave na cor do papel do tema,
+ * mais escuro no hover, e um friso colorido à esquerda — via `sx`, não mais
+ * Tailwind cru (a cor já responde ao claro/escuro pelo próprio tema).
+ */
+export function getTransactionRowSx(situation: TransactionSituation): SxProps<Theme> {
+  const role = SITUATION_ROLE[situation];
+  return (theme) => {
+    const main = theme.palette[role].main;
+    return {
+      bgcolor: alpha(main, theme.palette.mode === 'dark' ? 0.12 : 0.06),
+      borderLeft: 3,
+      borderColor: main,
+      '&:hover': { bgcolor: alpha(main, theme.palette.mode === 'dark' ? 0.18 : 0.1) },
+    };
+  };
+}
+
+export const TRANSACTION_SITUATION_LEGEND: {
+  label: string;
+  role: 'paid' | 'pending' | 'overdue' | 'dueSoon';
+}[] = [
+  { label: 'Pago', role: 'paid' },
+  { label: 'Pendente', role: 'pending' },
+  { label: 'Vence hoje/amanhã', role: 'dueSoon' },
+  { label: 'Atrasado', role: 'overdue' },
 ];

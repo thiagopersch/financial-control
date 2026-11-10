@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { ChartSkeleton } from '@/components/ui/chart-skeleton';
+import { useState } from 'react';
+import { useDRE } from '@/lib/queries/dre';
 import { FileText, TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -33,40 +35,15 @@ interface CategoryData {
 }
 
 export default function DREPage() {
-  const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState<'3' | '6' | '12'>('6');
-  const [summary, setSummary] = useState<{
-    totalRevenue: number;
-    totalExpense: number;
-    netResult: number;
-  } | null>(null);
-  const [chartData, setChartData] = useState<DREData[]>([]);
-  const [expensesByCategory, setExpensesByCategory] = useState<CategoryData[]>([]);
 
   usePersistedPageFilters('dre', { period }, (saved) => {
     if (saved.period) setPeriod(saved.period as typeof period);
   });
 
-  useEffect(() => {
-    fetchDRE();
-  }, [period]);
-
-  const fetchDRE = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/dre?months=${period}`);
-      if (response.ok) {
-        const data = await response.json();
-        setSummary(data.summary);
-        setChartData(data.chartData || []);
-        setExpensesByCategory(data.expensesByCategory || []);
-      }
-    } catch (error) {
-      console.error('Error fetching DRE:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { summary, chartData, expensesByCategory, isLoading } = useDRE<DREData, CategoryData>(
+    period,
+  );
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', {
@@ -95,10 +72,10 @@ export default function DREPage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-green-500" />
+                  <TrendingUp className="h-4 w-4 text-[var(--mui-palette-income-main)]" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-600">
+                  <div className="text-2xl font-bold text-[var(--mui-palette-income-main)]">
                     {formatCurrency(summary.totalRevenue)}
                   </div>
                 </CardContent>
@@ -107,10 +84,10 @@ export default function DREPage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Despesa Total</CardTitle>
-                  <TrendingDown className="h-4 w-4 text-red-500" />
+                  <TrendingDown className="h-4 w-4 text-[var(--mui-palette-expense-main)]" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-red-600">
+                  <div className="text-2xl font-bold text-[var(--mui-palette-expense-main)]">
                     {formatCurrency(summary.totalExpense)}
                   </div>
                 </CardContent>
@@ -123,7 +100,7 @@ export default function DREPage() {
                 </CardHeader>
                 <CardContent>
                   <div
-                    className={`text-2xl font-bold ${summary.netResult >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                    className={`text-2xl font-bold ${summary.netResult >= 0 ? 'text-[var(--mui-palette-income-main)]' : 'text-[var(--mui-palette-expense-main)]'}`}
                   >
                     {formatCurrency(summary.netResult)}
                   </div>
@@ -139,9 +116,7 @@ export default function DREPage() {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="flex h-[400px] items-center justify-center">
-                  <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
-                </div>
+                <ChartSkeleton />
               ) : chartData.length === 0 ? (
                 <div className="text-muted-foreground flex h-[400px] items-center justify-center">
                   Dados insuficientes
@@ -183,7 +158,7 @@ export default function DREPage() {
                   {expensesByCategory.map((cat, index) => (
                     <div key={index} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="h-3 w-3 rounded-full bg-red-500" />
+                        <div className="h-3 w-3 rounded-full bg-[var(--mui-palette-expense-main)]" />
                         <span>{cat.category}</span>
                       </div>
                       <div className="text-right">

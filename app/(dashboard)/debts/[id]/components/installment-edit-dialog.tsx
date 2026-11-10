@@ -68,9 +68,21 @@ interface InstallmentEditDialogProps {
 }
 
 const STATUS_OPTIONS: { value: TransactionStatus; label: string; dotClassName: string }[] = [
-  { value: TransactionStatus.PAID, label: 'Pago', dotClassName: 'bg-emerald-500' },
-  { value: TransactionStatus.PENDING, label: 'Pendente', dotClassName: 'bg-amber-500' },
-  { value: TransactionStatus.OVERDUE, label: 'Atrasado', dotClassName: 'bg-rose-500' },
+  {
+    value: TransactionStatus.PAID,
+    label: 'Pago',
+    dotClassName: 'bg-[var(--mui-palette-paid-main)]',
+  },
+  {
+    value: TransactionStatus.PENDING,
+    label: 'Pendente',
+    dotClassName: 'bg-[var(--mui-palette-pending-main)]',
+  },
+  {
+    value: TransactionStatus.OVERDUE,
+    label: 'Atrasado',
+    dotClassName: 'bg-[var(--mui-palette-overdue-main)]',
+  },
 ];
 
 /** Mesmos campos/regras da edição de transação (ver transaction-form-page.tsx). */

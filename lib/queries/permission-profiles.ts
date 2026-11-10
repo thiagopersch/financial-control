@@ -1,6 +1,5 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
 
 export type PermissionProfileDTO = {
   id: string;
@@ -14,7 +13,7 @@ export type PermissionProfileDTO = {
 };
 
 export async function getPermissionProfiles(): Promise<PermissionProfileDTO[]> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return [];
 
   try {
@@ -44,7 +43,7 @@ export async function getPermissionProfiles(): Promise<PermissionProfileDTO[]> {
 }
 
 export async function getPermissionProfileById(id: string): Promise<PermissionProfileDTO | null> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
 
   const profile = await prisma.permissionProfile.findFirst({

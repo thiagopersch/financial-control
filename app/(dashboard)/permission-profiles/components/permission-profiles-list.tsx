@@ -74,7 +74,7 @@ export function PermissionProfilesList({ profiles, onRefresh }: PermissionProfil
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold">{profile.name}</span>
             {profile.isSystem && (
-              <Badge variant="secondary" className="gap-1 border-none text-xs">
+              <Badge variant="secondary" className="gap-1 text-xs">
                 <ShieldCheck className="h-3 w-3" /> Sistema
               </Badge>
             )}

@@ -1,35 +1,22 @@
 import useSWR from 'swr';
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
-export interface DREItem {
-  description: string;
-  currentMonth: number;
-  previousMonth: number;
-  ytd: number;
-  percentageChange: number;
+export interface DREResponse<TChart = unknown, TCategory = unknown> {
+  summary: { totalRevenue: number; totalExpense: number; netResult: number } | null;
+  chartData: TChart[];
+  expensesByCategory: TCategory[];
 }
 
-export interface DREData {
-  items: DREItem[];
-  totalRevenue: number;
-  totalExpenses: number;
-  netIncome: number;
-}
-
-export function useDRE(months: number = 12) {
-  const { data, error, isLoading, mutate } = useSWR<{ dre: DREData }>(
+/** DRE dos últimos `months` meses (SWR: cache, dedupe e dados anteriores na troca). */
+export function useDRE<TChart, TCategory>(months: string | number) {
+  const { data, error, isLoading, mutate } = useSWR<DREResponse<TChart, TCategory>>(
     `/api/dre?months=${months}`,
-    fetcher,
-    {
-      revalidateOnFocus: false,
-    },
   );
-
   return {
-    dre: data?.dre || null,
+    summary: data?.summary ?? null,
+    chartData: data?.chartData ?? [],
+    expensesByCategory: data?.expensesByCategory ?? [],
     isLoading,
-    isError: error,
+    isError: !!error,
     refresh: mutate,
   };
 }

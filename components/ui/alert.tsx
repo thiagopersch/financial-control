@@ -1,69 +1,78 @@
+'use client';
+
+import Box from '@mui/material/Box';
+import MuiAlert from '@mui/material/Alert';
+import MuiAlertTitle from '@mui/material/AlertTitle';
 import * as React from 'react';
-import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@/lib/utils';
-
-const alertVariants = cva(
-  "group/alert relative grid w-full gap-0.5 rounded-lg border px-2.5 py-2 text-left text-sm has-data-[slot=alert-action]:relative has-data-[slot=alert-action]:pr-18 has-[>svg]:grid-cols-[auto_1fr] has-[>svg]:gap-x-2 *:[svg]:row-span-2 *:[svg]:translate-y-0.5 *:[svg]:text-current *:[svg:not([class*='size-'])]:size-4",
-  {
-    variants: {
-      variant: {
-        default: 'bg-card text-card-foreground',
-        destructive:
-          'bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current',
-      },
-    },
-    defaultVariants: {
-      variant: 'default',
-    },
-  },
-);
-
-function Alert({
+/** Aviso em destaque (MUI `Alert`). Ícone vem como primeiro filho, como antes. */
+export function Alert({
   className,
-  variant,
-  ...props
-}: React.ComponentProps<'div'> & VariantProps<typeof alertVariants>) {
+  variant = 'default',
+  children,
+}: React.ComponentProps<'div'> & { variant?: 'default' | 'destructive' | null }) {
+  const childArray = React.Children.toArray(children);
+  const first = childArray[0];
+  const isIcon =
+    React.isValidElement(first) &&
+    typeof first.type !== 'string' &&
+    !(first.type as { muiName?: string }).muiName &&
+    first.type !== AlertTitle &&
+    first.type !== AlertDescription &&
+    first.type !== AlertAction;
   return (
-    <div
+    <MuiAlert
       data-slot="alert"
-      role="alert"
-      className={cn(alertVariants({ variant }), className)}
-      {...props}
-    />
+      severity={variant === 'destructive' ? 'error' : 'info'}
+      variant="outlined"
+      icon={isIcon ? first : false}
+      className={className}
+      sx={{
+        width: '100%',
+        fontSize: '0.875rem',
+        py: 0.5,
+        ...(variant !== 'destructive' && {
+          color: 'text.primary',
+          borderColor: 'divider',
+          '& .MuiAlert-icon': { color: 'text.secondary' },
+        }),
+        '& .MuiAlert-icon svg': { width: 16, height: 16 },
+        '& .MuiAlert-message': { width: '100%' },
+      }}
+    >
+      {isIcon ? childArray.slice(1) : children}
+    </MuiAlert>
   );
 }
 
-function AlertTitle({ className, ...props }: React.ComponentProps<'div'>) {
+export function AlertTitle({ className, children }: React.ComponentProps<'div'>) {
   return (
-    <div
-      data-slot="alert-title"
-      className={cn(
-        'font-heading [&_a]:hover:text-foreground font-medium group-has-[>svg]/alert:col-start-2 [&_a]:underline [&_a]:underline-offset-3',
-        className,
-      )}
-      {...props}
-    />
+    <MuiAlertTitle className={className} sx={{ fontSize: '0.875rem', fontWeight: 500, mb: 0.25 }}>
+      {children}
+    </MuiAlertTitle>
   );
 }
 
-function AlertDescription({ className, ...props }: React.ComponentProps<'div'>) {
+export function AlertDescription({ className, children }: React.ComponentProps<'div'>) {
   return (
-    <div
+    <Box
       data-slot="alert-description"
-      className={cn(
-        'text-muted-foreground [&_a]:hover:text-foreground text-sm text-balance md:text-pretty [&_a]:underline [&_a]:underline-offset-3 [&_p:not(:last-child)]:mb-4',
-        className,
-      )}
-      {...props}
-    />
+      className={className}
+      sx={{ color: 'text.secondary', fontSize: '0.875rem' }}
+    >
+      {children}
+    </Box>
   );
 }
 
-function AlertAction({ className, ...props }: React.ComponentProps<'div'>) {
+export function AlertAction({ className, children }: React.ComponentProps<'div'>) {
   return (
-    <div data-slot="alert-action" className={cn('absolute top-2 right-2', className)} {...props} />
+    <Box
+      data-slot="alert-action"
+      className={className}
+      sx={{ position: 'absolute', top: 8, right: 8 }}
+    >
+      {children}
+    </Box>
   );
 }
-
-export { Alert, AlertTitle, AlertDescription, AlertAction };

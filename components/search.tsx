@@ -48,7 +48,7 @@ export function SearchInput({ searchParams, handleSearch, debounceMs = 400 }: Se
           type="search"
           aria-label="Buscar"
           placeholder="Buscar por descrição, categoria ou fornecedor..."
-          className="bg-background h-10 w-full pr-9 pl-8 shadow-sm [&::-webkit-search-cancel-button]:hidden"
+          className="bg-background h-10 w-full pr-9 pl-8 [&::-webkit-search-cancel-button]:hidden"
           value={value}
           onChange={(e) => {
             setValue(e.target.value);

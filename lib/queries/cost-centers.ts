@@ -1,6 +1,5 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 
 export type CostCenterDTO = {
@@ -15,7 +14,7 @@ export type CostCenterDTO = {
 };
 
 export async function getCostCenters(): Promise<CostCenterDTO[]> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return [];
 
   try {
@@ -54,7 +53,7 @@ export type GetCostCentersParams = {
 export async function getCostCentersPaginated(
   params: GetCostCentersParams = {},
 ): Promise<{ costCenters: CostCenterDTO[]; totalCount: number }> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return { costCenters: [], totalCount: 0 };
 
   const { q, parent, page = 1, pageSize = DEFAULT_PAGE_SIZE } = params;
@@ -105,7 +104,7 @@ export async function getCostCentersPaginated(
 }
 
 export async function getCostCenterById(id: string): Promise<CostCenterDTO | null> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
 
   try {

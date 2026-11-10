@@ -1,35 +1,31 @@
 'use client';
 
-import { toast as sonner, ToasterProps } from 'sonner';
+import { enqueueSnackbar, type VariantType } from 'notistack';
+import { createElement, Fragment, type ReactNode } from 'react';
 import { ZodError } from 'zod';
 
-const defaultOptions: ToasterProps = {
-  position: 'bottom-center' as const,
-  richColors: true,
-  closeButton: true,
-};
-
+/**
+ * Notificações (toasts) do app via notistack + MUI. Mesma API de antes
+ * (`showSuccess`/`showError`…), então nenhum chamador precisou mudar.
+ */
 interface ToastMessage {
   type: 'success' | 'error' | 'info' | 'warning';
   title: string;
   description?: string;
 }
 
+function render(title: string, description?: string): ReactNode {
+  if (!description) return title;
+  return createElement(
+    Fragment,
+    null,
+    createElement('strong', { style: { display: 'block' } }, title),
+    createElement('span', { style: { whiteSpace: 'pre-line', opacity: 0.9 } }, description),
+  );
+}
+
 export function toast({ type, title, description }: ToastMessage) {
-  switch (type) {
-    case 'success':
-      sonner.success(title, { ...defaultOptions, description });
-      break;
-    case 'error':
-      sonner.error(title, { ...defaultOptions, description });
-      break;
-    case 'info':
-      sonner.info(title, { ...defaultOptions, description });
-      break;
-    case 'warning':
-      sonner.warning(title, { ...defaultOptions, description });
-      break;
-  }
+  enqueueSnackbar(render(title, description), { variant: type as VariantType });
 }
 
 export function showSuccess(title: string, description?: string) {
@@ -37,7 +33,7 @@ export function showSuccess(title: string, description?: string) {
 }
 
 export function showError(title: string, description?: string) {
-  sonner.error(title, { ...defaultOptions, description });
+  toast({ type: 'error', title, description });
 }
 
 export function showInfo(title: string, description?: string) {
@@ -48,45 +44,27 @@ export function showWarning(title: string, description?: string) {
   toast({ type: 'warning', title, description });
 }
 
+function listMessages(messages: string[]) {
+  return messages.length > 1 ? messages.map((m, i) => `${i + 1}. ${m}`).join('\n') : messages[0];
+}
+
 export function showValidationErrors(error: unknown) {
   if (error instanceof ZodError) {
-    const messages = error.issues.map((issue) => issue.message);
-    const description =
-      messages.length > 1
-        ? messages.map((m, i) => `${i + 1}. ${m}`).join('\n')
-        : messages[0] || 'Dados inválidos';
-    sonner.error('Erro de validação', {
-      ...defaultOptions,
-      description,
-    });
+    showError(
+      'Erro de validação',
+      listMessages(error.issues.map((i) => i.message)) || 'Dados inválidos',
+    );
     return;
   }
-
-  if (error instanceof Error) {
-    sonner.error('Erro de validação', {
-      ...defaultOptions,
-      description: error.message || 'Dados inválidos',
-    });
-    return;
-  }
-
-  sonner.error('Erro de validação', {
-    ...defaultOptions,
-    description: 'Dados inválidos',
-  });
+  showError(
+    'Erro de validação',
+    error instanceof Error ? error.message || 'Dados inválidos' : 'Dados inválidos',
+  );
 }
 
 export function showFormErrors(errors: Record<string, { message?: string }>) {
   const messages = Object.values(errors)
     .filter((error) => error?.message)
-    .map((error) => error!.message);
-
-  if (messages.length > 0) {
-    const description =
-      messages.length > 1 ? messages.map((m, i) => `${i + 1}. ${m}`).join('\n') : messages[0];
-    sonner.error('Erro de validação', {
-      ...defaultOptions,
-      description,
-    });
-  }
+    .map((error) => error!.message!);
+  if (messages.length > 0) showError('Erro de validação', listMessages(messages));
 }

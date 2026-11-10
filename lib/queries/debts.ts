@@ -1,4 +1,4 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
 import {
   CalculationType,
@@ -7,7 +7,6 @@ import {
   Periodicity,
   TransactionStatus,
 } from '@prisma/client';
-import { getServerSession } from 'next-auth';
 
 export type DebtDTO = {
   id: string;
@@ -125,7 +124,7 @@ function mapDebt(debt: {
 }
 
 export async function getDebts(): Promise<DebtDTO[]> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return [];
 
   try {
@@ -151,7 +150,7 @@ export async function getDebts(): Promise<DebtDTO[]> {
 }
 
 export async function getDebtById(id: string): Promise<DebtDTO | null> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
 
   try {

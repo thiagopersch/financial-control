@@ -24,10 +24,13 @@ Sistema profissional de gestão financeira pessoal e empresarial.
 | Linguagem      | TypeScript                           |
 | Banco de Dados | PostgreSQL + Prisma ORM 7            |
 | Autenticação   | NextAuth.js                          |
-| UI             | Tailwind CSS 4 + Shadcn/UI + Base UI |
+| UI             | MUI (Material UI) + Tailwind CSS 4 (só layout) |
 | Estado         | Zustand                              |
 | Formulários    | React Hook Form + Zod                |
-| Data Fetching  | SWR                                  |
+| Data Fetching  | SWR (config global em `lib/queries/fetcher.ts`) |
+| Cache          | Upstash Redis (`lib/cache/redis.ts`)  |
+| Fila           | Upstash QStash (`lib/queue`, `lib/jobs`) |
+| Observabilidade | OpenTelemetry (`instrumentation.ts`) + RUM (`/api/vitals`) |
 | Tabelas        | @tanstack/react-table                |
 | Animações      | Framer Motion                        |
 | Gráficos       | Recharts                             |
@@ -47,7 +50,11 @@ financial-control-all/
 ├── lib/
 │   ├── queries/          # Acesso a dados (server/client)
 │   ├── services/         # Regras de negócio
-│   └── prisma.ts
+│   ├── cache/            # Cache Redis (no-op sem Upstash)
+│   ├── queue/            # enqueue() → QStash (ou after() em dev)
+│   ├── jobs/             # Registro e handlers dos jobs da fila
+│   ├── http/             # fetchWithTimeout (timeout do workspace)
+│   └── prisma.ts         # Pool + invalidação automática de cache + detector de N+1
 ├── prisma/
 └── AGENTS.md
 ```
@@ -97,6 +104,9 @@ Usar apenas quando:
 - Webhooks
 - Integrações externas
 - Endpoints públicos
+- Respostas em streaming (ex.: `POST /api/ai-assistant/chat`, IA token a token)
+- Jobs da fila (`POST /api/jobs/[job]`, assinado pelo QStash) e crons (`/api/cron/*`)
+- Leituras do client via SWR (sempre paginadas com `parsePagination`, teto de 100)
 
 ❗ Nunca duplicar lógica entre ambos
 
@@ -201,10 +211,19 @@ const { data, isLoading } = useTransactions();
 ## ⚡ Performance
 
 - Priorizar Server Components
-- Paginação obrigatória
-- Cache com `revalidate` e SWR
-- Lazy loading quando necessário
-- Evitar re-renderizações
+- Paginação obrigatória (no banco: `skip/take`; nunca carregar tudo e paginar em JS)
+- Agregar no banco (`groupBy`/`aggregate`), nunca somar a tabela em JS
+- Sem N+1: nada de query dentro de loop — buscar em lote (`in`) e usar `createMany`
+- `select` só das colunas usadas; consultas independentes em `Promise.all`
+- Sessão sempre via `getSession()` (`lib/auth/session.ts`, deduplicada por request)
+- Cache de leituras frequentes com `cachedForWorkspace` (invalidação automática por escrita)
+- Tarefas lentas (e-mail, WhatsApp, alertas, agendamentos) vão para a fila: `enqueue()`
+- APIs externas sempre com `fetchWithTimeout` e o `externalApiTimeoutMs` do workspace
+- Bibliotecas pesadas (exportação, editor, markdown) com `import()`/`next/dynamic`
+- Listas longas virtualizadas (`@tanstack/react-virtual`; DataTable e Autocomplete já fazem)
+- Imagens com `next/image` (AVIF/WebP, lazy); uploads no Vercel Blob
+- Scripts de terceiros só via `next/script` com `afterInteractive`/`lazyOnload`
+- React Compiler ligado: escrever componentes puros (sem ler ref durante o render)
 
 ---
 
@@ -216,14 +235,17 @@ const { data, isLoading } = useTransactions();
 
 Ferramentas:
 
-- Vitest / Jest
-- Testing Library
+- Vitest (unitários, `npm test`)
+- Playwright (e2e em desktop, celular e 3G lento, `npm run test:e2e`)
 
 ---
 
 ## 🎨 UI/UX
 
-- Shadcn/UI como base
+- MUI como base (tema em `components/theme/theme.ts`, dark mode pela classe `.dark`)
+- Primitivos do app em `components/ui/*` (Button, Dialog, Select…) já são MUI: reutilizar
+- Tailwind apenas para layout (grid, flex, gap, spacing) — cor/tipografia vêm do tema MUI
+- Atualização otimista (SWR `optimisticData` / `useOptimistic`) em ações frequentes
 - Responsivo
 - Dark mode obrigatório
 - Loading states sempre presentes

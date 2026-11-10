@@ -1,6 +1,5 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 
 export type PaymentMethodDTO = {
@@ -16,7 +15,7 @@ export type PaymentMethodDTO = {
 };
 
 export async function getPaymentMethods(): Promise<PaymentMethodDTO[]> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return [];
 
   try {
@@ -61,7 +60,7 @@ export type GetPaymentMethodsParams = {
 export async function getPaymentMethodsPaginated(
   params: GetPaymentMethodsParams = {},
 ): Promise<{ paymentMethods: PaymentMethodDTO[]; totalCount: number }> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return { paymentMethods: [], totalCount: 0 };
 
   const { q, isCreditCard, page = 1, pageSize = DEFAULT_PAGE_SIZE } = params;
@@ -114,7 +113,7 @@ export async function getPaymentMethodsPaginated(
 }
 
 export async function getPaymentMethodById(id: string): Promise<PaymentMethodDTO | null> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
 
   try {

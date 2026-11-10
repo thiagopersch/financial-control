@@ -1,14 +1,14 @@
 import { NotificationSettingsForm } from '@/components/profiles/notification-settings-form';
 import { TestNotificationForm } from '@/components/profiles/test-notification-form';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import { hasPermission } from '@/lib/permissions/has-permission';
+import { DEFAULT_EXTERNAL_API_TIMEOUT_MS } from '@/lib/http/fetch-with-timeout';
 import prisma from '@/lib/prisma';
 import { getWorkspaceUsers } from '@/lib/queries/users';
-import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 
 export default async function SystemSettingsPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
   if (!hasPermission(session.user.permissions, 'system-settings', 'VIEW')) {
     redirect('/dashboard');
@@ -37,6 +37,7 @@ export default async function SystemSettingsPage() {
           smtpUser: workspace?.smtpUser || '',
           smtpPassword: workspace?.smtpPassword || '',
           smtpFrom: workspace?.smtpFrom || '',
+          externalApiTimeoutMs: workspace?.externalApiTimeoutMs ?? DEFAULT_EXTERNAL_API_TIMEOUT_MS,
         }}
       />
 

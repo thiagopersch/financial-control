@@ -1,5 +1,6 @@
 'use server';
 
+import { invalidateProfilePermissions } from '@/lib/permissions/load-permissions';
 import prisma from '@/lib/prisma';
 import { normalizePermissionSelection } from '@/lib/permissions/permission-dependency';
 import { requirePermission } from '@/lib/permissions/require-permission';
@@ -101,6 +102,8 @@ export async function updatePermissionProfile(id: string, data: PermissionProfil
         include: { permissions: { select: { permissionId: true } } },
       });
     });
+
+    await invalidateProfilePermissions(profile.id);
 
     await createAuditLog({
       action: 'UPDATE_PERMISSION_PROFILE',

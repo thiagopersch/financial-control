@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PeriodLoading } from '@/components/ui/loading-overlay';
 import { formatCurrency } from '@/lib/utils';
+import Box from '@mui/material/Box';
 import { ArrowDownCircle, ArrowUpCircle, Wallet } from 'lucide-react';
 
 interface StatsCardsProps {
@@ -15,24 +16,30 @@ interface StatsCardsProps {
   isFullYear?: boolean;
 }
 
-const POSITIVE = { color: 'text-primary', bg: 'bg-primary/10' };
-const NEGATIVE = { color: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-950/40' };
+/** Papel do tema usado pelo card: `income` quando o valor é positivo, `expense` quando negativo. */
+type Tone = 'income' | 'expense';
 
 export function StatsCards({ stats, isFullYear }: StatsCardsProps) {
   const periodLabel = isFullYear ? 'Este ano' : 'Este mês';
-  const cards = [
+  const cards: {
+    title: string;
+    value: string;
+    icon: typeof Wallet;
+    tone: Tone;
+    description: string;
+  }[] = [
     {
       title: 'Patrimônio Total',
       value: formatCurrency(stats.totalBalance),
       icon: Wallet,
-      ...(stats.totalBalance >= 0 ? POSITIVE : NEGATIVE),
+      tone: stats.totalBalance >= 0 ? 'income' : 'expense',
       description: 'Receitas + limite dos cartões − despesas pagas',
     },
     {
       title: 'Total Receitas',
       value: formatCurrency(stats.totalIncome),
       icon: ArrowUpCircle,
-      ...POSITIVE,
+      tone: 'income',
       description:
         stats.cardLimit > 0
           ? `${periodLabel} · inclui ${formatCurrency(stats.cardLimit)} de limite de cartões`
@@ -42,14 +49,14 @@ export function StatsCards({ stats, isFullYear }: StatsCardsProps) {
       title: 'Total Despesas',
       value: formatCurrency(stats.totalExpense),
       icon: ArrowDownCircle,
-      ...NEGATIVE,
+      tone: 'expense',
       description: periodLabel,
     },
     {
       title: 'Resultado Líquido',
       value: formatCurrency(stats.balance),
       icon: stats.balance >= 0 ? ArrowUpCircle : ArrowDownCircle,
-      ...(stats.balance >= 0 ? POSITIVE : NEGATIVE),
+      tone: stats.balance >= 0 ? 'income' : 'expense',
       description: 'Receitas - Despesas',
     },
   ];
@@ -57,23 +64,33 @@ export function StatsCards({ stats, isFullYear }: StatsCardsProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {cards.map((card) => (
-        <PeriodLoading key={card.title} size="sm" className="rounded-lg">
-          <Card className="h-full overflow-hidden border-none shadow-md transition-all hover:shadow-lg">
+        <PeriodLoading key={card.title} size="sm" className="rounded-2xl">
+          {/* M3: elevação do próprio Card (tema) + leve realce no hover, sem borda. */}
+          <Card className="hover-elevate h-full overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-muted-foreground text-sm font-medium">
                 {card.title}
               </CardTitle>
-              <div className={`rounded-full p-2 ${card.bg}`}>
-                <card.icon className={`h-4 w-4 ${card.color}`} />
-              </div>
+              <Box
+                sx={{
+                  borderRadius: '50%',
+                  p: 1,
+                  display: 'flex',
+                  bgcolor: `rgba(var(--mui-palette-${card.tone}-mainChannel) / 0.12)`,
+                  color: `${card.tone}.main`,
+                }}
+              >
+                <card.icon className="h-4 w-4" />
+              </Box>
             </CardHeader>
             <CardContent>
-              <div
-                className={`text-xl font-bold tabular-nums xl:text-2xl ${card.color}`}
+              <Box
+                sx={{ color: `${card.tone}.main` }}
+                className="text-xl font-bold tabular-nums xl:text-2xl"
                 title={card.value}
               >
                 {card.value}
-              </div>
+              </Box>
               <p className="text-muted-foreground mt-1 text-xs">{card.description}</p>
             </CardContent>
           </Card>

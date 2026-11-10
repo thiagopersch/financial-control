@@ -1,31 +1,41 @@
 'use client';
 
-import * as React from 'react';
-import { Progress as ProgressPrimitive } from 'radix-ui';
+import LinearProgress from '@mui/material/LinearProgress';
 
-import { cn } from '@/lib/utils';
+const INDICATOR_PREFIX = '[&>div]:';
 
-function Progress({
+/**
+ * Barra de progresso (MUI `LinearProgress`). Classes `[&>div]:bg-*` do
+ * `className` continuam colorindo a barra (são repassadas ao indicador).
+ */
+export function Progress({
   className,
   value,
-  ...props
-}: React.ComponentProps<typeof ProgressPrimitive.Root>) {
+  indicatorClassName,
+}: {
+  className?: string;
+  value?: number | null;
+  indicatorClassName?: string;
+}) {
+  const tokens = (className ?? '').split(/\s+/).filter(Boolean);
+  const barClasses = [
+    indicatorClassName,
+    ...tokens
+      .filter((t) => t.startsWith(INDICATOR_PREFIX))
+      .map((t) => t.slice(INDICATOR_PREFIX.length)),
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const rootClasses = tokens.filter((t) => !t.startsWith(INDICATOR_PREFIX)).join(' ');
+
   return (
-    <ProgressPrimitive.Root
+    <LinearProgress
       data-slot="progress"
-      className={cn(
-        'bg-muted relative flex h-1 w-full items-center overflow-x-hidden rounded-full',
-        className,
-      )}
-      {...props}
-    >
-      <ProgressPrimitive.Indicator
-        data-slot="progress-indicator"
-        className="bg-primary size-full flex-1 transition-all"
-        style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
-      />
-    </ProgressPrimitive.Root>
+      variant="determinate"
+      value={Math.min(Math.max(value ?? 0, 0), 100)}
+      className={rootClasses || undefined}
+      classes={barClasses ? { bar: barClasses } : undefined}
+      sx={{ height: 4, bgcolor: 'action.hover' }}
+    />
   );
 }
-
-export { Progress };

@@ -8,6 +8,15 @@ import { useSidebar } from '@/hooks/use-sidebar';
 import { EXEMPT_RESOURCES, resourceFromHref } from '@/lib/permissions/catalog';
 import { hasPermission } from '@/lib/permissions/has-permission';
 import { cn } from '@/lib/utils';
+import Box from '@mui/material/Box';
+import Collapse from '@mui/material/Collapse';
+import Divider from '@mui/material/Divider';
+import IconButton from '@mui/material/IconButton';
+import List from '@mui/material/List';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Typography from '@mui/material/Typography';
 import { ChevronDown, ChevronRight, LogOut, Wallet } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
@@ -16,7 +25,8 @@ import { useEffect, useState } from 'react';
 
 export function Sidebar({ isMobile }: { isMobile?: boolean }) {
   const pathname = usePathname();
-  const { isCollapsed, onClose } = useSidebar();
+  const isCollapsed = useSidebar((s) => s.isCollapsed);
+  const onClose = useSidebar((s) => s.onClose);
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const { data: session } = useSession();
   const permissions = session?.user?.permissions;
@@ -65,45 +75,61 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
 
   const isGroupActive = (routes: Route[]) => routes.some((route) => route.href === pathname);
 
+  // Item de navegação sobre `ListItemButton` (M3: estado selecionado/hover/foco
+  // e ripple já vêm do componente, em vez de um <div>/<button> com classes
+  // `bg-accent`/`text-accent-foreground` escritas à mão).
   const renderRoute = (route: Route, showLabel: boolean) => {
-    const link = (
-      <Link
+    const active = isRouteActive(route.href);
+    const item = (
+      <ListItemButton
         key={route.href}
+        component={Link}
         href={route.href}
         onClick={handleLinkClick}
-        className={cn(
-          'group hover:bg-accent hover:text-accent-foreground flex w-full cursor-pointer justify-start rounded-lg p-3 text-sm font-medium transition-all duration-150',
-          isRouteActive(route.href) ? 'bg-accent text-accent-foreground' : 'text-muted-foreground',
-        )}
+        selected={active}
+        sx={{
+          borderRadius: 2,
+          py: 1,
+          px: 1.5,
+          justifyContent: showLabel ? 'flex-start' : 'center',
+        }}
       >
-        <div className="flex flex-1 items-center gap-3">
-          {route.icon && (
-            <route.icon
-              className={cn('h-5 w-5 shrink-0', route.color || 'text-muted-foreground')}
-            />
-          )}
-          {showLabel && <span className="truncate whitespace-nowrap">{route.label}</span>}
-        </div>
-      </Link>
+        <ListItemIcon sx={{ minWidth: showLabel ? 36 : 0, justifyContent: 'center' }}>
+          {route.icon && <route.icon className={cn('h-5 w-5 shrink-0', route.color)} />}
+        </ListItemIcon>
+        {showLabel && (
+          <ListItemText
+            primary={route.label}
+            slotProps={{ primary: { noWrap: true, sx: { fontWeight: 500 } } }}
+          />
+        )}
+      </ListItemButton>
     );
 
-    if (showLabel) return link;
+    if (showLabel) return item;
 
     return (
       <Tooltip key={route.href}>
-        <TooltipTrigger asChild>{link}</TooltipTrigger>
+        <TooltipTrigger asChild>{item}</TooltipTrigger>
         <TooltipContent side="right">{route.label}</TooltipContent>
       </Tooltip>
     );
   };
 
   return (
-    <div
+    <Box
+      sx={{
+        bgcolor: 'background.paper',
+        color: 'text.primary',
+        display: 'flex',
+        height: '100%',
+        flexDirection: 'column',
+        transition: 'width .2s ease',
+      }}
       className={cn(
-        'bg-background text-foreground flex h-full flex-col border-r shadow-sm transition-all duration-200',
-        !isMobile && 'fixed top-0 left-0 z-30 hidden md:flex',
+        !isMobile && 'fixed top-0 left-0 z-30 hidden border-r md:flex',
         showFullSidebar ? 'w-72' : 'w-[72px]',
-        isMobile && 'w-full border-none shadow-none',
+        isMobile && 'w-full border-none',
       )}
     >
       <div className="flex-1 overflow-y-auto px-3 py-2">
@@ -114,59 +140,62 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
               onClick={handleLinkClick}
               className="relative mr-4 h-8 w-8 shrink-0"
             >
-              <Wallet className="h-8 w-8 text-indigo-500" />
+              <Wallet className="text-primary h-8 w-8" />
             </Link>
-            <span
-              className={cn(
-                'text-foreground text-xl font-bold whitespace-nowrap transition-all',
-                !showFullSidebar ? 'w-0 opacity-0' : 'w-auto opacity-100',
-              )}
+            <Typography
+              variant="h6"
+              noWrap
+              sx={{
+                transition: 'opacity .2s, width .2s',
+                width: showFullSidebar ? 'auto' : 0,
+                opacity: showFullSidebar ? 1 : 0,
+              }}
             >
               {process.env.NEXT_PUBLIC_APP_NAME}
-            </span>
+            </Typography>
           </div>
         </div>
 
-        <div className="mb-2 space-y-1 border-b pb-2">
+        <List disablePadding sx={{ mb: 2, pb: 2, borderBottom: 1, borderColor: 'divider' }}>
           {topLevelRoutes.map((route) => renderRoute(route, showFullSidebar))}
-        </div>
+        </List>
 
-        <div className="space-y-2">
+        <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {visibleRouteGroups.map((group) => {
             const isExpanded = expandedGroups.includes(group.title);
             const isActive = isGroupActive(group.routes);
 
             return (
-              <div key={group.title} className="space-y-1">
+              <Box key={group.title}>
                 {showFullSidebar ? (
                   <>
-                    <button
+                    <ListItemButton
                       onClick={() => toggleGroup(group.title)}
-                      className={cn(
-                        'flex w-full cursor-pointer items-center justify-between px-3 py-2 text-xs font-semibold uppercase transition-colors',
-                        isActive
-                          ? 'text-foreground'
-                          : 'text-muted-foreground hover:text-foreground',
-                      )}
+                      sx={{ borderRadius: 2, py: 0.75 }}
                     >
-                      <div className="flex items-center gap-2">
+                      <ListItemIcon sx={{ minWidth: 32 }}>
                         <group.icon className="h-4 w-4" />
-                        <span>{group.title}</span>
-                      </div>
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={group.title}
+                        slotProps={{
+                          primary: {
+                            variant: 'overline',
+                            sx: { color: isActive ? 'text.primary' : 'text.secondary' },
+                          },
+                        }}
+                      />
                       {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                        <ChevronDown className="h-4 w-4" />
                       ) : (
-                        <ChevronRight className="h-4 w-4 transition-transform duration-200" />
+                        <ChevronRight className="h-4 w-4" />
                       )}
-                    </button>
-                    <div
-                      className={cn(
-                        'overflow-hidden transition-all duration-150',
-                        isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0',
-                      )}
-                    >
-                      {group.routes.map((route) => renderRoute(route, true))}
-                    </div>
+                    </ListItemButton>
+                    <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                      <List disablePadding sx={{ pl: 0.5 }}>
+                        {group.routes.map((route) => renderRoute(route, true))}
+                      </List>
+                    </Collapse>
                   </>
                 ) : (
                   <Popover>
@@ -174,53 +203,48 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <PopoverTrigger asChild>
-                            <button
-                              className={cn(
-                                'cursor-pointer rounded-lg p-3 transition-colors',
-                                isActive
-                                  ? 'bg-accent'
-                                  : 'hover:bg-accent hover:text-accent-foreground',
-                              )}
+                            <IconButton
+                              color={isActive ? 'primary' : 'default'}
+                              sx={isActive ? { bgcolor: 'action.selected' } : undefined}
                             >
-                              <group.icon
-                                className={cn(
-                                  'h-5 w-5',
-                                  isActive ? 'text-accent-foreground' : 'text-muted-foreground',
-                                )}
-                              />
-                            </button>
+                              <group.icon className="h-5 w-5" />
+                            </IconButton>
                           </PopoverTrigger>
                         </TooltipTrigger>
                         <TooltipContent side="right">{group.title}</TooltipContent>
                       </Tooltip>
                     </div>
                     <PopoverContent side="right" align="start" className="w-56 p-1.5">
-                      <div className="text-muted-foreground px-2 py-1.5 text-xs font-semibold uppercase">
+                      <Typography
+                        variant="overline"
+                        color="text.secondary"
+                        sx={{ px: 1, py: 0.5, display: 'block' }}
+                      >
                         {group.title}
-                      </div>
-                      {group.routes.map((route) => renderRoute(route, true))}
+                      </Typography>
+                      <List disablePadding>
+                        {group.routes.map((route) => renderRoute(route, true))}
+                      </List>
                     </PopoverContent>
                   </Popover>
                 )}
-              </div>
+              </Box>
             );
           })}
-        </div>
+        </List>
       </div>
 
-      <div className="border-t p-3">
+      <Divider />
+      <Box sx={{ p: 1.5 }}>
         <Button
-          variant="ghost"
-          className={cn(
-            'w-full justify-start bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-500 dark:bg-red-500/10 dark:hover:bg-red-500/20',
-            !showFullSidebar && 'justify-center px-0',
-          )}
+          variant="destructive"
+          className={cn('w-full justify-start', !showFullSidebar && 'justify-center px-0')}
           onClick={() => signOut({ callbackUrl: '/login' })}
         >
           <LogOut className="mr-3 h-5 w-5" />
           {showFullSidebar && <span>Sair</span>}
         </Button>
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }

@@ -107,14 +107,7 @@ export function CategoriesList({
       cell: ({ row }) => {
         const type = row.original.type;
         return (
-          <Badge
-            variant={type === TransactionType.INCOME ? 'secondary' : 'destructive'}
-            className={
-              type === TransactionType.INCOME
-                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
-            }
-          >
+          <Badge variant={type === TransactionType.INCOME ? 'income' : 'expense'}>
             {type === TransactionType.INCOME ? 'Receita' : 'Despesa'}
           </Badge>
         );

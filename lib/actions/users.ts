@@ -1,6 +1,7 @@
 'use server';
 
 import { requirePermission } from '@/lib/permissions/require-permission';
+import { invalidateUserPermissions } from '@/lib/permissions/load-permissions';
 import prisma from '@/lib/prisma';
 import { createAuditLog } from '@/lib/services/audit';
 import { assertKeepsSystemProfileUser } from '@/lib/services/permission-profiles';
@@ -175,6 +176,7 @@ export async function updateUser(id: string, data: z.infer<typeof updateUserSche
       },
       select: { id: true, name: true },
     });
+    await invalidateUserPermissions(id);
 
     await createAuditLog({
       action: 'UPDATE_USER',
@@ -227,6 +229,7 @@ export async function deleteUser(id: string) {
     await assertKeepsSystemProfileUser(prisma, session.user.workspaceId, id, null);
 
     await prisma.user.delete({ where: { id, workspaceId: session.user.workspaceId } });
+    await invalidateUserPermissions(id);
 
     revalidatePath('/users');
     return { success: true };
@@ -260,6 +263,7 @@ export async function toggleUserActive(id: string, isActive: boolean) {
       data: { isActive: validated.isActive },
       select: { id: true, isActive: true },
     });
+    await invalidateUserPermissions(validated.id);
 
     await createAuditLog({
       action: validated.isActive ? 'ACTIVATE_USER' : 'DEACTIVATE_USER',
@@ -307,6 +311,7 @@ export async function resetUserPassword(id: string) {
       data: { password: await bcrypt.hash(temporaryPassword, 10), mustChangePassword: true },
       select: { id: true },
     });
+    await invalidateUserPermissions(userId);
 
     await createAuditLog({ action: 'RESET_USER_PASSWORD', entity: 'User', entityId: userId });
 

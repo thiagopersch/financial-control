@@ -1,80 +1,169 @@
 'use client';
 
+import { Slot, useControllableOpen } from '@/components/ui/slot';
+import Box from '@mui/material/Box';
+import MuiPopover from '@mui/material/Popover';
+import Typography from '@mui/material/Typography';
 import * as React from 'react';
-import { Popover as PopoverPrimitive } from 'radix-ui';
 
-import { cn } from '@/lib/utils';
-
-function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />;
+/** Popover ancorado (MUI `Popover`) com a API composta de antes. */
+interface PopoverContextValue {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  anchorEl: HTMLElement | null;
+  setAnchorEl: (el: HTMLElement | null) => void;
 }
 
-function PopoverTrigger({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {
-  return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />;
+const PopoverContext = React.createContext<PopoverContextValue | null>(null);
+
+function usePopover() {
+  const ctx = React.useContext(PopoverContext);
+  if (!ctx) throw new Error('Popover components must be used inside <Popover>');
+  return ctx;
 }
 
-function PopoverContent({
+export function Popover({
+  open,
+  defaultOpen,
+  onOpenChange,
+  children,
+}: {
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  modal?: boolean;
+  children?: React.ReactNode;
+}) {
+  const [isOpen, setOpen] = useControllableOpen(open, defaultOpen, onOpenChange);
+  const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null);
+  const value = React.useMemo(
+    () => ({ open: isOpen, setOpen, anchorEl, setAnchorEl }),
+    [isOpen, setOpen, anchorEl],
+  );
+  return <PopoverContext.Provider value={value}>{children}</PopoverContext.Provider>;
+}
+
+export function PopoverTrigger({
+  asChild,
+  children,
+  ...props
+}: React.ComponentProps<'button'> & { asChild?: boolean }) {
+  const { open, setOpen, setAnchorEl } = usePopover();
+  const triggerProps = {
+    ref: setAnchorEl,
+    onClick: () => setOpen(!open),
+    'aria-expanded': open,
+    'aria-haspopup': 'dialog' as const,
+  };
+  if (asChild) return <Slot {...triggerProps}>{children}</Slot>;
+  return (
+    <button type="button" {...props} {...triggerProps}>
+      {children}
+    </button>
+  );
+}
+
+/** Ancora o popover num elemento diferente do trigger. */
+export function PopoverAnchor({ children }: { children?: React.ReactNode; asChild?: boolean }) {
+  const { setAnchorEl } = usePopover();
+  return <Slot ref={setAnchorEl}>{children}</Slot>;
+}
+
+type Side = 'top' | 'bottom' | 'left' | 'right';
+type Align = 'start' | 'center' | 'end';
+
+function origins(side: Side, align: Align) {
+  const horizontal = align === 'start' ? 'left' : align === 'end' ? 'right' : 'center';
+  const vertical = align === 'start' ? 'top' : align === 'end' ? 'bottom' : 'center';
+  switch (side) {
+    case 'top':
+      return {
+        anchorOrigin: { vertical: 'top', horizontal },
+        transformOrigin: { vertical: 'bottom', horizontal },
+      } as const;
+    case 'left':
+      return {
+        anchorOrigin: { vertical, horizontal: 'left' },
+        transformOrigin: { vertical, horizontal: 'right' },
+      } as const;
+    case 'right':
+      return {
+        anchorOrigin: { vertical, horizontal: 'right' },
+        transformOrigin: { vertical, horizontal: 'left' },
+      } as const;
+    default:
+      return {
+        anchorOrigin: { vertical: 'bottom', horizontal },
+        transformOrigin: { vertical: 'top', horizontal },
+      } as const;
+  }
+}
+
+export function PopoverContent({
   className,
+  children,
+  side = 'bottom',
   align = 'center',
   sideOffset = 4,
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+  style,
+  onOpenAutoFocus: _onOpenAutoFocus,
+}: React.ComponentProps<'div'> & {
+  side?: Side;
+  align?: Align;
+  sideOffset?: number;
+  onOpenAutoFocus?: (event: Event) => void;
+}) {
+  const { open, setOpen, anchorEl } = usePopover();
+  const offset =
+    side === 'bottom'
+      ? { mt: `${sideOffset}px` }
+      : side === 'top'
+        ? { mt: `-${sideOffset}px` }
+        : side === 'left'
+          ? { ml: `-${sideOffset}px` }
+          : { ml: `${sideOffset}px` };
   return (
-    <PopoverPrimitive.Portal>
-      <PopoverPrimitive.Content
-        data-slot="popover-content"
-        align={align}
-        sideOffset={sideOffset}
-        className={cn(
-          'bg-popover text-popover-foreground ring-foreground/10 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 z-50 flex w-72 origin-(--radix-popover-content-transform-origin) flex-col gap-2.5 rounded-lg p-2.5 text-sm shadow-md ring-1 outline-hidden duration-100',
+    <MuiPopover
+      open={open && !!anchorEl}
+      anchorEl={anchorEl}
+      onClose={() => setOpen(false)}
+      {...origins(side, align)}
+      slotProps={{
+        paper: {
+          'data-slot': 'popover-content',
+          variant: 'outlined',
+          elevation: 0,
           className,
-        )}
-        {...props}
-      />
-    </PopoverPrimitive.Portal>
+          style,
+          sx: { p: 2, width: 288, fontSize: '0.875rem', boxShadow: 3, ...offset },
+        } as never,
+      }}
+    >
+      {children}
+    </MuiPopover>
   );
 }
 
-function PopoverAnchor({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Anchor>) {
-  return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />;
-}
-
-function PopoverHeader({ className, ...props }: React.ComponentProps<'div'>) {
+export function PopoverHeader({ className, children }: React.ComponentProps<'div'>) {
   return (
-    <div
-      data-slot="popover-header"
-      className={cn('flex flex-col gap-0.5 text-sm', className)}
-      {...props}
-    />
+    <Box className={className} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
+      {children}
+    </Box>
   );
 }
 
-function PopoverTitle({ className, ...props }: React.ComponentProps<'h2'>) {
+export function PopoverTitle({ className, children }: React.ComponentProps<'h2'>) {
   return (
-    <div
-      data-slot="popover-title"
-      className={cn('font-heading font-medium', className)}
-      {...props}
-    />
+    <Typography component="h2" variant="h6" className={className}>
+      {children}
+    </Typography>
   );
 }
 
-function PopoverDescription({ className, ...props }: React.ComponentProps<'p'>) {
+export function PopoverDescription({ className, children }: React.ComponentProps<'p'>) {
   return (
-    <p
-      data-slot="popover-description"
-      className={cn('text-muted-foreground', className)}
-      {...props}
-    />
+    <Typography variant="body2" color="text.secondary" className={className}>
+      {children}
+    </Typography>
   );
 }
-
-export {
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-};

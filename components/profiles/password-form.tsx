@@ -63,10 +63,10 @@ export function PasswordForm() {
   }
 
   return (
-    <Card className="border-none shadow-md">
+    <Card>
       <CardHeader>
         <div className="flex items-center gap-3">
-          <Lock className="h-5 w-5 text-slate-500" />
+          <Lock className="text-primary h-5 w-5" />
           <div>
             <CardTitle className="text-lg">Alterar Senha</CardTitle>
             <CardDescription>

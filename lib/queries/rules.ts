@@ -1,6 +1,5 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 import { parseMultiParam, toInFilter } from '@/lib/utils/filter-params';
 
@@ -12,7 +11,7 @@ export type GetRulesParams = {
 };
 
 export async function getRulesPaginated(params: GetRulesParams = {}) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return { rules: [], totalCount: 0 };
 
   const { q, category, page = 1, pageSize = DEFAULT_PAGE_SIZE } = params;

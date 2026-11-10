@@ -1,6 +1,13 @@
 'use client';
 
-import { createContext, startTransition, useContext, useTransition, type ReactNode } from 'react';
+import {
+  createContext,
+  startTransition,
+  useContext,
+  useMemo,
+  useTransition,
+  type ReactNode,
+} from 'react';
 
 interface PeriodTransitionContextValue {
   /** `true` enquanto a navegação disparada pela troca de período ainda não terminou. */
@@ -21,10 +28,12 @@ const PeriodTransitionContext = createContext<PeriodTransitionContextValue>({
 export function PeriodTransitionProvider({ children }: { children: ReactNode }) {
   const [isPending, startPeriodTransition] = useTransition();
 
+  // Valor memoizado: o provider envolve o dashboard inteiro — um objeto novo a cada
+  // render re-renderizaria todos os consumidores.
+  const value = useMemo(() => ({ isPending, startPeriodTransition }), [isPending]);
+
   return (
-    <PeriodTransitionContext.Provider value={{ isPending, startPeriodTransition }}>
-      {children}
-    </PeriodTransitionContext.Provider>
+    <PeriodTransitionContext.Provider value={value}>{children}</PeriodTransitionContext.Provider>
   );
 }
 

@@ -1,6 +1,5 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
 
 export async function createAuditLog({
   action,
@@ -20,7 +19,7 @@ export async function createAuditLog({
   userAgent?: string;
 }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) return;
 
     await prisma.auditLog.create({

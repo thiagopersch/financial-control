@@ -11,9 +11,6 @@ import {
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { ArrowRightLeft, Download, FileSpreadsheet, FileText, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 type ActionButtonsProps = {
   setIsTransferModalOpen: (open: boolean) => void;
@@ -47,6 +44,8 @@ export function ActionButtons({ setIsTransferModalOpen, exportParams }: ActionBu
         return;
       }
 
+      // xlsx (~400 kB) só é baixado quando o usuário exporta.
+      const XLSX = await import('xlsx');
       const ws = XLSX.utils.json_to_sheet(
         data.transactions.map((t: any) => ({
           Vencimento: t.date,
@@ -80,6 +79,11 @@ export function ActionButtons({ setIsTransferModalOpen, exportParams }: ActionBu
         return;
       }
 
+      // jspdf + autotable só são baixados quando o usuário exporta.
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
       const doc = new jsPDF();
       doc.setFontSize(18);
       doc.text('Transações Financeiras', 14, 20);

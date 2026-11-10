@@ -1,17 +1,16 @@
 import { TransactionFormPage } from '@/app/(dashboard)/transactions/components/transaction-form-page';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
 import { getCostCenters } from '@/lib/queries/cost-centers';
 import { getCreditCards } from '@/lib/queries/credit-cards';
 import { getDebts } from '@/lib/queries/debts';
 import { getPaymentMethods } from '@/lib/queries/payment-methods';
 import { getWorkspaceUsers } from '@/lib/queries/users';
-import { getServerSession } from 'next-auth';
 import { notFound } from 'next/navigation';
 
 export default async function EditTransactionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
 
   const [

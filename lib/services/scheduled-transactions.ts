@@ -4,6 +4,8 @@ import { computeScheduledDueDate } from '@/lib/utils/scheduled-dates';
 import { TransactionStatus } from '@prisma/client';
 import { addDays, addMonths, addWeeks, addYears, isWeekend } from 'date-fns';
 
+const PROCESS_CONCURRENCY = 5;
+
 function computeNextRun(
   frequency: string,
   from: Date,
@@ -169,17 +171,22 @@ export async function processDueScheduledTransactions() {
       where: { isActive: true, nextRun: { lte: new Date() } },
     });
 
-    for (const scheduled of due) {
-      try {
-        await runScheduledTransaction(scheduled);
-      } catch (error) {
-        console.error('Error processing scheduled transaction:', scheduled.id, error);
-        await notifyScheduledResult(
-          scheduled.workspaceId,
-          false,
-          `Falha ao executar o agendamento "${scheduled.name}": ${error instanceof Error ? error.message : 'erro desconhecido'}`,
-        );
-      }
+    // Agendamentos diferentes são independentes: processa em blocos paralelos.
+    for (let i = 0; i < due.length; i += PROCESS_CONCURRENCY) {
+      await Promise.all(
+        due.slice(i, i + PROCESS_CONCURRENCY).map(async (scheduled) => {
+          try {
+            await runScheduledTransaction(scheduled);
+          } catch (error) {
+            console.error('Error processing scheduled transaction:', scheduled.id, error);
+            await notifyScheduledResult(
+              scheduled.workspaceId,
+              false,
+              `Falha ao executar o agendamento "${scheduled.name}": ${error instanceof Error ? error.message : 'erro desconhecido'}`,
+            );
+          }
+        }),
+      );
     }
 
     return { processed: due.length };
@@ -194,7 +201,7 @@ async function notifyScheduledResult(workspaceId: string, success: boolean, deta
     const user = await prisma.user.findFirst({ where: { workspaceId } });
     if (!user) return;
 
-    const { notifyAutomationResult } = await import('@/lib/actions/notifications');
+    const { notifyAutomationResult } = await import('@/lib/services/alerts');
     await notifyAutomationResult({
       source: 'SCHEDULED_TRANSACTION',
       success,

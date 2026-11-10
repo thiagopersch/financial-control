@@ -18,7 +18,7 @@ export function PaidByChart({ data }: PaidByChartProps) {
 
   if (data.length === 0) {
     return (
-      <Card className="border-none shadow-md">
+      <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold">Despesas pagas por usuário</CardTitle>
         </CardHeader>
@@ -30,7 +30,7 @@ export function PaidByChart({ data }: PaidByChartProps) {
   }
 
   return (
-    <Card className="border-none shadow-md">
+    <Card>
       <CardHeader className="flex flex-row items-start justify-between space-y-0">
         <div>
           <CardTitle className="text-base font-semibold">Despesas pagas por usuário</CardTitle>

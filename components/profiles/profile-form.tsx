@@ -92,7 +92,7 @@ export function ProfileForm({
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <User className="h-5 w-5 text-emerald-500" />
+            <User className="text-primary h-5 w-5" />
             <div>
               <CardTitle className="text-lg">Informações Pessoais</CardTitle>
               <CardDescription>
@@ -100,7 +100,7 @@ export function ProfileForm({
               </CardDescription>
             </div>
           </div>
-          <Badge className="bg-indigo-500 hover:bg-indigo-500">{permissionProfileName}</Badge>
+          <Badge variant="default">{permissionProfileName}</Badge>
         </div>
       </CardHeader>
       <CardContent>
@@ -109,11 +109,7 @@ export function ProfileForm({
             <div className="space-y-1">
               <label className="text-muted-foreground text-sm font-medium">E-mail</label>
               <div className="relative">
-                <Input
-                  value={email}
-                  disabled
-                  className="cursor-not-allowed bg-slate-50 pl-9 dark:bg-slate-800"
-                />
+                <Input value={email} disabled className="bg-muted cursor-not-allowed pl-9" />
               </div>
               <p className="text-muted-foreground text-xs">O e-mail não pode ser alterado.</p>
             </div>

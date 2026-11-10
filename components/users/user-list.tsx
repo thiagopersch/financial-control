@@ -98,8 +98,8 @@ export function UserList({ users, currentUserId }: UserListProps) {
         const isSelf = user.id === currentUserId;
         return (
           <div className="flex items-center gap-3">
-            <div className="rounded-full bg-indigo-100 p-2 dark:bg-indigo-900/30">
-              <UserIcon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            <div className="bg-primary/10 rounded-full p-2">
+              <UserIcon className="text-primary h-4 w-4" />
             </div>
             <div>
               <span className="text-sm font-semibold">{user.name || '—'}</span>
@@ -143,10 +143,7 @@ export function UserList({ users, currentUserId }: UserListProps) {
           return <span className="text-muted-foreground text-sm">—</span>;
         }
         return (
-          <Badge
-            variant="secondary"
-            className="gap-1 border-none bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"
-          >
+          <Badge variant="default" className="gap-1">
             {profile.isSystem && <ShieldCheck className="h-3 w-3" />}
             {profile.name}
           </Badge>
@@ -169,22 +166,11 @@ export function UserList({ users, currentUserId }: UserListProps) {
                 aria-label={user.isActive ? 'Desativar usuário' : 'Ativar usuário'}
               />
             )}
-            <Badge
-              variant="secondary"
-              className={cn(
-                'border-none',
-                user.isActive
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
-              )}
-            >
+            <Badge variant={user.isActive ? 'paid' : 'neutral'}>
               {user.isActive ? 'Ativo' : 'Inativo'}
             </Badge>
             {user.mustChangePassword && (
-              <Badge
-                variant="secondary"
-                className="gap-1 border-none bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-              >
+              <Badge variant="pending" className="gap-1">
                 <KeyRound className="h-3 w-3" /> Redefinição pendente
               </Badge>
             )}

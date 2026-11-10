@@ -1,10 +1,10 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import MuiBadge from '@mui/material/Badge';
 import { NotificationDetailDialog } from '@/components/notifications/notification-detail-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { markAllNotificationsAsRead, markNotificationAsRead } from '@/lib/actions/notifications';
+import { Skeleton } from '@/components/ui/skeleton';
 import { type Notification, useNotifications } from '@/lib/queries/notifications';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -14,53 +14,44 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 const levelConfig = {
-  INFO: { icon: Info, className: 'text-sky-500' },
-  WARNING: { icon: AlertTriangle, className: 'text-amber-500' },
-  CRITICAL: { icon: AlertCircle, className: 'text-rose-500' },
+  INFO: { icon: Info, className: 'text-[var(--mui-palette-info-main)]' },
+  WARNING: { icon: AlertTriangle, className: 'text-[var(--mui-palette-pending-main)]' },
+  CRITICAL: { icon: AlertCircle, className: 'text-[var(--mui-palette-overdue-main)]' },
 };
 
-const PAGE_SIZE = 30;
-
 export function NotificationBell() {
-  const [limit, setLimit] = useState(PAGE_SIZE);
-  const { notifications, unreadCount, total, refresh, isLoading } = useNotifications(limit);
+  const {
+    notifications,
+    unreadCount,
+    hasMore,
+    loadMore,
+    isLoading,
+    isLoadingMore,
+    markRead,
+    markAllRead,
+  } = useNotifications();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Notification | null>(null);
 
-  const hasMore = notifications.length < total;
+  const handleLoadMore = () => loadMore();
 
-  const handleLoadMore = () => {
-    setLimit((prev) => prev + PAGE_SIZE);
-  };
-
-  const handleOpenNotification = async (notification: Notification) => {
+  const handleOpenNotification = (notification: Notification) => {
     setSelected(notification);
     setOpen(false);
-    if (!notification.isRead) {
-      await markNotificationAsRead(notification.id);
-      refresh();
-    }
+    if (!notification.isRead) void markRead(notification.id);
   };
 
-  const handleMarkAllRead = async () => {
-    await markAllNotificationsAsRead();
-    refresh();
-  };
+  const handleMarkAllRead = () => void markAllRead();
 
   return (
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            {unreadCount > 0 && (
-              <Badge
-                variant="destructive"
-                className="absolute -top-1 -right-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1 text-[10px]"
-              >
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </Badge>
-            )}
+          <Button variant="ghost" size="icon">
+            {/* Badge de contagem (MUI `Badge`): já é o componente Material para isso. */}
+            <MuiBadge badgeContent={unreadCount} color="error" max={99} overlap="circular">
+              <Bell className="h-5 w-5" />
+            </MuiBadge>
           </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -89,7 +80,23 @@ export function NotificationBell() {
             )}
           </div>
           <div className="max-h-96 overflow-y-auto max-[768px]:max-h-[70vh]">
-            {notifications.length === 0 ? (
+            {isLoading ? (
+              <div
+                className="flex flex-col gap-3 p-3"
+                role="status"
+                aria-label="Carregando notificações"
+              >
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex gap-2.5">
+                    <Skeleton variant="circular" className="h-4 w-4" />
+                    <div className="flex flex-1 flex-col gap-1.5">
+                      <Skeleton className="h-3.5 w-2/3" />
+                      <Skeleton className="h-3 w-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : notifications.length === 0 ? (
               <div className="text-muted-foreground p-6 text-center text-sm">
                 Nenhuma notificação por aqui.
               </div>
@@ -112,7 +119,7 @@ export function NotificationBell() {
                         <div className="flex items-center gap-1.5">
                           <p className="truncate text-sm font-medium">{notification.title}</p>
                           {!notification.isRead && (
-                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" />
+                            <span className="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" />
                           )}
                         </div>
                         <p className="text-muted-foreground line-clamp-2 text-xs">
@@ -134,9 +141,9 @@ export function NotificationBell() {
                     size="sm"
                     className="w-full rounded-none text-xs"
                     onClick={handleLoadMore}
-                    disabled={isLoading}
+                    disabled={isLoadingMore}
                   >
-                    {isLoading ? 'Carregando...' : 'Ver mais'}
+                    {isLoadingMore ? 'Carregando...' : 'Ver mais'}
                   </Button>
                 )}
               </>

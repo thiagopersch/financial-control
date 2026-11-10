@@ -1,6 +1,5 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -9,7 +8,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { PAGE_SIZE_OPTIONS } from '@/lib/constants/pagination';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import Pagination from '@mui/material/Pagination';
+import Typography from '@mui/material/Typography';
 import { createPortal } from 'react-dom';
 
 interface ListPaginationProps {
@@ -54,47 +54,20 @@ export function ListPagination({
       {paginationSlot ? createPortal(pageSizeSelect, paginationSlot) : pageSizeSelect}
 
       <div className="flex flex-col-reverse items-center justify-between gap-3 px-2 sm:flex-row">
-        <div className="text-muted-foreground text-sm">
+        <Typography variant="body2" color="text.secondary">
           Página {page} de {pageCount} — {totalCount} registros
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(1)}
-            disabled={!canPreviousPage}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronsLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(page - 1)}
-            disabled={!canPreviousPage}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(page + 1)}
-            disabled={!canNextPage}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(pageCount)}
-            disabled={!canNextPage}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronsRight className="h-4 w-4" />
-          </Button>
-        </div>
+        </Typography>
+        <Pagination
+          count={pageCount}
+          page={Math.min(page, pageCount)}
+          onChange={(_e, next) => onPageChange(next)}
+          shape="rounded"
+          size="small"
+          showFirstButton
+          showLastButton
+          siblingCount={1}
+          aria-label="Paginação"
+        />
       </div>
     </div>
   );

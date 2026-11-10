@@ -1,10 +1,9 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
 import { competenceRangeFromPeriodParams } from '@/lib/utils/competence';
 import { PAID_BY_NONE, parseMultiParam, toInFilter } from '@/lib/utils/filter-params';
 import { Prisma, TransactionStatus, TransactionType } from '@prisma/client';
 import { endOfDay, isValid, parse } from 'date-fns';
-import { getServerSession } from 'next-auth';
 import * as z from 'zod';
 
 const STATUS_SEARCH_TERMS: Record<string, TransactionStatus> = {
@@ -138,7 +137,7 @@ export type DebtTransactionDTO = {
 };
 
 export async function getTransactionsByDebtId(debtId: string): Promise<DebtTransactionDTO[]> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return [];
 
   try {

@@ -17,7 +17,7 @@ export function StatusChart({ data }: StatusChartProps) {
 
   if (data.length === 0) {
     return (
-      <Card className="border-none shadow-md">
+      <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold">Status das Despesas</CardTitle>
         </CardHeader>
@@ -29,7 +29,7 @@ export function StatusChart({ data }: StatusChartProps) {
   }
 
   return (
-    <Card className="border-none shadow-md">
+    <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base font-semibold">Status das Despesas</CardTitle>
         <ChartTypeSwitcher value={chartType} onChange={setChartType} />

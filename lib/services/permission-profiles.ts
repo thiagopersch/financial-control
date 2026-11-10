@@ -1,9 +1,11 @@
+import { cacheGet, cacheSet } from '@/lib/cache/redis';
 import { getPermissionCatalog } from '@/lib/permissions/catalog';
+import { createHash } from 'crypto';
 import { permissionKey } from '@/lib/permissions/has-permission';
-import prisma from '@/lib/prisma';
+import prisma, { type DbClient } from '@/lib/prisma';
 import { Prisma, type PermissionAction } from '@prisma/client';
 
-type Client = Prisma.TransactionClient | typeof prisma;
+type Client = DbClient | Prisma.TransactionClient;
 
 export const ADMIN_PROFILE_NAME = 'Administrador';
 export const MANAGER_PROFILE_NAME = 'Gestor';
@@ -17,8 +19,22 @@ const MANAGER_EXCLUDED_RESOURCES = new Set(['users', 'permission-profiles', 'sys
  * página nova adicionada em `components/sidebar/routes.ts` vire permissão
  * automaticamente, sem precisar de um passo manual de seed.
  */
-export async function syncPermissionCatalog(client: Client = prisma) {
+let syncedCatalogHash: string | null = null;
+
+export async function syncPermissionCatalog(
+  client: Client = prisma,
+  options: { force?: boolean } = {},
+) {
   const catalog = getPermissionCatalog();
+  // Catálogo vem do código: só muda num deploy. Sincroniza uma vez por instância
+  // (e por versão do catálogo no Redis) em vez de N upserts a cada leitura.
+  const hash = createHash('sha1').update(JSON.stringify(catalog)).digest('hex');
+  if (!options.force && syncedCatalogHash === hash) return;
+  if (!options.force && (await cacheGet<string>('perm-catalog:hash')) === hash) {
+    syncedCatalogHash = hash;
+    return;
+  }
+
   await Promise.all(
     catalog.map((entry) =>
       client.permission.upsert({
@@ -33,6 +49,8 @@ export async function syncPermissionCatalog(client: Client = prisma) {
       }),
     ),
   );
+  syncedCatalogHash = hash;
+  await cacheSet('perm-catalog:hash', hash, 60 * 60 * 24 * 30);
 }
 
 export interface PermissionTreeNode {
@@ -89,7 +107,7 @@ export async function getPermissionCatalogGrouped(): Promise<PermissionTreeNode[
  * workspace.
  */
 export async function ensureDefaultPermissionProfiles(client: Client, workspaceId: string) {
-  await syncPermissionCatalog(client);
+  await syncPermissionCatalog(client, { force: true });
   const allPermissions = await client.permission.findMany();
 
   const existing = await client.permissionProfile.findMany({

@@ -1,15 +1,23 @@
-import { cn } from '@/lib/utils';
-import { Loader2Icon } from 'lucide-react';
+'use client';
 
-function Spinner({ className, ...props }: React.ComponentProps<'svg'>) {
+import type * as React from 'react';
+import CircularProgress from '@mui/material/CircularProgress';
+
+/** Indicador de carregamento circular (MUI `CircularProgress`). */
+export function Spinner({
+  className,
+  size = 16,
+  ...props
+}: { className?: string; size?: number } & React.HTMLAttributes<HTMLSpanElement>) {
   return (
-    <Loader2Icon
+    <CircularProgress
       role="status"
-      aria-label="Loading"
-      className={cn('size-4 animate-spin', className)}
-      {...props}
+      aria-label="Carregando"
+      size={size}
+      thickness={5}
+      color="inherit"
+      className={className}
+      {...(props as Record<string, unknown>)}
     />
   );
 }
-
-export { Spinner };

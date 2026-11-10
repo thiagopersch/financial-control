@@ -1,18 +1,33 @@
 import { Providers } from '@/app/providers';
-import { ThemeProvider } from '@/app/theme-provider';
 import { RouteTransitionIndicator } from '@/components/route-transition-indicator';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { COLOR_MODE_STORAGE_KEY, MuiProvider } from '@/components/theme/mui-provider';
+import { WebVitals } from '@/components/web-vitals';
 import { cn } from '@/lib/utils';
+import InitColorSchemeScript from '@mui/material/InitColorSchemeScript';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, Outfit } from 'next/font/google';
-import Script from 'next/script';
 import { Suspense } from 'react';
-import { Toaster } from 'sonner';
 import './globals.css';
 
-const outfitHeading = Outfit({ subsets: ['latin'], variable: '--font-heading' });
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
-const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' });
+// next/font baixa as fontes no build e serve do próprio domínio (sem Google Fonts em
+// runtime). Inter é variável (1 arquivo) e é a única pré-carregada; títulos usam só
+// 600/700 e a mono só é baixada quando aparece na tela.
+const inter = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
+const outfitHeading = Outfit({
+  subsets: ['latin'],
+  variable: '--font-heading',
+  weight: ['600', '700'],
+  display: 'swap',
+  preload: false,
+});
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  weight: ['400', '500'],
+  display: 'swap',
+  preload: false,
+});
 
 export const metadata: Metadata = {
   title: process.env.NEXT_PUBLIC_APP_NAME ?? '.:: Controle Financeiro ::.',
@@ -24,9 +39,12 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   // Evita que o teclado virtual encolha o visualViewport no mobile, o que
-  // faz popups posicionados por floating-ui (ex: Combobox/SelectSearch)
-  // ficarem instáveis durante a digitação.
+  // deixa popups posicionados (Autocomplete, Menu) instáveis durante a digitação.
   interactiveWidget: 'overlays-content',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+  ],
 };
 
 export default function RootLayout({
@@ -38,34 +56,26 @@ export default function RootLayout({
     <html
       lang="pt-br"
       suppressHydrationWarning
-      className={cn(
-        'h-full',
-        'antialiased',
-        'font-sans',
-        inter.variable,
-        outfitHeading.variable,
-        mono.variable,
-      )}
+      className={cn('h-full antialiased', inter.variable, outfitHeading.variable, mono.variable)}
     >
-      <head>
-        <Script
-          id="theme-init"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("theme");var d=document.documentElement;if(t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches))d.classList.add("dark");}catch(e){}})()`,
-          }}
-        />
-      </head>
       <body className="flex min-h-full flex-col">
-        <ThemeProvider>
-          <Providers>
-            <Suspense fallback={null}>
-              <RouteTransitionIndicator />
-            </Suspense>
-            <TooltipProvider>{children}</TooltipProvider>
-            <Toaster richColors position="top-right" />
-          </Providers>
-        </ThemeProvider>
+        {/* Aplica a classe .dark/.light antes da pintura (sem flash de tema). */}
+        <InitColorSchemeScript
+          attribute="class"
+          defaultMode="system"
+          modeStorageKey={COLOR_MODE_STORAGE_KEY}
+        />
+        <WebVitals />
+        <AppRouterCacheProvider options={{ key: 'mui', enableCssLayer: true }}>
+          <MuiProvider>
+            <Providers>
+              <Suspense fallback={null}>
+                <RouteTransitionIndicator />
+              </Suspense>
+              {children}
+            </Providers>
+          </MuiProvider>
+        </AppRouterCacheProvider>
       </body>
     </html>
   );

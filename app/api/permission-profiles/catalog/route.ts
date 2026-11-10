@@ -1,11 +1,10 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import { getPermissionCatalogGrouped } from '@/lib/services/permission-profiles';
-import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }

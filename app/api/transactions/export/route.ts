@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
 import { buildTransactionWhere } from '@/lib/queries/transactions';
 import { formatCompetence } from '@/lib/utils/competence';
@@ -10,7 +9,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   }
@@ -27,7 +26,19 @@ export async function GET(request: NextRequest) {
   const transactions = (
     await prisma.transaction.findMany({
       where,
-      include: { category: true, supplier: true, paidBy: { select: { name: true, email: true } } },
+      select: {
+        id: true,
+        date: true,
+        dueDate: true,
+        competence: true,
+        type: true,
+        status: true,
+        amount: true,
+        notes: true,
+        category: { select: { name: true } },
+        supplier: { select: { name: true } },
+        paidBy: { select: { name: true, email: true } },
+      },
     })
   ).sort(compareTransactionsDefault);
 

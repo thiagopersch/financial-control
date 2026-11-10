@@ -1,12 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
 import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
@@ -50,10 +49,13 @@ export async function GET(request: NextRequest) {
         workspaceId: session.user.workspaceId,
         date: { gte: startDate, lte: endDate },
       },
-      include: {
-        category: true,
-        account: true,
-        costCenter: true,
+      select: {
+        type: true,
+        amount: true,
+        date: true,
+        category: { select: { name: true, color: true } },
+        account: { select: { name: true, color: true } },
+        costCenter: { select: { name: true, color: true } },
       },
       orderBy: { date: 'desc' },
     });

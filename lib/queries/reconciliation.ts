@@ -1,6 +1,6 @@
 import useSWR from 'swr';
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { fetcher } from '@/lib/queries/fetcher';
 
 export interface BankTransaction {
   id: string;

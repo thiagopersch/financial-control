@@ -1,180 +1,263 @@
 'use client';
 
-import { Dialog as DialogPrimitive } from 'radix-ui';
+import { Button } from '@/components/ui/button';
+import { Slot, useControllableOpen } from '@/components/ui/slot';
+import Box from '@mui/material/Box';
+import MuiDialog from '@mui/material/Dialog';
+import Typography from '@mui/material/Typography';
+import { Maximize2Icon, Minimize2Icon, XIcon } from 'lucide-react';
 import * as React from 'react';
 
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { Minimize2Icon, Maximize2Icon, XIcon } from 'lucide-react';
-
-function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
+/**
+ * Diálogo modal sobre o MUI `Dialog`, com a API composta de antes
+ * (Dialog/DialogTrigger/DialogContent/DialogHeader/DialogBody/DialogFooter).
+ *
+ * Regra de overflow: só o `DialogBody` rola; cabeçalho e rodapé ficam fixos.
+ */
+interface DialogContextValue {
+  open: boolean;
+  setOpen: (open: boolean) => void;
 }
 
-function DialogTrigger({ ...props }: React.ComponentProps<typeof DialogPrimitive.Trigger>) {
-  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
+const DialogContext = React.createContext<DialogContextValue | null>(null);
+
+export function useDialogContext() {
+  const ctx = React.useContext(DialogContext);
+  if (!ctx) throw new Error('Dialog components must be used inside <Dialog>');
+  return ctx;
 }
 
-function DialogPortal({ ...props }: React.ComponentProps<typeof DialogPrimitive.Portal>) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
+export interface DialogProps {
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  modal?: boolean;
+  children?: React.ReactNode;
 }
 
-function DialogClose({ ...props }: React.ComponentProps<typeof DialogPrimitive.Close>) {
-  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
+export function Dialog({ open, defaultOpen, onOpenChange, children }: DialogProps) {
+  const [isOpen, setOpen] = useControllableOpen(open, defaultOpen, onOpenChange);
+  const value = React.useMemo(() => ({ open: isOpen, setOpen }), [isOpen, setOpen]);
+  return <DialogContext.Provider value={value}>{children}</DialogContext.Provider>;
 }
 
-function DialogOverlay({
-  className,
+export function DialogTrigger({
+  asChild,
+  children,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+}: React.ComponentProps<'button'> & { asChild?: boolean }) {
+  const { setOpen } = useDialogContext();
+  const onClick = () => setOpen(true);
+  if (asChild) return <Slot onClick={onClick}>{children}</Slot>;
   return (
-    <DialogPrimitive.Overlay
-      data-slot="dialog-overlay"
-      className={cn(
-        'data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs',
-        className,
-      )}
-      {...props}
-    />
+    <button type="button" onClick={onClick} {...props}>
+      {children}
+    </button>
   );
 }
 
-function DialogContent({
+export function DialogClose({
+  asChild,
+  children,
+  ...props
+}: React.ComponentProps<'button'> & { asChild?: boolean }) {
+  const { setOpen } = useDialogContext();
+  const onClick = () => setOpen(false);
+  if (asChild) return <Slot onClick={onClick}>{children}</Slot>;
+  return (
+    <button type="button" onClick={onClick} {...props}>
+      {children}
+    </button>
+  );
+}
+
+/** Compat com a API anterior (o MUI já cuida de portal e backdrop). */
+export function DialogPortal({ children }: { children?: React.ReactNode }) {
+  return <>{children}</>;
+}
+export function DialogOverlay() {
+  return null;
+}
+
+export interface DialogContentProps extends Omit<React.ComponentProps<'div'>, 'ref'> {
+  showCloseButton?: boolean;
+  showExpandButton?: boolean;
+  onEscapeKeyDown?: (event: KeyboardEvent) => void;
+  onInteractOutside?: (event: Event) => void;
+  onPointerDownOutside?: (event: Event) => void;
+  onOpenAutoFocus?: (event: Event) => void;
+}
+
+export function DialogContent({
   className,
   children,
   showCloseButton = true,
   showExpandButton = true,
+  onEscapeKeyDown,
+  onInteractOutside,
+  onPointerDownOutside,
+  onOpenAutoFocus: _onOpenAutoFocus,
+  style,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & {
-  showCloseButton?: boolean;
-  showExpandButton?: boolean;
-}) {
+}: DialogContentProps) {
+  const { open, setOpen } = useDialogContext();
   const [isExpanded, setIsExpanded] = React.useState(false);
 
   return (
-    <DialogPortal>
-      <DialogOverlay />
-      <DialogPrimitive.Content
-        data-slot="dialog-content"
-        className={cn(
-          'bg-popover text-popover-foreground ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-50 flex max-h-[90vh] w-full max-w-[90vw] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-hidden rounded-xl p-6 text-sm ring-1 duration-100 outline-none sm:max-h-[70vh] sm:max-w-[70vw]',
-          isExpanded && 'sm:max-h-[90vh] sm:max-w-[90vw]',
+    <MuiDialog
+      open={open}
+      maxWidth={false}
+      onClose={(event, reason) => {
+        const native = event as unknown as Event;
+        if (reason === 'escapeKeyDown') {
+          onEscapeKeyDown?.(native as KeyboardEvent);
+          if ((native as Event).defaultPrevented) return;
+        } else {
+          onInteractOutside?.(native);
+          onPointerDownOutside?.(native);
+          if ((native as Event).defaultPrevented) return;
+        }
+        setOpen(false);
+      }}
+      slotProps={{
+        paper: {
+          'data-slot': 'dialog-content',
           className,
-        )}
-        {...props}
-      >
-        {children}
-        {(showExpandButton || showCloseButton) && (
-          <div className="absolute top-2 right-2 flex items-center gap-1">
-            {showExpandButton && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setIsExpanded((prev) => !prev)}
-              >
-                {isExpanded ? <Minimize2Icon /> : <Maximize2Icon />}
-                <span className="sr-only">{isExpanded ? 'Reduzir' : 'Expandir'}</span>
-              </Button>
-            )}
-            {showCloseButton && (
-              <DialogPrimitive.Close data-slot="dialog-close" asChild>
-                <Button type="button" variant="ghost" size="icon-sm">
-                  <XIcon />
-                  <span className="sr-only">Close</span>
-                </Button>
-              </DialogPrimitive.Close>
-            )}
-          </div>
-        )}
-      </DialogPrimitive.Content>
-    </DialogPortal>
+          style,
+          sx: {
+            m: 2,
+            p: 3,
+            gap: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            width: '100%',
+            maxWidth: isExpanded ? '90vw' : { xs: '90vw', sm: '70vw' },
+            maxHeight: isExpanded ? '90vh' : { xs: '90vh', sm: '70vh' },
+            position: 'relative',
+          },
+          ...(props as Record<string, unknown>),
+        } as never,
+      }}
+    >
+      {children}
+      {(showExpandButton || showCloseButton) && (
+        <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 0.5 }}>
+          {showExpandButton && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={isExpanded ? 'Reduzir' : 'Expandir'}
+              onClick={() => setIsExpanded((prev) => !prev)}
+            >
+              {isExpanded ? <Minimize2Icon size={16} /> : <Maximize2Icon size={16} />}
+            </Button>
+          )}
+          {showCloseButton && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Fechar"
+              onClick={() => setOpen(false)}
+            >
+              <XIcon size={16} />
+            </Button>
+          )}
+        </Box>
+      )}
+    </MuiDialog>
   );
 }
 
-function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
+export function DialogHeader({ className, children, ...props }: React.ComponentProps<'div'>) {
   return (
-    <div
+    <Box
       data-slot="dialog-header"
-      className={cn('flex shrink-0 flex-col gap-2 pr-14', className)}
-      {...props}
-    />
+      className={className}
+      sx={{ display: 'flex', flexShrink: 0, flexDirection: 'column', gap: 1, pr: 7 }}
+      {...(props as Record<string, unknown>)}
+    >
+      {children}
+    </Box>
   );
 }
 
-function DialogBody({ className, ...props }: React.ComponentProps<'div'>) {
+export function DialogBody({ className, children, ...props }: React.ComponentProps<'div'>) {
   return (
-    <div
+    <Box
       data-slot="dialog-body"
-      className={cn('min-h-0 flex-1 overflow-x-hidden overflow-y-auto', className)}
-      {...props}
-    />
+      data-scroll-viewport
+      className={className}
+      sx={{ minHeight: 0, flex: 1, overflowX: 'hidden', overflowY: 'auto' }}
+      {...(props as Record<string, unknown>)}
+    >
+      {children}
+    </Box>
   );
 }
 
-function DialogFooter({
+export function DialogFooter({
   className,
   showCloseButton = false,
   children,
   ...props
-}: React.ComponentProps<'div'> & {
-  showCloseButton?: boolean;
-}) {
+}: React.ComponentProps<'div'> & { showCloseButton?: boolean }) {
   return (
-    <div
+    <Box
       data-slot="dialog-footer"
-      className={cn(
-        'flex shrink-0 flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end',
-        className,
-      )}
-      {...props}
+      className={className}
+      sx={{
+        display: 'flex',
+        flexShrink: 0,
+        flexDirection: { xs: 'column-reverse', sm: 'row' },
+        justifyContent: { sm: 'flex-end' },
+        gap: 1,
+        borderTop: 1,
+        borderColor: 'divider',
+        pt: 2,
+      }}
+      {...(props as Record<string, unknown>)}
     >
       {children}
       {showCloseButton && (
-        <DialogPrimitive.Close asChild>
-          <Button variant="outline">Close</Button>
-        </DialogPrimitive.Close>
+        <DialogClose asChild>
+          <Button type="button" variant="outline">
+            Fechar
+          </Button>
+        </DialogClose>
       )}
-    </div>
+    </Box>
   );
 }
 
-function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
+export function DialogTitle({ className, children, ...props }: React.ComponentProps<'h2'>) {
   return (
-    <DialogPrimitive.Title
+    <Typography
+      component="h2"
+      variant="h5"
       data-slot="dialog-title"
-      className={cn('font-heading text-base leading-none font-medium', className)}
-      {...props}
-    />
+      className={className}
+      sx={{ lineHeight: 1.2 }}
+      {...(props as Record<string, unknown>)}
+    >
+      {children}
+    </Typography>
   );
 }
 
-function DialogDescription({
-  className,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Description>) {
+export function DialogDescription({ className, children, ...props }: React.ComponentProps<'p'>) {
   return (
-    <DialogPrimitive.Description
+    <Typography
+      component="div"
+      variant="body2"
+      color="text.secondary"
       data-slot="dialog-description"
-      className={cn(
-        'text-muted-foreground *:[a]:hover:text-foreground text-sm *:[a]:underline *:[a]:underline-offset-3',
-        className,
-      )}
-      {...props}
-    />
+      className={className}
+      {...(props as Record<string, unknown>)}
+    >
+      {children}
+    </Typography>
   );
 }
-
-export {
-  Dialog,
-  DialogBody,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogOverlay,
-  DialogPortal,
-  DialogTitle,
-  DialogTrigger,
-};

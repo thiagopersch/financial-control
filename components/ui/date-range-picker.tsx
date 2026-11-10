@@ -1,15 +1,12 @@
 'use client';
 
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import type { DateRange } from 'react-day-picker';
+import { DatePicker } from '@/components/ui/date-picker';
+import Box from '@mui/material/Box';
 
-import { Calendar } from '@/components/ui/calendar';
-import { PickerTrigger } from '@/components/ui/date-picker';
-import { Popover, PopoverContent } from '@/components/ui/popover';
-import { useIsMobile } from '@/hooks/use-mobile';
-
-export type { DateRange };
+export interface DateRange {
+  from?: Date;
+  to?: Date;
+}
 
 interface DateRangePickerProps {
   value?: DateRange;
@@ -18,44 +15,28 @@ interface DateRangePickerProps {
   className?: string;
 }
 
-const formatDay = (date: Date) => format(date, 'dd/MM/yyyy', { locale: ptBR });
-
-function formatRange(range?: DateRange) {
-  if (!range?.from) return null;
-  if (!range.to) return `A partir de ${formatDay(range.from)}`;
-  return `${formatDay(range.from)} – ${formatDay(range.to)}`;
-}
-
-/** Seleção de intervalo de datas (de → até) em um único campo, com botão de limpar. */
-export function DateRangePicker({
-  value,
-  onChange,
-  placeholder = 'Selecione o período',
-  className,
-}: DateRangePickerProps) {
-  const isMobile = useIsMobile();
-
+/**
+ * Intervalo de datas (de → até) com dois campos MUI X `DatePicker`; o "até"
+ * não aceita data anterior ao "de". Limpar os dois remove o filtro.
+ */
+export function DateRangePicker({ value, onChange, className }: DateRangePickerProps) {
+  const update = (next: DateRange) => onChange(next.from || next.to ? next : undefined);
   return (
-    <Popover>
-      <PickerTrigger
-        hasValue={!!value?.from}
-        label={formatRange(value)}
-        placeholder={placeholder}
-        onClear={() => onChange(undefined)}
-        className={className}
-      >
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="range"
-            selected={value}
-            onSelect={onChange}
-            defaultMonth={value?.from}
-            numberOfMonths={isMobile ? 1 : 2}
-            autoFocus
-            locale={ptBR}
-          />
-        </PopoverContent>
-      </PickerTrigger>
-    </Popover>
+    <Box className={className} sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+      <DatePicker
+        label="De"
+        date={value?.from}
+        maxDate={value?.to}
+        setDate={(from) => update({ from, to: value?.to })}
+        placeholder="dd/mm/aaaa"
+      />
+      <DatePicker
+        label="Até"
+        date={value?.to}
+        minDate={value?.from}
+        setDate={(to) => update({ from: value?.from, to })}
+        placeholder="dd/mm/aaaa"
+      />
+    </Box>
   );
 }

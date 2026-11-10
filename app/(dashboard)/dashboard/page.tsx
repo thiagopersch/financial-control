@@ -29,7 +29,7 @@ import { competenceRange } from '@/lib/utils/competence';
 import { endOfMonth, parse, startOfMonth } from 'date-fns';
 
 /** Overlay de loading cobre o card inteiro do gráfico dentro do grid. */
-const CHART_LOADING_CLASS = 'rounded-lg [&>[data-slot=card]]:h-full';
+const CHART_LOADING_CLASS = 'rounded-2xl [&>[data-slot=card]]:h-full';
 
 export default async function DashboardPage(props: {
   searchParams: Promise<{ year?: string; month?: string }>;
@@ -87,6 +87,7 @@ export default async function DashboardPage(props: {
     goals,
     recentTransactions,
     transactionCounts,
+    { goalsCount, budgetsCount, debtsCount },
   ] = await Promise.all([
     getDashboardStats(competence),
     getChartData(selectedMonth, isFullYear, isAllPeriod),
@@ -99,14 +100,8 @@ export default async function DashboardPage(props: {
     getGoalsData(),
     getRecentTransactions(competence),
     getTransactionCountsByYear(),
+    getSummaryCount(startDate, endDate, selectedMonth.getMonth() + 1, selectedMonth.getFullYear()),
   ]);
-
-  const { goalsCount, budgetsCount, debtsCount } = await getSummaryCount(
-    startDate,
-    endDate,
-    selectedMonth.getMonth() + 1,
-    selectedMonth.getFullYear(),
-  );
 
   return (
     <div className="animate-in fade-in space-y-8 duration-700">
@@ -151,7 +146,7 @@ export default async function DashboardPage(props: {
         <GoalProgressChart goals={goals} />
       </div>
 
-      <PeriodLoading size="md" className="rounded-lg">
+      <PeriodLoading size="md" className="rounded-2xl">
         <RecentTransactions
           transactions={recentTransactions.map((t) => ({ ...t, amount: Number(t.amount) }))}
         />

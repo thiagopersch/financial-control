@@ -41,7 +41,7 @@ export function TestNotificationForm({ users }: TestNotificationFormProps) {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Send className="h-5 w-5 text-indigo-500" />
+          <Send className="text-primary h-5 w-5" />
           <div>
             <CardTitle className="text-lg">Testar Integração</CardTitle>
             <CardDescription>

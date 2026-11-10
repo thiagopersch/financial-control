@@ -147,7 +147,7 @@ export function NotificationTemplatesList({
       accessorKey: 'channel',
       header: 'Canal',
       cell: ({ row }) => (
-        <Badge variant="secondary" className="border-none text-xs">
+        <Badge variant="secondary" className="text-xs">
           {NOTIFICATION_CHANNEL_LABELS[row.original.channel] || row.original.channel}
         </Badge>
       ),

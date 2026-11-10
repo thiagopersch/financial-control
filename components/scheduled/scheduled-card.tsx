@@ -127,12 +127,7 @@ export function ScheduledCard({
       transition={{ duration: 0.2, delay: Math.min(index, 8) * 0.03 }}
       className="h-full"
     >
-      <Card
-        className={cn(
-          'h-full gap-4 transition-shadow hover:shadow-md',
-          !item.isActive && 'opacity-70',
-        )}
-      >
+      <Card className={cn('hover-elevate h-full gap-4', !item.isActive && 'opacity-70')}>
         <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
           <div className="flex min-w-0 items-start gap-3">
             <div
@@ -148,15 +143,7 @@ export function ScheduledCard({
                 {item.name}
               </CardTitle>
               <div className="flex flex-wrap gap-1">
-                <Badge
-                  variant="secondary"
-                  className={cn(
-                    'border-none',
-                    isIncome
-                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                      : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
-                  )}
-                >
+                <Badge variant={isIncome ? 'income' : 'expense'}>
                   {isIncome ? 'Receita' : 'Despesa'}
                 </Badge>
                 <Badge variant={item.isActive ? 'default' : 'secondary'}>
@@ -203,12 +190,8 @@ export function ScheduledCard({
         <CardContent className="space-y-4">
           <div className="flex items-end justify-between gap-2">
             <p
-              className={cn(
-                'text-2xl font-bold tabular-nums',
-                isIncome
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-rose-600 dark:text-rose-400',
-              )}
+              className="text-2xl font-bold tabular-nums"
+              style={{ color: `var(--mui-palette-${isIncome ? 'income' : 'expense'}-main)` }}
             >
               {isIncome ? '+' : '-'} {formatCurrency(item.amount)}
             </p>
@@ -222,7 +205,7 @@ export function ScheduledCard({
             className={cn(
               'flex items-center justify-between rounded-md border px-3 py-2 text-sm',
               isLate
-                ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300'
+                ? 'border-[var(--mui-palette-pending-main)] bg-[rgba(var(--mui-palette-pending-mainChannel)/0.12)] text-[var(--mui-palette-pending-main)]'
                 : 'bg-muted/40',
             )}
           >

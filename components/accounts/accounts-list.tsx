@@ -108,7 +108,7 @@ export function AccountsList({ accounts }: AccountsListProps) {
           return (
             <Card
               key={account.id}
-              className="cursor-pointer overflow-hidden border-l-4 transition-all hover:shadow-md"
+              className="hover-elevate cursor-pointer overflow-hidden border-l-4"
               style={{ borderLeftColor: account.color || '#000000' }}
               onClick={() => openEditModal(account)}
             >
@@ -162,7 +162,7 @@ export function AccountsList({ accounts }: AccountsListProps) {
 
         {accounts.length === 0 && (
           <div className="bg-muted/30 col-span-full flex flex-col items-center justify-center rounded-xl border-2 border-dashed py-12">
-            <div className="bg-background mb-4 rounded-full p-4 shadow-sm">
+            <div className="bg-background mb-4 rounded-full p-4">
               <Plus className="text-muted-foreground h-8 w-8" />
             </div>
             <h3 className="text-lg font-medium">Nenhuma conta encontrada</h3>

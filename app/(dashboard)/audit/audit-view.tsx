@@ -1,5 +1,8 @@
 'use client';
 
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/ui/data-table';
 import {
@@ -194,24 +197,22 @@ export function AuditView() {
   );
   const actions = useMemo(() => availableActions, [availableActions]);
 
+  // Busca com debounce: filtra 300ms depois da última tecla, não a cada uma.
+  const debouncedSearch = useDebouncedValue(search, 300).toLowerCase();
   const filteredLogs = logs.filter((log) =>
-    search
-      ? log.action.toLowerCase().includes(search.toLowerCase()) ||
-        log.entity.toLowerCase().includes(search.toLowerCase()) ||
-        log.user.name?.toLowerCase().includes(search.toLowerCase()) ||
-        log.user.email.toLowerCase().includes(search.toLowerCase())
+    debouncedSearch
+      ? log.action.toLowerCase().includes(debouncedSearch) ||
+        log.entity.toLowerCase().includes(debouncedSearch) ||
+        log.user.name?.toLowerCase().includes(debouncedSearch) ||
+        log.user.email.toLowerCase().includes(debouncedSearch)
       : true,
   );
 
   const getActionBadge = (action: string) => {
-    if (action.includes('CREATE'))
-      return <Badge className="bg-emerald-500/90 hover:bg-emerald-500">Criação</Badge>;
-    if (action.includes('UPDATE'))
-      return <Badge className="bg-blue-500/90 hover:bg-blue-500">Atualização</Badge>;
-    if (action.includes('DELETE'))
-      return <Badge className="bg-red-500/90 hover:bg-red-500">Exclusão</Badge>;
-    if (action.includes('LOGIN'))
-      return <Badge className="bg-purple-500/90 hover:bg-purple-500">Login</Badge>;
+    if (action.includes('CREATE')) return <Badge variant="income">Criação</Badge>;
+    if (action.includes('UPDATE')) return <Badge variant="pending">Atualização</Badge>;
+    if (action.includes('DELETE')) return <Badge variant="expense">Exclusão</Badge>;
+    if (action.includes('LOGIN')) return <Badge variant="neutral">Login</Badge>;
     return <Badge>Outros</Badge>;
   };
 
@@ -319,12 +320,10 @@ export function AuditView() {
             <DialogBody className="pr-4">
               <div className="space-y-6">
                 {selectedLog.action === 'DELETE' && (
-                  <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950/20">
-                    <Trash2 className="h-5 w-5 text-red-500" />
-                    <span className="font-medium text-red-700 dark:text-red-400">
-                      Registro excluído
-                    </span>
-                  </div>
+                  <Alert variant="destructive">
+                    <Trash2 className="h-5 w-5" />
+                    <AlertDescription>Registro excluído</AlertDescription>
+                  </Alert>
                 )}
 
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -391,19 +390,19 @@ export function AuditView() {
                         names={names}
                       />
                     ) : selectedLog.action === 'DELETE' && selectedLog.oldValue ? (
-                      <div className="rounded-lg border border-red-200 bg-red-50/50 p-4 dark:border-red-800 dark:bg-red-950/10">
+                      <div className="rounded-lg border border-[var(--mui-palette-expense-main)]/30 bg-[rgba(var(--mui-palette-expense-mainChannel)/0.06)] p-4">
                         <div className="space-y-1.5">
                           {formatDetailedEntries(selectedLog.oldValue, names)}
                         </div>
                       </div>
                     ) : selectedLog.newValue ? (
-                      <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-800 dark:bg-emerald-950/10">
+                      <div className="rounded-lg border border-[var(--mui-palette-paid-main)]/30 bg-[rgba(var(--mui-palette-paid-mainChannel)/0.06)] p-4">
                         <div className="space-y-1.5">
                           {formatDetailedEntries(selectedLog.newValue, names)}
                         </div>
                       </div>
                     ) : selectedLog.oldValue ? (
-                      <div className="rounded-lg border border-red-200 bg-red-50/50 p-4 dark:border-red-800 dark:bg-red-950/10">
+                      <div className="rounded-lg border border-[var(--mui-palette-expense-main)]/30 bg-[rgba(var(--mui-palette-expense-mainChannel)/0.06)] p-4">
                         <div className="space-y-1.5">
                           {formatDetailedEntries(selectedLog.oldValue, names)}
                         </div>
@@ -456,7 +455,7 @@ function DiffView({
 
   if (changedEntries.length === 0) {
     return (
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-800 dark:bg-emerald-950/10">
+      <div className="rounded-lg border border-[var(--mui-palette-paid-main)]/30 bg-[rgba(var(--mui-palette-paid-mainChannel)/0.06)] p-4">
         <div className="space-y-1.5">{formatDetailedEntries(newValue || oldValue, names)}</div>
       </div>
     );
@@ -470,14 +469,14 @@ function DiffView({
             <TableRow>
               <TableHead className="w-[180px]">Campo</TableHead>
               <TableHead className="w-1/2">
-                <span className="flex items-center gap-1 text-red-600">
-                  <span className="h-2 w-2 rounded-full bg-red-500" />
+                <span className="flex items-center gap-1 text-[var(--mui-palette-expense-main)]">
+                  <span className="h-2 w-2 rounded-full bg-[var(--mui-palette-expense-main)]" />
                   Valor Anterior
                 </span>
               </TableHead>
               <TableHead className="w-1/2">
-                <span className="flex items-center gap-1 text-emerald-600">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="flex items-center gap-1 text-[var(--mui-palette-paid-main)]">
+                  <span className="h-2 w-2 rounded-full bg-[var(--mui-palette-paid-main)]" />
                   Novo Valor
                 </span>
               </TableHead>
@@ -485,12 +484,15 @@ function DiffView({
           </TableHeader>
           <TableBody>
             {changedEntries.map((key) => (
-              <TableRow key={key} className="bg-red-50/30 dark:bg-red-950/5">
+              <TableRow
+                key={key}
+                className="bg-[rgba(var(--mui-palette-expense-mainChannel)/0.04)]"
+              >
                 <TableCell className="font-medium">{formatLabel(key)}</TableCell>
-                <TableCell className="text-red-600 line-through decoration-2">
+                <TableCell className="text-[var(--mui-palette-expense-main)] line-through decoration-2">
                   {formatFieldValue(key, oldValue?.[key], names)}
                 </TableCell>
-                <TableCell className="font-medium text-emerald-600">
+                <TableCell className="font-medium text-[var(--mui-palette-paid-main)]">
                   {formatFieldValue(key, newValue?.[key], names)}
                 </TableCell>
               </TableRow>

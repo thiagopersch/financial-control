@@ -2,6 +2,7 @@
 
 import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
+import { getPaidExpensesByCategory } from '@/lib/queries/budget-spent';
 import { createAuditLog } from '@/lib/services/audit';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
@@ -152,28 +153,17 @@ export async function getBudgetsByMonth(month: number, year: number) {
       },
     });
 
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59);
+    // Uma query agrupada por categoria (antes: um aggregate por orçamento).
+    const spentByCategory = await getPaidExpensesByCategory(
+      session.user.workspaceId,
+      month,
+      year,
+      budgets.map((b) => b.categoryId),
+    );
 
     const budgetsWithSpent = await Promise.all(
       budgets.map(async (budget) => {
-        const spent = await prisma.transaction.aggregate({
-          where: {
-            workspaceId: session.user.workspaceId,
-            categoryId: budget.categoryId,
-            type: 'EXPENSE',
-            status: 'PAID',
-            date: {
-              gte: startOfMonth,
-              lte: endOfMonth,
-            },
-          },
-          _sum: {
-            amount: true,
-          },
-        });
-
-        const spentAmount = Number(spent._sum.amount || 0);
+        const spentAmount = spentByCategory.get(budget.categoryId) ?? 0;
         const budgetAmount = Number(budget.amount);
         const percentage = budgetAmount > 0 ? (spentAmount / budgetAmount) * 100 : 0;
         const remaining = budgetAmount - spentAmount;

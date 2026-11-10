@@ -59,7 +59,7 @@ export function RulesList({
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-yellow-500" />
-          <code className="rounded bg-slate-100 px-2 py-1 font-mono text-sm dark:bg-yellow-500/10 dark:font-bold">
+          <code className="bg-muted rounded px-2 py-1 font-mono text-sm">
             {row.original.keyword}
           </code>
         </div>

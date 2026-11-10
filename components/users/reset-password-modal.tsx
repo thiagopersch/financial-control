@@ -94,14 +94,14 @@ export function ResetPasswordModal({ user, onClose }: ResetPasswordModalProps) {
                 aria-label="Copiar senha"
               >
                 {copied ? (
-                  <Check className="h-4 w-4 text-emerald-600" />
+                  <Check className="h-4 w-4 text-[var(--mui-palette-paid-main)]" />
                 ) : (
                   <Copy className="h-4 w-4" />
                 )}
               </Button>
             </div>
             <p className="text-muted-foreground flex items-start gap-2 text-xs">
-              <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+              <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--mui-palette-pending-main)]" />
               Esta senha será exibida apenas uma vez. Copie antes de fechar.
             </p>
             <AlertDialogFooter>

@@ -37,7 +37,7 @@ const STATUS_META = {
   SENT: {
     label: 'Enviado',
     icon: CircleCheck,
-    className: 'text-emerald-600 dark:text-emerald-400',
+    className: 'text-[var(--mui-palette-paid-main)]',
   },
   SKIPPED: { label: 'Sem pendências', icon: CircleMinus, className: 'text-muted-foreground' },
   FAILED: { label: 'Falhou', icon: CircleAlert, className: 'text-destructive' },
@@ -92,12 +92,7 @@ export function ScheduledEmailCard({
       transition={{ duration: 0.2, delay: Math.min(index, 8) * 0.03 }}
       className="h-full"
     >
-      <Card
-        className={cn(
-          'h-full gap-4 transition-shadow hover:shadow-md',
-          !item.isActive && 'opacity-70',
-        )}
-      >
+      <Card className={cn('hover-elevate h-full gap-4', !item.isActive && 'opacity-70')}>
         <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
           <div className="flex min-w-0 items-start gap-3">
             <div

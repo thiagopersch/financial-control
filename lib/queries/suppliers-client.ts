@@ -11,7 +11,7 @@ export interface SupplierDTO {
   updatedAt: string;
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { fetcher } from '@/lib/queries/fetcher';
 
 const suppliersKey = '/api/suppliers';
 

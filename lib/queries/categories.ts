@@ -1,7 +1,6 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
 import { TransactionType } from '@prisma/client';
-import { getServerSession } from 'next-auth';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 import { parseMultiParam, toInFilter } from '@/lib/utils/filter-params';
 
@@ -17,7 +16,7 @@ export type CategoryDTO = {
 };
 
 export async function getCategories(): Promise<CategoryDTO[]> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return [];
 
   try {
@@ -55,7 +54,7 @@ export type GetCategoriesParams = {
 export async function getCategoriesPaginated(
   params: GetCategoriesParams = {},
 ): Promise<{ categories: CategoryDTO[]; totalCount: number }> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return { categories: [], totalCount: 0 };
 
   const { q, type, color, page = 1, pageSize = DEFAULT_PAGE_SIZE } = params;
@@ -102,7 +101,7 @@ export async function getCategoriesPaginated(
 }
 
 export async function getDistinctCategoryColors(): Promise<string[]> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return [];
 
   try {
@@ -123,7 +122,7 @@ export async function getDistinctCategoryColors(): Promise<string[]> {
 }
 
 export async function getCategoryById(id: string): Promise<CategoryDTO | null> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
 
   try {

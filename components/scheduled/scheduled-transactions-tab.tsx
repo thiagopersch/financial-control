@@ -571,7 +571,7 @@ export function ScheduledTransactionsTab() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Ativos</CardTitle>
-            <Play className="h-4 w-4 text-green-500" />
+            <Play className="h-4 w-4 text-[var(--mui-palette-income-main)]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activeCount}</div>
@@ -716,13 +716,13 @@ export function ScheduledTransactionsTab() {
                         <SelectContent>
                           <SelectItem value="INCOME">
                             <div className="flex items-center gap-2">
-                              <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                              <div className="h-2 w-2 rounded-full bg-[var(--mui-palette-income-main)]" />
                               Receita
                             </div>
                           </SelectItem>
                           <SelectItem value="EXPENSE">
                             <div className="flex items-center gap-2">
-                              <div className="h-2 w-2 rounded-full bg-rose-500" />
+                              <div className="h-2 w-2 rounded-full bg-[var(--mui-palette-expense-main)]" />
                               Despesa
                             </div>
                           </SelectItem>

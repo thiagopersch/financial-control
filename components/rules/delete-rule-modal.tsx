@@ -54,7 +54,11 @@ export function DeleteRuleModal({ isOpen, onClose, id }: DeleteRuleModalProps) {
           <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className="bg-red-600 text-white hover:bg-red-700"
+            sx={{
+              bgcolor: 'error.main',
+              color: 'error.contrastText',
+              '&:hover': { bgcolor: 'error.dark' },
+            }}
             disabled={isLoading}
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

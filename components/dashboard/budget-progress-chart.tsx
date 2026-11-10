@@ -22,7 +22,7 @@ function formatCurrency(value: number) {
 export function BudgetProgressChart({ budgets }: BudgetProgressChartProps) {
   if (budgets.length === 0) {
     return (
-      <Card className="border-none shadow-md">
+      <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold">Progresso de Orçamentos</CardTitle>
         </CardHeader>
@@ -34,7 +34,7 @@ export function BudgetProgressChart({ budgets }: BudgetProgressChartProps) {
   }
 
   return (
-    <Card className="border-none shadow-md">
+    <Card>
       <CardHeader>
         <CardTitle className="text-base font-semibold">Progresso de Orçamentos</CardTitle>
       </CardHeader>
@@ -56,10 +56,10 @@ export function BudgetProgressChart({ budgets }: BudgetProgressChartProps) {
                 className={cn(
                   'h-2',
                   isOver
-                    ? '[&>div]:bg-rose-500'
+                    ? '[&>div]:bg-[var(--mui-palette-overdue-main)]'
                     : isWarning
-                      ? '[&>div]:bg-amber-500'
-                      : '[&>div]:bg-emerald-500',
+                      ? '[&>div]:bg-[var(--mui-palette-pending-main)]'
+                      : '[&>div]:bg-[var(--mui-palette-paid-main)]',
                 )}
               />
               <p className="text-muted-foreground text-right text-xs">

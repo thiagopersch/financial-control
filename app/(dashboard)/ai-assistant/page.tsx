@@ -7,7 +7,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAIAssistant } from '@/hooks/ai/use-ai-assistant';
 import { Bot, Loader2, MessageSquare, Plus, Send, Sparkles, Trash2 } from 'lucide-react';
-import { ChatMessage } from './components/chat-message';
+import dynamic from 'next/dynamic';
+
+// react-markdown + remark-gfm só são baixados quando há mensagem para mostrar.
+const ChatMessage = dynamic(() => import('./components/chat-message').then((m) => m.ChatMessage), {
+  loading: () => <Skeleton className="h-16 w-64" />,
+});
 
 const suggestionQuestions = [
   'Quanto gastei esse mês?',

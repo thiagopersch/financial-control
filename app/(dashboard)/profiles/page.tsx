@@ -1,13 +1,12 @@
 import { PasswordForm } from '@/components/profiles/password-form';
 import { ProfileForm } from '@/components/profiles/profile-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
 import { Mail, Shield, User as UserIcon } from 'lucide-react';
 
 export default async function ProfilePage() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
 
   const user = await prisma.user.findUnique({
@@ -27,7 +26,7 @@ export default async function ProfilePage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <UserIcon className="h-5 w-5 text-emerald-500" />
+            <UserIcon className="text-primary h-5 w-5" />
             Informações da Conta
           </CardTitle>
           <CardDescription>Seus dados de acesso e permissões</CardDescription>

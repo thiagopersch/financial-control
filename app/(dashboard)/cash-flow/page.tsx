@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { ChartSkeleton } from '@/components/ui/chart-skeleton';
+import { useState } from 'react';
+import { useCashFlow } from '@/lib/queries/cash-flow';
 import { TrendingUp, TrendingDown, Calendar, AlertTriangle, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -41,34 +43,15 @@ interface CashFlowSummary {
 }
 
 export default function CashFlowPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [chartData, setChartData] = useState<ProjectedTransaction[]>([]);
-  const [summary, setSummary] = useState<CashFlowSummary | null>(null);
   const [period, setPeriod] = useState<'30' | '60' | '90'>('30');
 
   usePersistedPageFilters('cash-flow', { period }, (saved) => {
     if (saved.period) setPeriod(saved.period as typeof period);
   });
 
-  useEffect(() => {
-    fetchCashFlow();
-  }, [period]);
-
-  const fetchCashFlow = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/cash-flow?days=${period}`);
-      if (response.ok) {
-        const data = await response.json();
-        setChartData(data.chartData || []);
-        setSummary(data.summary || null);
-      }
-    } catch (error) {
-      console.error('Error fetching cash flow:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { chartData, summary, isLoading } = useCashFlow<ProjectedTransaction, CashFlowSummary>(
+    period,
+  );
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', {
@@ -114,14 +97,14 @@ export default function CashFlowPage() {
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Saldo Projetado</CardTitle>
                   {summary.projectedEndBalance >= summary.currentBalance ? (
-                    <TrendingUp className="h-4 w-4 text-green-500" />
+                    <TrendingUp className="h-4 w-4 text-[var(--mui-palette-income-main)]" />
                   ) : (
-                    <TrendingDown className="h-4 w-4 text-red-500" />
+                    <TrendingDown className="h-4 w-4 text-[var(--mui-palette-expense-main)]" />
                   )}
                 </CardHeader>
                 <CardContent>
                   <div
-                    className={`text-2xl font-bold ${summary.projectedEndBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                    className={`text-2xl font-bold ${summary.projectedEndBalance >= 0 ? 'text-[var(--mui-palette-income-main)]' : 'text-[var(--mui-palette-expense-main)]'}`}
                   >
                     {formatCurrency(summary.projectedEndBalance)}
                   </div>
@@ -131,10 +114,10 @@ export default function CashFlowPage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Entradas</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-green-500" />
+                  <TrendingUp className="h-4 w-4 text-[var(--mui-palette-income-main)]" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-600">
+                  <div className="text-2xl font-bold text-[var(--mui-palette-income-main)]">
                     {formatCurrency(summary.totalIncome)}
                   </div>
                 </CardContent>
@@ -143,10 +126,10 @@ export default function CashFlowPage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Saídas</CardTitle>
-                  <TrendingDown className="h-4 w-4 text-red-500" />
+                  <TrendingDown className="h-4 w-4 text-[var(--mui-palette-expense-main)]" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-red-600">
+                  <div className="text-2xl font-bold text-[var(--mui-palette-expense-main)]">
                     {formatCurrency(summary.totalExpense)}
                   </div>
                 </CardContent>
@@ -155,11 +138,11 @@ export default function CashFlowPage() {
           )}
 
           {summary?.deficitDays && summary.deficitDays.length > 0 && (
-            <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
+            <Card sx={{ bgcolor: 'rgba(var(--mui-palette-error-mainChannel) / 0.06)' }}>
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                  <CardTitle className="text-red-600">Atenção: Déficit Identificado</CardTitle>
+                  <AlertTriangle className="h-5 w-5" color="var(--mui-palette-error-main)" />
+                  <CardTitle sx={{ color: 'error.main' }}>Atenção: Déficit Identificado</CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
@@ -169,7 +152,7 @@ export default function CashFlowPage() {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {summary.deficitDays.slice(0, 5).map((day) => (
-                    <Badge key={day.date} variant="outline" className="border-red-300 text-red-700">
+                    <Badge key={day.date} variant="destructive">
                       {formatDate(day.date)}: {formatCurrency(day.amount)}
                     </Badge>
                   ))}
@@ -188,9 +171,7 @@ export default function CashFlowPage() {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="flex h-[400px] items-center justify-center">
-                  <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
-                </div>
+                <ChartSkeleton />
               ) : chartData.length === 0 ? (
                 <div className="text-muted-foreground flex h-[400px] flex-col items-center justify-center">
                   <Calendar className="mb-4 h-12 w-12" />
@@ -298,13 +279,13 @@ export default function CashFlowPage() {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Total de Entradas</span>
-                      <span className="font-medium text-green-600">
+                      <span className="font-medium text-[var(--mui-palette-income-main)]">
                         + {formatCurrency(summary?.totalIncome || 0)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Total de Saídas</span>
-                      <span className="font-medium text-red-600">
+                      <span className="font-medium text-[var(--mui-palette-expense-main)]">
                         - {formatCurrency(summary?.totalExpense || 0)}
                       </span>
                     </div>
@@ -313,8 +294,8 @@ export default function CashFlowPage() {
                       <span
                         className={
                           summary && summary.projectedEndBalance >= 0
-                            ? 'text-green-600'
-                            : 'text-red-600'
+                            ? 'text-[var(--mui-palette-income-main)]'
+                            : 'text-[var(--mui-palette-expense-main)]'
                         }
                       >
                         {formatCurrency(summary?.projectedEndBalance || 0)}

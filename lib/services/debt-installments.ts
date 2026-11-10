@@ -1,4 +1,4 @@
-import prisma from '@/lib/prisma';
+import prisma, { type DbClient } from '@/lib/prisma';
 import { Prisma, TransactionStatus, TransactionType } from '@prisma/client';
 import {
   buildInstallmentDates,
@@ -64,10 +64,7 @@ export interface SyncDebtInstallmentsParams {
  * only created when `installmentsTotal` grows past the current unpaid count, and
  * trailing unpaid ones are deleted when it shrinks.
  */
-export async function syncDebtInstallments(
-  tx: Prisma.TransactionClient,
-  params: SyncDebtInstallmentsParams,
-) {
+export async function syncDebtInstallments(tx: DbClient, params: SyncDebtInstallmentsParams) {
   const { debtId, workspaceId, installmentsTotal } = params;
 
   if (!installmentsTotal || installmentsTotal <= 0) return;

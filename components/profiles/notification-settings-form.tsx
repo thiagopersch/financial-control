@@ -13,24 +13,18 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { updateWorkspaceNotificationSettings } from '@/lib/actions/workspace-settings';
+import {
+  type WorkspaceSettingsInput,
+  workspaceSettingsSchema,
+} from '@/lib/schemas/workspace-settings';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Save, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import * as z from 'zod';
 
-const settingsSchema = z.object({
-  whatsappApiUrl: z.string().optional().nullable(),
-  whatsappApiToken: z.string().optional().nullable(),
-  smtpHost: z.string().optional().nullable(),
-  smtpPort: z.coerce.number().optional().nullable(),
-  smtpUser: z.string().optional().nullable(),
-  smtpPassword: z.string().optional().nullable(),
-  smtpFrom: z.string().optional().nullable(),
-});
-
-type SettingsFormValues = z.infer<typeof settingsSchema>;
+const settingsSchema = workspaceSettingsSchema;
+type SettingsFormValues = WorkspaceSettingsInput;
 
 interface NotificationSettingsFormProps {
   initialValues: SettingsFormValues;
@@ -64,7 +58,7 @@ export function NotificationSettingsForm({ initialValues }: NotificationSettings
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Settings className="h-5 w-5 text-indigo-500" />
+          <Settings className="text-primary h-5 w-5" />
           <div>
             <CardTitle className="text-lg">Configurações de Notificação (Admin)</CardTitle>
             <CardDescription>
@@ -108,7 +102,7 @@ export function NotificationSettingsForm({ initialValues }: NotificationSettings
                           type="number"
                           placeholder="587"
                           {...field}
-                          value={field.value ?? ''}
+                          value={(field.value as number | null | undefined) ?? ''}
                         />
                       </FormControl>
                       <FormMessage />
@@ -198,6 +192,37 @@ export function NotificationSettingsForm({ initialValues }: NotificationSettings
                       <FormControl>
                         <Input type="password" {...field} value={field.value ?? ''} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3 border-t pt-4">
+              <p className="text-sm font-semibold">APIs externas</p>
+              <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+                <FormField
+                  control={form.control}
+                  name="externalApiTimeoutMs"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tempo limite (ms)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min={1000}
+                          max={120000}
+                          step={500}
+                          {...field}
+                          value={(field.value as number | undefined) ?? ''}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Tempo máximo de espera por SMTP, WhatsApp e IA antes de desistir (1.000 a
+                        120.000 ms).
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

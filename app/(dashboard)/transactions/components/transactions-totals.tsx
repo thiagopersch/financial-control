@@ -90,19 +90,19 @@ export function TransactionsTotals({ totals, totalCount }: TransactionsTotalsPro
           <BlockHeader
             label={`Despesas (${expense.count})`}
             value={expense.amount}
-            className="text-rose-600 dark:text-rose-400"
+            className="text-[var(--mui-palette-expense-main)]"
           />
           <BreakdownLine
             icon={<CheckCircle2 className="h-3.5 w-3.5" />}
             label="Pagas"
             data={expense.paid}
-            className="text-emerald-600 dark:text-emerald-400"
+            className="text-[var(--mui-palette-income-main)]"
           />
           <BreakdownLine
             icon={<Clock className="h-3.5 w-3.5" />}
             label="A pagar"
             data={expense.pending}
-            className="text-amber-600 dark:text-amber-400"
+            className="text-[var(--mui-palette-pending-main)]"
           />
           {expense.overdue.count > 0 && (
             <BreakdownLine
@@ -110,7 +110,7 @@ export function TransactionsTotals({ totals, totalCount }: TransactionsTotalsPro
               icon={<AlertTriangle className="h-3 w-3" />}
               label="Atrasadas"
               data={expense.overdue}
-              className="text-red-600 dark:text-red-400"
+              className="text-[var(--mui-palette-expense-main)]"
             />
           )}
           {expense.count > 0 && (
@@ -118,7 +118,7 @@ export function TransactionsTotals({ totals, totalCount }: TransactionsTotalsPro
               <Progress
                 value={expense.paidPercent}
                 aria-label="Percentual das despesas pago"
-                className="h-1.5 [&>[data-slot=progress-indicator]]:bg-emerald-500"
+                className="h-1.5 [&>[data-slot=progress-indicator]]:bg-[var(--mui-palette-income-main)]"
               />
               <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                 {expense.paidPercent}% pago
@@ -131,19 +131,19 @@ export function TransactionsTotals({ totals, totalCount }: TransactionsTotalsPro
           <BlockHeader
             label={`Receitas (${income.count})`}
             value={income.amount}
-            className="text-emerald-600 dark:text-emerald-400"
+            className="text-[var(--mui-palette-income-main)]"
           />
           <BreakdownLine
             icon={<CheckCircle2 className="h-3.5 w-3.5" />}
             label="Recebidas"
             data={income.received}
-            className="text-emerald-600 dark:text-emerald-400"
+            className="text-[var(--mui-palette-income-main)]"
           />
           <BreakdownLine
             icon={<Clock className="h-3.5 w-3.5" />}
             label="A receber"
             data={income.pending}
-            className="text-amber-600 dark:text-amber-400"
+            className="text-[var(--mui-palette-pending-main)]"
           />
         </TotalsBlock>
 
@@ -153,8 +153,8 @@ export function TransactionsTotals({ totals, totalCount }: TransactionsTotalsPro
             value={totals.balance}
             className={
               totals.balance >= 0
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-red-600 dark:text-red-400'
+                ? 'text-[var(--mui-palette-income-main)]'
+                : 'text-[var(--mui-palette-expense-main)]'
             }
           />
           <p className="text-muted-foreground text-xs">Receitas − despesas do período filtrado.</p>
@@ -164,8 +164,8 @@ export function TransactionsTotals({ totals, totalCount }: TransactionsTotalsPro
               className={cn(
                 'font-medium tabular-nums',
                 totals.realizedBalance >= 0
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-red-600 dark:text-red-400',
+                  ? 'text-[var(--mui-palette-income-main)]'
+                  : 'text-[var(--mui-palette-expense-main)]',
               )}
             >
               {formatCurrency(totals.realizedBalance)}

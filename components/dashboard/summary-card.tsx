@@ -33,8 +33,8 @@ const cards = [
     valueKey: 'debtsCount' as const,
     href: '/debts',
     icon: Landmark,
-    color: 'text-red-600',
-    bg: 'bg-red-100',
+    color: 'text-[var(--mui-palette-expense-main)]',
+    bg: 'bg-[rgba(var(--mui-palette-expense-mainChannel)/0.12)]',
     description: 'Total de dívidas ativas',
   },
 ];
@@ -46,8 +46,8 @@ export function SummaryCard({ goalsCount, budgetsCount, debtsCount }: SummaryCar
     <div className="grid gap-4 md:grid-cols-3">
       {cards.map((card) => (
         <Link key={card.title} href={card.href}>
-          <PeriodLoading size="sm" className="h-full rounded-lg">
-            <Card className="h-full cursor-pointer overflow-hidden border-none shadow-md transition-all hover:shadow-lg">
+          <PeriodLoading size="sm" className="h-full rounded-2xl">
+            <Card className="hover-elevate h-full cursor-pointer overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-muted-foreground text-sm font-medium">
                   {card.title}

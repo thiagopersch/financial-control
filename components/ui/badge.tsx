@@ -1,45 +1,99 @@
-import { cva, type VariantProps } from 'class-variance-authority';
-import { Slot } from 'radix-ui';
+'use client';
+
+import Chip from '@mui/material/Chip';
+import type { SxProps, Theme } from '@mui/material/styles';
 import * as React from 'react';
 
-import { cn } from '@/lib/utils';
+/**
+ * Etiqueta pequena (MUI `Chip`, raio pequeno do tema — M3 não usa chip em pílula).
+ * Além das variantes de UI de antes, inclui os papéis de status/domínio do tema
+ * (`income`/`expense`/`pending`/`overdue`/`paid`/`neutral`) como "chip tonal": fundo
+ * suave na cor do papel, texto na própria cor — para badges de situação em vez de
+ * `bg-emerald-100 dark:bg-emerald-900/30` escritos à mão em cada tela.
+ */
+export type BadgeVariant =
+  | 'default'
+  | 'secondary'
+  | 'destructive'
+  | 'outline'
+  | 'ghost'
+  | 'link'
+  | 'income'
+  | 'expense'
+  | 'pending'
+  | 'overdue'
+  | 'paid'
+  | 'dueSoon'
+  | 'neutral';
 
-const badgeVariants = cva(
-  'group/badge focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:ring-[3px] has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&>svg]:pointer-events-none [&>svg]:size-3!',
-  {
-    variants: {
-      variant: {
-        default: 'bg-primary text-primary-foreground [a]:hover:bg-primary/80',
-        secondary: 'bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80',
-        destructive:
-          'bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20',
-        outline: 'border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground',
-        ghost: 'hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50',
-        link: 'text-primary underline-offset-4 hover:underline',
-      },
-    },
-    defaultVariants: {
-      variant: 'default',
-    },
-  },
-);
+const tint = (channel: string, alpha: number) =>
+  `rgba(var(--mui-palette-${channel}Channel) / ${alpha})`;
 
-function Badge({
-  className,
-  variant = 'default',
-  asChild = false,
-  ...props
-}: React.ComponentProps<'span'> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot.Root : 'span';
+/** Chip tonal: fundo suave + texto na cor do papel (`income`, `expense`, `pending`...). */
+const tonal = (role: string): SxProps<Theme> => ({
+  bgcolor: tint(`${role}-main`, 0.14),
+  color: `${role}.main`,
+});
 
-  return (
-    <Comp
-      data-slot="badge"
-      data-variant={variant}
-      className={cn(badgeVariants({ variant }), className)}
-      {...props}
-    />
-  );
+const VARIANT_SX: Record<BadgeVariant, SxProps<Theme>> = {
+  default: { bgcolor: 'primary.main', color: 'primary.contrastText' },
+  secondary: { bgcolor: 'action.selected', color: 'text.primary' },
+  destructive: { bgcolor: tint('error-main', 0.12), color: 'error.main' },
+  outline: { bgcolor: 'transparent', border: 1, borderColor: 'divider', color: 'text.primary' },
+  ghost: { bgcolor: 'transparent', color: 'text.secondary' },
+  link: { bgcolor: 'transparent', color: 'primary.main', textDecoration: 'underline' },
+  income: tonal('income'),
+  expense: tonal('expense'),
+  pending: tonal('pending'),
+  overdue: tonal('overdue'),
+  paid: tonal('paid'),
+  dueSoon: tonal('dueSoon'),
+  neutral: tonal('neutral'),
+};
+
+export interface BadgeProps extends Omit<React.ComponentProps<'span'>, 'color' | 'ref'> {
+  variant?: BadgeVariant | null;
+  asChild?: boolean;
+  sx?: SxProps<Theme>;
+  icon?: React.ReactElement;
 }
 
-export { Badge, badgeVariants };
+export const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(function Badge(
+  { variant, className, children, style, sx, asChild: _asChild, ...props },
+  ref,
+) {
+  const v = variant ?? 'default';
+  return (
+    <Chip
+      ref={ref}
+      size="small"
+      data-slot="badge"
+      data-variant={v}
+      className={className}
+      style={style}
+      label={children}
+      sx={[
+        {
+          height: 20,
+          fontSize: '0.75rem',
+          width: 'fit-content',
+          '& .MuiChip-label': {
+            px: 1,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.5,
+            '& svg': { width: 12, height: 12 },
+          },
+        },
+        VARIANT_SX[v],
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
+      {...(props as Record<string, unknown>)}
+    />
+  );
+});
+
+/** Compat: o visual vem do MUI. */
+export function badgeVariants(_opts?: { variant?: BadgeVariant | null }) {
+  return '';
+}

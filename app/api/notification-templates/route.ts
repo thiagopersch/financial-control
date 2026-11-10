@@ -1,26 +1,40 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { paginationMeta, parsePagination } from '@/lib/utils/pagination';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const templates = await prisma.notificationTemplate.findMany({
-      where: {
-        workspaceId: session.user.workspaceId,
-        userId: session.user.id,
-      },
-      orderBy: { createdAt: 'desc' },
+    const { page, pageSize, skip, take, q } = parsePagination(request.nextUrl.searchParams, {
+      defaultPageSize: 100,
     });
+    const where = {
+      workspaceId: session.user.workspaceId,
+      userId: session.user.id,
+      ...(q ? { name: { contains: q, mode: 'insensitive' as const } } : {}),
+    };
 
-    return NextResponse.json({ templates });
+    const [items, total] = await Promise.all([
+      prisma.notificationTemplate.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      prisma.notificationTemplate.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      templates: items,
+      pagination: paginationMeta(page, pageSize, total),
+    });
   } catch (error) {
     console.error('Error fetching notification templates:', error);
-    return NextResponse.json({ error: 'Erro ao buscar templates' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro ao buscar dados' }, { status: 500 });
   }
 }

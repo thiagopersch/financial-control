@@ -38,7 +38,7 @@ export function OverviewChart({ data, isFullYear, isAllPeriod }: OverviewChartPr
   };
 
   return (
-    <Card className="col-span-1 border-none shadow-md">
+    <Card className="col-span-1">
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base font-semibold">{getTitle()}</CardTitle>
         <ChartTypeSwitcher value={chartType} onChange={setChartType} />

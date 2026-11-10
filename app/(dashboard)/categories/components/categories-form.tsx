@@ -118,13 +118,13 @@ export function CategoriesForm({ isOpen, onClose, category, onSuccess }: Categor
                   <SelectContent>
                     <SelectItem value={TransactionType.INCOME}>
                       <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                        <div className="h-2 w-2 rounded-full bg-[var(--mui-palette-income-main)]" />
                         Receita
                       </div>
                     </SelectItem>
                     <SelectItem value={TransactionType.EXPENSE}>
                       <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-red-500" />
+                        <div className="h-2 w-2 rounded-full bg-[var(--mui-palette-expense-main)]" />
                         Despesa
                       </div>
                     </SelectItem>

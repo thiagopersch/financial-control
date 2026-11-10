@@ -12,25 +12,18 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { updateTransactionStatus } from '@/lib/actions/transactions';
 import type { DebtTransactionDTO } from '@/lib/queries/transactions';
-import { cn } from '@/lib/utils';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import { TransactionStatus } from '@prisma/client';
 import { ChevronDown, Loader2 } from 'lucide-react';
 import { useTransition } from 'react';
 
-const STATUS_MAP: Record<TransactionStatus, { label: string; className: string }> = {
-  PAID: {
-    label: 'Pago',
-    className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  },
-  PENDING: {
-    label: 'Pendente',
-    className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  },
-  OVERDUE: {
-    label: 'Atrasado',
-    className: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
-  },
+const STATUS_MAP: Record<
+  TransactionStatus,
+  { label: string; color: 'paid' | 'pending' | 'overdue' }
+> = {
+  PAID: { label: 'Pago', color: 'paid' },
+  PENDING: { label: 'Pendente', color: 'pending' },
+  OVERDUE: { label: 'Atrasado', color: 'overdue' },
 };
 
 const STATUS_OPTIONS: TransactionStatus[] = [
@@ -81,10 +74,7 @@ export function InstallmentStatusMenu({ transaction }: InstallmentStatusMenuProp
           className="cursor-pointer rounded-md disabled:cursor-wait disabled:opacity-70"
           aria-label="Alterar status da parcela"
         >
-          <Badge
-            variant="secondary"
-            className={cn('gap-1 border-none', STATUS_MAP[status].className)}
-          >
+          <Badge variant={STATUS_MAP[status].color} className="gap-1">
             {STATUS_MAP[status].label}
             {isPending ? (
               <Loader2 className="h-3 w-3 animate-spin" />

@@ -253,10 +253,12 @@ export function DebtsList({ debts, onRefresh }: DebtsListProps) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-500" />
+            <TrendingDown className="h-4 w-4 text-[var(--mui-palette-expense-main)]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-500">{formatCurrency(totalDebt)}</div>
+            <div className="text-2xl font-bold text-[var(--mui-palette-expense-main)]">
+              {formatCurrency(totalDebt)}
+            </div>
           </CardContent>
         </Card>
         <Card>

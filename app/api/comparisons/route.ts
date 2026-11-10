@@ -1,12 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
 import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, subYears } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
@@ -43,14 +42,26 @@ export async function GET(request: NextRequest) {
           workspaceId: session.user.workspaceId,
           date: { gte: currentStart, lte: currentEnd },
         },
-        include: { category: true, account: true, costCenter: true },
+        select: {
+          type: true,
+          amount: true,
+          category: { select: { name: true } },
+          account: { select: { name: true } },
+          costCenter: { select: { name: true } },
+        },
       }),
       prisma.transaction.findMany({
         where: {
           workspaceId: session.user.workspaceId,
           date: { gte: previousStart, lte: previousEnd },
         },
-        include: { category: true, account: true, costCenter: true },
+        select: {
+          type: true,
+          amount: true,
+          category: { select: { name: true } },
+          account: { select: { name: true } },
+          costCenter: { select: { name: true } },
+        },
       }),
     ]);
 

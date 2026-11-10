@@ -1,9 +1,8 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
 import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { getServerSession } from 'next-auth';
 import { type NextRequest, NextResponse } from 'next/server';
 
 const DEFAULT_LIMIT = 100;
@@ -16,7 +15,7 @@ const MAX_LIMIT = 100;
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }

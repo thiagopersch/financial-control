@@ -2,7 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+import Box from '@mui/material/Box';
 import { Category, Supplier, TransactionStatus, TransactionType } from '@prisma/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -26,18 +26,9 @@ interface RecentTransactionsProps {
 }
 
 const statusMap = {
-  [TransactionStatus.PAID]: {
-    label: 'Pago',
-    className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  },
-  [TransactionStatus.PENDING]: {
-    label: 'Pendente',
-    className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  },
-  [TransactionStatus.OVERDUE]: {
-    label: 'Atrasado',
-    className: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
-  },
+  [TransactionStatus.PAID]: { label: 'Pago', color: 'paid' as const },
+  [TransactionStatus.PENDING]: { label: 'Pendente', color: 'pending' as const },
+  [TransactionStatus.OVERDUE]: { label: 'Atrasado', color: 'overdue' as const },
 };
 
 function formatCurrency(value: number) {
@@ -49,7 +40,7 @@ function formatCurrency(value: number) {
 
 export function RecentTransactions({ transactions }: RecentTransactionsProps) {
   return (
-    <Card className="col-span-full overflow-hidden border-none shadow-md">
+    <Card className="col-span-full overflow-hidden">
       <CardHeader>
         <CardTitle className="text-base font-semibold">Transações Recentes</CardTitle>
       </CardHeader>
@@ -66,20 +57,23 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
                 className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-6"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <div
-                    className={cn(
-                      'shrink-0 rounded-lg p-2',
-                      t.type === TransactionType.INCOME
-                        ? 'bg-emerald-100 dark:bg-emerald-900/30'
-                        : 'bg-rose-100 dark:bg-rose-900/30',
-                    )}
+                  <Box
+                    className="shrink-0 p-2"
+                    sx={{
+                      borderRadius: 2,
+                      display: 'flex',
+                      bgcolor: `rgba(var(--mui-palette-${
+                        t.type === TransactionType.INCOME ? 'income' : 'expense'
+                      }-mainChannel) / 0.14)`,
+                      color: t.type === TransactionType.INCOME ? 'income.main' : 'expense.main',
+                    }}
                   >
                     {t.type === TransactionType.INCOME ? (
-                      <ArrowUpCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      <ArrowUpCircle className="h-4 w-4" />
                     ) : (
-                      <ArrowDownCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                      <ArrowDownCircle className="h-4 w-4" />
                     )}
-                  </div>
+                  </Box>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold">
                       {t.description || t.category.name}
@@ -98,23 +92,16 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
                   >
                     {format(new Date(t.date), "dd 'de' MMM", { locale: ptBR })}
                   </div>
-                  <Badge
-                    variant="secondary"
-                    className={cn('border-none', statusMap[t.status].className)}
-                  >
-                    {statusMap[t.status].label}
-                  </Badge>
-                  <div
-                    className={cn(
-                      'ml-auto shrink-0 text-right text-sm font-bold whitespace-nowrap sm:ml-0 sm:w-28',
-                      t.type === TransactionType.INCOME
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-rose-600 dark:text-rose-400',
-                    )}
+                  <Badge variant={statusMap[t.status].color}>{statusMap[t.status].label}</Badge>
+                  <Box
+                    className="ml-auto shrink-0 text-right text-sm font-bold whitespace-nowrap sm:ml-0 sm:w-28"
+                    sx={{
+                      color: t.type === TransactionType.INCOME ? 'income.main' : 'expense.main',
+                    }}
                   >
                     {t.type === TransactionType.INCOME ? '+' : '-'}{' '}
                     {formatCurrency(Number(t.amount))}
-                  </div>
+                  </Box>
                 </div>
               </div>
             ))}

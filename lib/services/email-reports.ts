@@ -205,10 +205,24 @@ export async function buildReport(
         ]),
       );
     }
-    if (neededSources.has('expenseByCategoryChart')) {
+    // Os dois gráficos são renderizados em paralelo (antes: um depois do outro).
+    const [categoryChartPng, dailyChartPng] = await Promise.all([
+      neededSources.has('expenseByCategoryChart')
+        ? renderCategoryBarChart(summary.byCategory)
+        : Promise.resolve(null),
+      neededSources.has('dailyExpenseChart')
+        ? renderDailyColumnChart(
+            summary.byDay.map((d) => ({
+              label: days <= 7 ? format(d.date, 'EEEEEE', { locale: ptBR }) : format(d.date, 'dd'),
+              value: d.value,
+            })),
+          )
+        : Promise.resolve(null),
+    ]);
+    if (categoryChartPng) {
       attachments.push({
         filename: 'despesas-por-categoria.png',
-        content: await renderCategoryBarChart(summary.byCategory),
+        content: categoryChartPng,
         cid: 'chart-expense-by-category',
         contentType: 'image/png',
       });
@@ -217,15 +231,10 @@ export async function buildReport(
         'Despesas por categoria',
       );
     }
-    if (neededSources.has('dailyExpenseChart')) {
+    if (dailyChartPng) {
       attachments.push({
         filename: 'despesas-por-dia.png',
-        content: await renderDailyColumnChart(
-          summary.byDay.map((d) => ({
-            label: days <= 7 ? format(d.date, 'EEEEEE', { locale: ptBR }) : format(d.date, 'dd'),
-            value: d.value,
-          })),
-        ),
+        content: dailyChartPng,
         cid: 'chart-daily-expense',
         contentType: 'image/png',
       });

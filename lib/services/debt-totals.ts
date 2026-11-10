@@ -1,3 +1,4 @@
+import type { DbClient } from '@/lib/prisma';
 import { resolveDebtStatusFromBalance } from '@/lib/services/debt-status';
 import { Prisma, TransactionStatus } from '@prisma/client';
 
@@ -12,14 +13,15 @@ import { Prisma, TransactionStatus } from '@prisma/client';
  * Em ambos os casos, valor atual = total − soma das parcelas pagas, e o status
  * ACTIVE/PAID acompanha o saldo (ver `resolveDebtStatusFromBalance`).
  */
-export async function recalculateDebtTotals(tx: Prisma.TransactionClient, debtId: string) {
-  const debt = await tx.debt.findUnique({ where: { id: debtId } });
+export async function recalculateDebtTotals(tx: DbClient, debtId: string) {
+  const [debt, transactions] = await Promise.all([
+    tx.debt.findUnique({ where: { id: debtId } }),
+    tx.transaction.findMany({
+      where: { debtId },
+      select: { amount: true, status: true },
+    }),
+  ]);
   if (!debt) return null;
-
-  const transactions = await tx.transaction.findMany({
-    where: { debtId },
-    select: { amount: true, status: true },
-  });
 
   const toCents = (value: Prisma.Decimal | number) => Math.round(Number(value) * 100);
   const paidCents = transactions

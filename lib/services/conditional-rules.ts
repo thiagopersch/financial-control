@@ -284,7 +284,7 @@ async function notifyAutomationFailure(workspaceId: string, detail: string) {
     const user = await prisma.user.findFirst({ where: { workspaceId } });
     if (!user) return;
 
-    const { notifyAutomationResult } = await import('@/lib/actions/notifications');
+    const { notifyAutomationResult } = await import('@/lib/services/alerts');
     await notifyAutomationResult({
       source: 'CONDITIONAL_RULE',
       success: false,

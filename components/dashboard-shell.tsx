@@ -1,5 +1,6 @@
 'use client';
 
+import { useShallow } from 'zustand/react/shallow';
 import { ModeToggle } from '@/components/mode-toggle';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { flatRoutes } from '@/components/sidebar/routes';
@@ -14,7 +15,16 @@ import { ChevronLeft, ChevronRight, Menu } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { isCollapsed, isOpen, onOpen, onClose, toggle } = useSidebar();
+  // Seletor com shallow: só re-renderiza quando um destes campos muda.
+  const { isCollapsed, isOpen, onOpen, onClose, toggle } = useSidebar(
+    useShallow((s) => ({
+      isCollapsed: s.isCollapsed,
+      isOpen: s.isOpen,
+      onOpen: s.onOpen,
+      onClose: s.onClose,
+      toggle: s.toggle,
+    })),
+  );
   const pathname = usePathname();
   const route = flatRoutes.find((route) => route.href === pathname);
   const title = route?.label.toUpperCase();
@@ -26,7 +36,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent side="left" className="border-none p-0">
+        <SheetContent side="left" className="p-0">
           <SheetHeader className="sr-only">
             <SheetTitle>Menu de Navegação</SheetTitle>
           </SheetHeader>
@@ -65,9 +75,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <UserButton />
           </div>
         </header>
-        <div className="dark:bg-background text-foreground flex-1 bg-neutral-50 px-4 py-8 md:px-10">
-          {children}
-        </div>
+        <div className="bg-background text-foreground flex-1 px-4 py-8 md:px-10">{children}</div>
       </main>
     </div>
   );

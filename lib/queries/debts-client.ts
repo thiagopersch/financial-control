@@ -24,7 +24,7 @@ export interface DebtDTO {
   updatedAt: string;
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { fetcher } from '@/lib/queries/fetcher';
 
 const debtsKey = '/api/debts';
 

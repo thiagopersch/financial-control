@@ -1,9 +1,8 @@
-import { authOptions } from '@/lib/auth-options';
-import { getServerSession } from 'next-auth';
+import { getSession } from '@/lib/auth/session';
 import { NotificationsView } from './notifications-view';
 
 export default async function NotificationsPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
 
   return <NotificationsView />;

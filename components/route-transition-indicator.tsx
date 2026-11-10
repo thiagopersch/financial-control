@@ -1,7 +1,8 @@
 'use client';
 
+import LinearProgress from '@mui/material/LinearProgress';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 function isInternalNavigationClick(event: MouseEvent) {
   if (event.defaultPrevented || event.button !== 0) return false;
@@ -26,68 +27,48 @@ function isInternalNavigationClick(event: MouseEvent) {
   return true;
 }
 
+/**
+ * Barra de progresso no topo durante a navegação (MUI `LinearProgress`
+ * indeterminado). Só muda de estado ao começar e ao terminar — antes um
+ * `setInterval` atualizava o progresso a cada 250ms.
+ */
 export function RouteTransitionIndicator() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isFirstRender = useRef(true);
-
-  const startProgress = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setVisible(true);
-    setProgress(12);
-    intervalRef.current = setInterval(() => {
-      setProgress((current) => (current >= 88 ? current : current + Math.random() * 10));
-    }, 250);
-  }, []);
-
-  const completeProgress = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    setProgress((current) => (current > 0 ? 100 : current));
-    setTimeout(() => {
-      setVisible(false);
-      setProgress(0);
-    }, 250);
-  }, []);
 
   useEffect(() => {
     function handleClick(event: MouseEvent) {
-      if (isInternalNavigationClick(event)) {
-        startProgress();
-      }
+      if (isInternalNavigationClick(event)) setVisible(true);
     }
-
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
-  }, [startProgress]);
+  }, []);
 
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-    completeProgress();
-  }, [pathname, searchParams, completeProgress]);
-
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- navegação concluída
+    setVisible(false);
+  }, [pathname, searchParams]);
 
   if (!visible) return null;
 
   return (
-    <div className="fixed top-0 right-0 left-0 z-[100] h-[3px] bg-transparent">
-      <div
-        className="bg-primary h-full shadow-[0_0_8px_var(--color-primary)] transition-[width] duration-300 ease-out"
-        style={{ width: `${progress}%` }}
-      />
-    </div>
+    <LinearProgress
+      aria-label="Carregando página"
+      sx={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1600,
+        height: 3,
+        borderRadius: 0,
+      }}
+    />
   );
 }

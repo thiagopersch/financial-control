@@ -59,7 +59,7 @@ export function TransactionsContent({
         canModify={canModify}
         paginationSlotRef={setPaginationSlot}
       />
-      <PeriodLoading size="md" className="rounded-xl">
+      <PeriodLoading size="md" className="rounded-2xl">
         <TransactionsTable
           transactions={transactions}
           categories={categories}

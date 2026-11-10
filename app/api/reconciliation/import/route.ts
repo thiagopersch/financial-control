@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { addDays, subDays } from 'date-fns';
 
 function parseCSVLine(line: string): string[] {
@@ -65,7 +65,7 @@ function parseDate(value: string): Date | null {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
@@ -96,9 +96,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let bankAccount = await prisma.bankAccount.findFirst({
-      where: { workspaceId: session.user.workspaceId, name: 'Importações' },
-    });
+    const [existingBankAccount, internalTransactions] = await Promise.all([
+      prisma.bankAccount.findFirst({
+        where: { workspaceId: session.user.workspaceId, name: 'Importações' },
+      }),
+      prisma.transaction.findMany({
+        where: {
+          workspaceId: session.user.workspaceId,
+          date: { gte: subDays(new Date(), 400) },
+        },
+        select: { id: true, amount: true, date: true, type: true },
+      }),
+    ]);
+    let bankAccount = existingBankAccount;
     if (!bankAccount) {
       bankAccount = await prisma.bankAccount.create({
         data: {
@@ -109,17 +119,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const internalTransactions = await prisma.transaction.findMany({
-      where: {
-        workspaceId: session.user.workspaceId,
-        date: { gte: subDays(new Date(), 400) },
-      },
-      select: { id: true, amount: true, date: true, type: true },
-    });
-
-    let imported = 0;
-    let matched = 0;
-
+    const toInsert: Prisma.BankTransactionCreateManyInput[] = [];
     for (const row of rows) {
       const date = parseDate(row.date);
       const amount = Math.abs(parseFloat(row.amount.replace(',', '.')));
@@ -135,21 +135,21 @@ export async function POST(request: NextRequest) {
           t.date <= addDays(date, 3),
       );
 
-      await prisma.bankTransaction.create({
-        data: {
-          bankAccountId: bankAccount.id,
-          date,
-          description: row.description,
-          amount,
-          type,
-          status: candidate ? 'MATCHED' : 'UNMATCHED',
-          matchedTransactionId: candidate?.id,
-        },
+      toInsert.push({
+        bankAccountId: bankAccount.id,
+        date,
+        description: row.description,
+        amount,
+        type,
+        status: candidate ? 'MATCHED' : 'UNMATCHED',
+        matchedTransactionId: candidate?.id,
       });
-
-      imported++;
-      if (candidate) matched++;
     }
+
+    // Um único INSERT em lote (antes: um `create` por linha do arquivo).
+    if (toInsert.length > 0) await prisma.bankTransaction.createMany({ data: toInsert });
+    const imported = toInsert.length;
+    const matched = toInsert.filter((t) => t.status === 'MATCHED').length;
 
     return NextResponse.json({
       success: true,

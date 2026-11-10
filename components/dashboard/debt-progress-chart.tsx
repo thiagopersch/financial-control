@@ -16,7 +16,7 @@ function formatCurrency(value: number) {
 export function DebtProgressChart({ debts }: DebtProgressChartProps) {
   if (debts.length === 0) {
     return (
-      <Card className="border-none shadow-md">
+      <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold">Progresso das Dívidas</CardTitle>
         </CardHeader>
@@ -28,7 +28,7 @@ export function DebtProgressChart({ debts }: DebtProgressChartProps) {
   }
 
   return (
-    <Card className="border-none shadow-md">
+    <Card>
       <CardHeader>
         <CardTitle className="text-base font-semibold">Progresso das Dívidas</CardTitle>
       </CardHeader>

@@ -1,6 +1,6 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
+import { getPaidExpensesByCategory } from '@/lib/queries/budget-spent';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 import { parseMultiParam, toInFilter } from '@/lib/utils/filter-params';
 
@@ -25,7 +25,7 @@ export type BudgetDTO = {
 };
 
 export async function getBudgets(month?: number, year?: number): Promise<BudgetDTO[]> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return [];
 
   const targetMonth = month ?? new Date().getMonth() + 1;
@@ -43,28 +43,17 @@ export async function getBudgets(month?: number, year?: number): Promise<BudgetD
       },
     });
 
-    const startOfMonth = new Date(targetYear, targetMonth - 1, 1);
-    const endOfMonth = new Date(targetYear, targetMonth, 0, 23, 59, 59);
+    // Uma query agrupada por categoria (antes: um aggregate por orçamento).
+    const spentByCategory = await getPaidExpensesByCategory(
+      session.user.workspaceId,
+      targetMonth,
+      targetYear,
+      budgets.map((b) => b.categoryId),
+    );
 
     const budgetsWithSpent = await Promise.all(
       budgets.map(async (budget) => {
-        const spent = await prisma.transaction.aggregate({
-          where: {
-            workspaceId: session.user.workspaceId,
-            categoryId: budget.categoryId,
-            type: 'EXPENSE',
-            status: 'PAID',
-            date: {
-              gte: startOfMonth,
-              lte: endOfMonth,
-            },
-          },
-          _sum: {
-            amount: true,
-          },
-        });
-
-        const spentAmount = Number(spent._sum.amount || 0);
+        const spentAmount = spentByCategory.get(budget.categoryId) ?? 0;
         const budgetAmount = Number(budget.amount);
         const percentage = budgetAmount > 0 ? (spentAmount / budgetAmount) * 100 : 0;
         const remaining = budgetAmount - spentAmount;
@@ -145,28 +134,17 @@ export async function getBudgetsFiltered({
     prisma.budget.count({ where }),
   ]);
 
-  const startOfMonth = new Date(year, month - 1, 1);
-  const endOfMonth = new Date(year, month, 0, 23, 59, 59);
+  // Uma query agrupada por categoria (antes: um aggregate por orçamento).
+  const spentByCategory = await getPaidExpensesByCategory(
+    workspaceId,
+    month,
+    year,
+    budgets.map((b) => b.categoryId),
+  );
 
   const budgetsWithSpent = await Promise.all(
     budgets.map(async (budget) => {
-      const spent = await prisma.transaction.aggregate({
-        where: {
-          workspaceId,
-          categoryId: budget.categoryId,
-          type: 'EXPENSE',
-          status: 'PAID',
-          date: {
-            gte: startOfMonth,
-            lte: endOfMonth,
-          },
-        },
-        _sum: {
-          amount: true,
-        },
-      });
-
-      const spentAmount = Number(spent._sum.amount || 0);
+      const spentAmount = spentByCategory.get(budget.categoryId) ?? 0;
       const budgetAmount = Number(budget.amount);
       const percentage = budgetAmount > 0 ? (spentAmount / budgetAmount) * 100 : 0;
       const remaining = budgetAmount - spentAmount;
@@ -203,7 +181,7 @@ export async function getBudgetsFiltered({
 }
 
 export async function getBudgetById(id: string): Promise<BudgetDTO | null> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
 
   try {

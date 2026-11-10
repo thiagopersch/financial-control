@@ -98,19 +98,23 @@ export default function ReconciliationPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Conciliadas</CardTitle>
-              <Check className="h-4 w-4 text-green-500" />
+              <Check className="h-4 w-4 text-[var(--mui-palette-paid-main)]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-500">{stats.matched}</div>
+              <div className="text-2xl font-bold text-[var(--mui-palette-paid-main)]">
+                {stats.matched}
+              </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-yellow-500" />
+              <AlertTriangle className="h-4 w-4 text-[var(--mui-palette-pending-main)]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-500">{stats.pending}</div>
+              <div className="text-2xl font-bold text-[var(--mui-palette-pending-main)]">
+                {stats.pending}
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -160,9 +164,9 @@ export default function ReconciliationPage() {
                 >
                   <div className="flex items-center gap-4">
                     {tx.matched ? (
-                      <Check className="h-5 w-5 text-green-500" />
+                      <Check className="h-5 w-5 text-[var(--mui-palette-paid-main)]" />
                     ) : (
-                      <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                      <AlertTriangle className="h-5 w-5 text-[var(--mui-palette-pending-main)]" />
                     )}
                     <div>
                       <p className="font-medium">{tx.description}</p>
@@ -173,7 +177,7 @@ export default function ReconciliationPage() {
                   </div>
                   <div className="text-right">
                     <p
-                      className={`font-bold ${tx.type === 'INCOME' ? 'text-green-500' : 'text-red-500'}`}
+                      className={`font-bold ${tx.type === 'INCOME' ? 'text-[var(--mui-palette-income-main)]' : 'text-[var(--mui-palette-expense-main)]'}`}
                     >
                       {tx.type === 'INCOME' ? '+' : '-'} {formatCurrency(Math.abs(tx.amount))}
                     </p>

@@ -11,7 +11,7 @@ export interface CostCenterDTO {
   updatedAt: string;
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { fetcher } from '@/lib/queries/fetcher';
 
 const costCentersKey = '/api/cost-centers';
 

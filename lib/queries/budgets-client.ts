@@ -20,7 +20,7 @@ export interface BudgetDTO {
   status?: 'safe' | 'warning' | 'exceeded';
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { fetcher } from '@/lib/queries/fetcher';
 
 const budgetsKey = '/api/budgets';
 

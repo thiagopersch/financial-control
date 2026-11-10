@@ -2,7 +2,7 @@ import useSWR, { type SWRConfiguration } from 'swr';
 import type { PermissionProfileDTO } from '@/lib/queries/permission-profiles';
 import type { PermissionTreeNode } from '@/lib/services/permission-profiles';
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { fetcher } from '@/lib/queries/fetcher';
 
 const permissionProfilesKey = '/api/permission-profiles';
 const permissionCatalogKey = '/api/permission-profiles/catalog';

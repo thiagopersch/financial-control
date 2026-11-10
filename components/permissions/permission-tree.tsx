@@ -1,5 +1,7 @@
 'use client';
 
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -40,7 +42,8 @@ export function PermissionTree({
 }: PermissionTreeProps) {
   const [search, setSearch] = useState('');
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const term = normalizeSearchText(search);
+  // Filtro com debounce: a árvore só é recalculada 250ms depois da última tecla.
+  const term = normalizeSearchText(useDebouncedValue(search, 250));
 
   // A busca filtra por módulo, página ou ação, mas sempre mostra a página inteira:
   // as ações de um recurso dependem umas das outras.

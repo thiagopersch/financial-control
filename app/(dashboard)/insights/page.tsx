@@ -29,24 +29,24 @@ export default function InsightsPage() {
   const getInsightIcon = (type: string) => {
     switch (type) {
       case 'increase':
-        return <TrendingUp className="h-5 w-5 text-green-500" />;
+        return <TrendingUp className="h-5 w-5 text-[var(--mui-palette-income-main)]" />;
       case 'decrease':
-        return <TrendingDown className="h-5 w-5 text-red-500" />;
+        return <TrendingDown className="h-5 w-5 text-[var(--mui-palette-expense-main)]" />;
       case 'warning':
-        return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
+        return <AlertTriangle className="h-5 w-5 text-[var(--mui-palette-pending-main)]" />;
       default:
-        return <Sparkles className="h-5 w-5 text-blue-500" />;
+        return <Sparkles className="h-5 w-5 text-[var(--mui-palette-info-main)]" />;
     }
   };
 
   const getInsightBadge = (type: string) => {
     switch (type) {
       case 'increase':
-        return <Badge className="bg-green-500">Aumento</Badge>;
+        return <Badge variant="income">Aumento</Badge>;
       case 'decrease':
-        return <Badge className="bg-red-500">Redução</Badge>;
+        return <Badge variant="expense">Redução</Badge>;
       case 'warning':
-        return <Badge className="bg-yellow-500">Atenção</Badge>;
+        return <Badge variant="pending">Atenção</Badge>;
       default:
         return <Badge>Info</Badge>;
     }
@@ -117,14 +117,14 @@ export default function InsightsPage() {
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Saldo do Mês</CardTitle>
                 {summary?.netResult && summary.netResult >= 0 ? (
-                  <TrendingUp className="h-4 w-4 text-green-500" />
+                  <TrendingUp className="h-4 w-4 text-[var(--mui-palette-income-main)]" />
                 ) : (
-                  <TrendingDown className="h-4 w-4 text-red-500" />
+                  <TrendingDown className="h-4 w-4 text-[var(--mui-palette-expense-main)]" />
                 )}
               </CardHeader>
               <CardContent>
                 <div
-                  className={`text-2xl font-bold ${summary?.netResult && summary.netResult >= 0 ? 'text-green-500' : 'text-red-500'}`}
+                  className={`text-2xl font-bold ${summary?.netResult && summary.netResult >= 0 ? 'text-[var(--mui-palette-income-main)]' : 'text-[var(--mui-palette-expense-main)]'}`}
                 >
                   {formatCurrency(summary?.netResult || 0)}
                 </div>

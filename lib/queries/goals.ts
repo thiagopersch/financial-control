@@ -1,6 +1,5 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
 
 export type GoalDTO = {
   id: string;
@@ -17,7 +16,7 @@ export type GoalDTO = {
 };
 
 export async function getGoals(): Promise<GoalDTO[]> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return [];
 
   try {
@@ -50,7 +49,7 @@ export async function getGoals(): Promise<GoalDTO[]> {
 }
 
 export async function getGoalById(id: string): Promise<GoalDTO | null> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
 
   try {

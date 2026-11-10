@@ -1,34 +1,46 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
+import { paginationMeta, parsePagination } from '@/lib/utils/pagination';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const accounts = await prisma.account.findMany({
-      where: {
-        workspaceId: session.user.workspaceId,
-      },
-      orderBy: {
-        name: 'asc',
-      },
+    const { page, pageSize, skip, take, q } = parsePagination(request.nextUrl.searchParams, {
+      defaultPageSize: 100,
     });
+    const where = {
+      workspaceId: session.user.workspaceId,
+      ...(q ? { name: { contains: q, mode: 'insensitive' as const } } : {}),
+    };
 
-    return NextResponse.json({ accounts });
+    const [items, total] = await Promise.all([
+      prisma.account.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        skip,
+        take,
+      }),
+      prisma.account.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      accounts: items,
+      pagination: paginationMeta(page, pageSize, total),
+    });
   } catch (error) {
     console.error('Error fetching accounts:', error);
-    return NextResponse.json({ error: 'Erro ao buscar contas' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro ao buscar dados' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }

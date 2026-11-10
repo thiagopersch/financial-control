@@ -1,7 +1,7 @@
 import useSWR, { type SWRConfiguration } from 'swr';
 import type { PaymentMethodDTO } from '@/lib/queries/payment-methods';
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { fetcher } from '@/lib/queries/fetcher';
 
 const paymentMethodsKey = '/api/payment-methods';
 

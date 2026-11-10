@@ -21,7 +21,7 @@ function formatCurrency(value: number) {
 export function GoalProgressChart({ goals }: GoalProgressChartProps) {
   if (goals.length === 0) {
     return (
-      <Card className="border-none shadow-md">
+      <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold">Progresso de Metas</CardTitle>
         </CardHeader>
@@ -33,7 +33,7 @@ export function GoalProgressChart({ goals }: GoalProgressChartProps) {
   }
 
   return (
-    <Card className="border-none shadow-md">
+    <Card>
       <CardHeader>
         <CardTitle className="text-base font-semibold">Progresso de Metas</CardTitle>
       </CardHeader>
@@ -48,7 +48,10 @@ export function GoalProgressChart({ goals }: GoalProgressChartProps) {
                   {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
                 </span>
               </div>
-              <Progress value={percentage} className="h-2 [&>div]:bg-emerald-500" />
+              <Progress
+                value={percentage}
+                className="h-2 [&>div]:bg-[var(--mui-palette-paid-main)]"
+              />
               <p className="text-muted-foreground text-right text-xs">
                 {percentage.toFixed(0)}% concluído
               </p>

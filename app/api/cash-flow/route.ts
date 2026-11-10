@@ -1,62 +1,64 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
 import { getAccountsWithBalance } from '@/lib/queries/accounts';
 import { addDays, startOfDay, eachDayOfInterval, format, isWeekend } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
-    const days = parseInt(searchParams.get('days') || '30');
+    // Janela limitada (1–365 dias).
+    const days = Math.min(Math.max(parseInt(searchParams.get('days') || '30') || 30, 1), 365);
     const startDate = startOfDay(new Date());
     const endDate = addDays(startDate, days);
 
-    const accountsWithBalance = await getAccountsWithBalance();
-    const currentBalance = accountsWithBalance.reduce((sum, account) => sum + account.balance, 0);
+    const workspaceId = session.user.workspaceId;
+    const txSelect = { type: true, amount: true, date: true, dueDate: true } as const;
 
-    const paidTransactions = await prisma.transaction.findMany({
-      where: {
-        workspaceId: session.user.workspaceId,
-        status: 'PAID',
-        date: {
-          gte: startDate,
-          lte: endDate,
+    // Consultas independentes em paralelo (antes: 5 awaits em sequência) e só
+    // com as colunas usadas no cálculo.
+    const [
+      accountsWithBalance,
+      paidTransactions,
+      pendingTransactions,
+      recurringTransactions,
+      scheduledTransactions,
+    ] = await Promise.all([
+      getAccountsWithBalance(),
+      prisma.transaction.findMany({
+        where: { workspaceId, status: 'PAID', date: { gte: startDate, lte: endDate } },
+        select: txSelect,
+      }),
+      prisma.transaction.findMany({
+        where: {
+          workspaceId,
+          status: { in: ['PENDING', 'OVERDUE'] },
+          OR: [
+            { dueDate: { gte: startDate, lte: endDate } },
+            { date: { gte: startDate, lte: endDate } },
+          ],
         },
-      },
-    });
-
-    const pendingTransactions = await prisma.transaction.findMany({
-      where: {
-        workspaceId: session.user.workspaceId,
-        status: { in: ['PENDING', 'OVERDUE'] },
-        OR: [
-          { dueDate: { gte: startDate, lte: endDate } },
-          { date: { gte: startDate, lte: endDate } },
-        ],
-      },
-    });
-
-    const recurringTransactions = await prisma.recurringTransaction.findMany({
-      where: {
-        workspaceId: session.user.workspaceId,
-        startDate: { lte: endDate },
-        OR: [{ endDate: null }, { endDate: { gte: startDate } }],
-      },
-    });
-
-    const scheduledTransactions = await prisma.scheduledTransaction.findMany({
-      where: {
-        workspaceId: session.user.workspaceId,
-        isActive: true,
-        nextRun: { lte: endDate },
-      },
-    });
+        select: txSelect,
+      }),
+      prisma.recurringTransaction.findMany({
+        where: {
+          workspaceId,
+          startDate: { lte: endDate },
+          OR: [{ endDate: null }, { endDate: { gte: startDate } }],
+        },
+        select: { startDate: true, endDate: true, type: true, amount: true, frequency: true },
+      }),
+      prisma.scheduledTransaction.findMany({
+        where: { workspaceId, isActive: true, nextRun: { lte: endDate } },
+        select: { nextRun: true, type: true, amount: true },
+      }),
+    ]);
+    const currentBalance = accountsWithBalance.reduce((sum, account) => sum + account.balance, 0);
 
     const chartData: Array<{
       date: string;

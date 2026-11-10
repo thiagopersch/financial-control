@@ -1,7 +1,6 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
 import { type SupplierPersonType } from '@prisma/client';
-import { getServerSession } from 'next-auth';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 
 export type SupplierDTO = {
@@ -44,7 +43,7 @@ function toDTO(supplier: {
 }
 
 export async function getSuppliers(): Promise<SupplierDTO[]> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return [];
 
   try {
@@ -75,7 +74,7 @@ export type GetSuppliersParams = {
 export async function getSuppliersPaginated(
   params: GetSuppliersParams = {},
 ): Promise<{ suppliers: SupplierDTO[]; totalCount: number }> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return { suppliers: [], totalCount: 0 };
 
   const { q, personType, isActive, page = 1, pageSize = DEFAULT_PAGE_SIZE } = params;
@@ -117,7 +116,7 @@ export async function getSuppliersPaginated(
 }
 
 export async function getSupplierById(id: string): Promise<SupplierDTO | null> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
 
   try {

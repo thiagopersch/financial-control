@@ -69,9 +69,7 @@ function BudgetCard({ budget, showPeriod = false, onEdit, onDelete }: BudgetCard
   };
 
   return (
-    <Card
-      className={cn('from-background to-muted/20 bg-linear-to-br transition-all hover:shadow-md')}
-    >
+    <Card className="from-background to-muted/20 hover-elevate bg-linear-to-br">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
@@ -138,30 +136,34 @@ function BudgetCard({ budget, showPeriod = false, onEdit, onDelete }: BudgetCard
             className={cn(
               'h-2',
               isOver
-                ? '[&>div]:bg-rose-500'
+                ? '[&>div]:bg-[var(--mui-palette-overdue-main)]'
                 : isWarning
-                  ? '[&>div]:bg-amber-500'
-                  : '[&>div]:bg-emerald-500',
+                  ? '[&>div]:bg-[var(--mui-palette-pending-main)]'
+                  : '[&>div]:bg-[var(--mui-palette-paid-main)]',
             )}
           />
           <div className="flex items-center justify-between text-xs font-bold tracking-tight uppercase">
             <span
               className={cn(
-                isOver ? 'text-rose-600' : isWarning ? 'text-amber-600' : 'text-emerald-600',
+                isOver
+                  ? 'text-[var(--mui-palette-overdue-main)]'
+                  : isWarning
+                    ? 'text-[var(--mui-palette-pending-main)]'
+                    : 'text-[var(--mui-palette-paid-main)]',
               )}
             >
               {budget.percent?.toFixed(0) || 0}%
             </span>
             {isOver ? (
-              <span className="flex items-center gap-1 text-rose-600">
+              <span className="flex items-center gap-1 text-[var(--mui-palette-overdue-main)]">
                 <AlertCircle size={10} /> Estourado
               </span>
             ) : isWarning ? (
-              <span className="flex items-center gap-1 text-amber-600">
+              <span className="flex items-center gap-1 text-[var(--mui-palette-pending-main)]">
                 <AlertCircle size={10} /> Alerta
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-emerald-600">
+              <span className="flex items-center gap-1 text-[var(--mui-palette-paid-main)]">
                 <CheckCircle2 size={10} /> Ok
               </span>
             )}
@@ -199,7 +201,7 @@ export function BudgetWidget({
   if (budgets.length === 0) {
     return (
       <Link href="/budgets" className="block h-full w-full">
-        <Card className="h-full w-full cursor-pointer transition-all hover:shadow-md">
+        <Card className="hover-elevate h-full w-full cursor-pointer">
           <CardHeader>
             <CardTitle>Orçamentos</CardTitle>
             <CardDescription>Acompanhe seus limites por categoria.</CardDescription>

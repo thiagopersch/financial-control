@@ -39,7 +39,11 @@ export function DebtsCard({ debt, onView, onEdit, onDelete }: DebtsCardProps) {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center gap-2">
           <AlertTriangle
-            className={`h-5 w-5 ${debt.status === 'ACTIVE' ? 'text-red-500' : 'text-gray-400'}`}
+            className={`h-5 w-5 ${
+              debt.status === 'ACTIVE'
+                ? 'text-[var(--mui-palette-expense-main)]'
+                : 'text-muted-foreground'
+            }`}
           />
           <CardTitle className="text-lg">{debt.name}</CardTitle>
           <Badge variant={DEBT_STATUS_BADGE_VARIANT[debt.status]}>
@@ -63,7 +67,7 @@ export function DebtsCard({ debt, onView, onEdit, onDelete }: DebtsCardProps) {
               Editar
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onDelete(debt)} className="text-red-600">
+            <DropdownMenuItem onClick={() => onDelete(debt)} variant="destructive">
               <Trash2 className="mr-2 h-4 w-4" />
               Excluir
             </DropdownMenuItem>
@@ -108,7 +112,9 @@ export function DebtsCard({ debt, onView, onEdit, onDelete }: DebtsCardProps) {
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Falta Pagar:</span>
-            <span className="font-medium text-red-500">{formatCurrency(debtRemaining)}</span>
+            <span className="font-medium text-[var(--mui-palette-expense-main)]">
+              {formatCurrency(debtRemaining)}
+            </span>
           </div>
           {debt.interestRate && (
             <div className="flex justify-between text-sm">

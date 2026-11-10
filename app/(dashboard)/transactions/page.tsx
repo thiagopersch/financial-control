@@ -1,8 +1,8 @@
 import { getPageFilters } from '@/lib/queries/page-filters';
 import { TransactionsContent } from '@/app/(dashboard)/transactions/components/transactions-content';
-import { authOptions } from '@/lib/auth-options';
-import { autoMoveOverdueTransactions } from '@/lib/actions/transactions';
+import { getSession } from '@/lib/auth/session';
 import { hasPermission } from '@/lib/permissions/has-permission';
+import { cachedForWorkspace } from '@/lib/cache/redis';
 import prisma from '@/lib/prisma';
 import { getTransactionCountsByYear } from '@/lib/queries/dashboard';
 import { getCostCenters } from '@/lib/queries/cost-centers';
@@ -14,7 +14,6 @@ import { getWorkspaceUsers } from '@/lib/queries/users';
 import { parsePageSize } from '@/lib/constants/pagination';
 import { compareTransactionsDefault } from '@/lib/utils/transaction-order';
 import { summarizeTransactions } from '@/lib/utils/transaction-totals';
-import { getServerSession } from 'next-auth';
 
 export default async function TransactionsPage({
   searchParams: searchParamsPromise,
@@ -39,79 +38,85 @@ export default async function TransactionsPage({
     ...(await getPageFilters('/transactions')),
     ...(await searchParamsPromise),
   };
-  const session = await getServerSession(authOptions);
-
-  await autoMoveOverdueTransactions();
-
-  const transactionCounts = await getTransactionCountsByYear();
-
+  const session = await getSession();
   if (!session) return null;
 
-  const where = buildTransactionWhere(searchParams, session.user.workspaceId);
+  const workspaceId = session.user.workspaceId;
+  const where = buildTransactionWhere(searchParams, workspaceId);
 
   const pageSize = parsePageSize(searchParams.pageSize);
   const page = Math.max(1, parseInt(searchParams.page || '1', 10) || 1);
 
+  // Tudo em paralelo. A ordenação padrão (pagas por último, tipo, valor,
+  // vencimento…) não é expressável em `orderBy`, então buscamos só as colunas de
+  // ordenação/totais de todas as linhas filtradas e os detalhes (com relações)
+  // apenas da página atual — antes eram todas as linhas com 4 relações.
   const [
-    allTransactions,
+    sortKeys,
+    transactionCounts,
     categories,
     suppliers,
-    accounts,
-    costCenters,
     accountsWithBalance,
+    costCenters,
     paymentMethods,
     creditCards,
     users,
   ] = await Promise.all([
     prisma.transaction.findMany({
       where,
-      include: {
-        category: true,
-        supplier: true,
-        account: true,
-        paidBy: { select: { id: true, name: true, email: true } },
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        amount: true,
+        date: true,
+        dueDate: true,
+        competence: true,
       },
     }),
-    prisma.category.findMany({
-      where: { workspaceId: session.user.workspaceId },
-      orderBy: { name: 'asc' },
-    }),
-    prisma.supplier.findMany({
-      where: { workspaceId: session.user.workspaceId },
-      orderBy: { name: 'asc' },
-    }),
-    prisma.account.findMany({
-      where: { workspaceId: session.user.workspaceId },
-      orderBy: { name: 'asc' },
-    }),
-    getCostCenters(),
+    getTransactionCountsByYear(),
+    cachedForWorkspace(workspaceId, 'categories', ['tx-page-categories'], 300, () =>
+      prisma.category.findMany({ where: { workspaceId }, orderBy: { name: 'asc' } }),
+    ),
+    cachedForWorkspace(workspaceId, 'suppliers', ['tx-page-suppliers'], 300, () =>
+      prisma.supplier.findMany({ where: { workspaceId }, orderBy: { name: 'asc' } }),
+    ),
     getAccountsWithBalance(),
+    getCostCenters(),
     getPaymentMethods(),
     getCreditCards(),
     getWorkspaceUsers(),
   ]);
 
-  const sortedTransactions = [...allTransactions].sort(compareTransactionsDefault);
-
-  const totalCount = sortedTransactions.length;
+  const sortedKeys = [...sortKeys].sort(compareTransactionsDefault);
+  const totalCount = sortedKeys.length;
   // Totais de todas as transações filtradas (não só da página atual).
-  const totals = summarizeTransactions(sortedTransactions);
+  const totals = summarizeTransactions(sortedKeys);
 
-  const pageTransactions = sortedTransactions.slice((page - 1) * pageSize, page * pageSize);
+  const pageIds = sortedKeys.slice((page - 1) * pageSize, page * pageSize).map((t) => t.id);
+  const pageRows = pageIds.length
+    ? await prisma.transaction.findMany({
+        where: { id: { in: pageIds }, workspaceId },
+        include: {
+          category: true,
+          supplier: true,
+          account: true,
+          paidBy: { select: { id: true, name: true, email: true } },
+        },
+      })
+    : [];
+  const rowById = new Map(pageRows.map((row) => [row.id, row]));
 
-  const transactions = pageTransactions.map((transaction) => ({
-    ...transaction,
-    amount: Number(transaction.amount),
-    account: transaction.account
-      ? {
-          ...transaction.account,
-        }
-      : null,
-  }));
+  const transactions = pageIds
+    .map((id) => rowById.get(id))
+    .filter((row): row is NonNullable<typeof row> => !!row)
+    .map((transaction) => ({
+      ...transaction,
+      amount: Number(transaction.amount),
+    }));
 
-  const formattedAccounts = accounts.map((a) => ({
-    ...a,
-  }));
+  // Mesmas contas do saldo (evita buscar as contas duas vezes).
+  const formattedAccounts = accountsWithBalance.map(({ balance: _balance, ...account }) => account);
 
   return (
     <div className="animate-in fade-in space-y-6 duration-300">

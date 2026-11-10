@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { ChartSkeleton } from '@/components/ui/chart-skeleton';
+import { useState } from 'react';
+import { useForecast } from '@/lib/queries/forecast';
 import { TrendingUp, TrendingDown, BarChart3, Calendar } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -33,34 +35,15 @@ interface CategoryForecast {
 }
 
 export default function ForecastPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [chartData, setChartData] = useState<ForecastData[]>([]);
-  const [categoryForecast, setCategoryForecast] = useState<CategoryForecast[]>([]);
   const [period, setPeriod] = useState<'3' | '6'>('3');
 
   usePersistedPageFilters('forecast', { period }, (saved) => {
     if (saved.period) setPeriod(saved.period as typeof period);
   });
 
-  useEffect(() => {
-    fetchForecast();
-  }, [period]);
-
-  const fetchForecast = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/forecast?months=${period}`);
-      if (response.ok) {
-        const data = await response.json();
-        setChartData(data.chartData || []);
-        setCategoryForecast(data.categoryForecast || []);
-      }
-    } catch (error) {
-      console.error('Error fetching forecast:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { chartData, categoryForecast, isLoading } = useForecast<ForecastData, CategoryForecast>(
+    period,
+  );
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', {
@@ -140,9 +123,7 @@ export default function ForecastPage() {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="flex h-[400px] items-center justify-center">
-                  <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
-                </div>
+                <ChartSkeleton />
               ) : chartData.length === 0 ? (
                 <div className="text-muted-foreground flex h-[400px] items-center justify-center">
                   Dados insuficientes para previsão

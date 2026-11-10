@@ -1,13 +1,15 @@
 'use server';
 
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import { getFirstAllowedRoute } from '@/lib/permissions/first-allowed-route';
-import { loadPermissionsForUser } from '@/lib/permissions/load-permissions';
+import {
+  invalidateUserPermissions,
+  loadPermissionsForUser,
+} from '@/lib/permissions/load-permissions';
 import prisma from '@/lib/prisma';
 import { createAuditLog } from '@/lib/services/audit';
 import { passwordSchema, resetPasswordSchema } from '@/lib/validations/password';
 import bcrypt from 'bcryptjs';
-import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 
@@ -25,7 +27,7 @@ const profileSchema = z
   });
 
 export async function updateProfile(data: z.infer<typeof profileSchema>) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return { success: false, error: 'Não autorizado' };
 
   try {
@@ -64,7 +66,7 @@ export async function updateProfile(data: z.infer<typeof profileSchema>) {
 }
 
 export async function updatePassword(data: { currentPassword: string; newPassword: string }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return { success: false, error: 'Não autorizado' };
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
@@ -93,7 +95,7 @@ export async function completeForcedPasswordReset(data: {
   confirmPassword: string;
 }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) return { success: false as const, error: 'Sessão inválida' };
 
     const parsed = resetPasswordSchema.safeParse(data);
@@ -127,6 +129,7 @@ export async function completeForcedPasswordReset(data: {
         mustChangePassword: false,
       },
     });
+    await invalidateUserPermissions(user.id);
 
     await createAuditLog({ action: 'COMPLETE_PASSWORD_RESET', entity: 'User', entityId: user.id });
 

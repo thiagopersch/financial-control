@@ -5,7 +5,9 @@ import {
   stripHtml,
 } from '@/lib/notification-templates/interpolate';
 import { renderBlockTreeToHtml, resolveEmailBodyHtml } from '@/lib/notification-templates/render';
+import { logger } from '@/lib/logger';
 import prisma from '@/lib/prisma';
+import { enqueue } from '@/lib/queue';
 import { createSystemAuditLog } from '@/lib/services/audit';
 import { buildReport, detectDataSources } from '@/lib/services/email-reports';
 import { computeNextEmailRun } from '@/lib/services/email-schedule';
@@ -164,46 +166,69 @@ async function notifyFailure(schedule: ScheduledEmail, message: string) {
 }
 
 /**
- * Sends every active schedule whose nextRun is due. Each schedule is claimed
- * atomically (compare-and-set on nextRun) before sending, so concurrent cron
- * calls / dashboard `after()` hooks never send the same occurrence twice.
+ * Reserva (claim) todo agendamento ativo cujo nextRun venceu: compare-and-set
+ * no nextRun, então crons/gatilhos concorrentes nunca enviam a mesma
+ * ocorrência duas vezes. Os claims rodam em paralelo (linhas independentes).
  */
-export async function processDueScheduledEmails(now = new Date()) {
-  const summary = { processed: 0, sent: 0, skipped: 0, failed: 0 };
-  try {
-    const due = await prisma.scheduledEmail.findMany({
-      where: { isActive: true, nextRun: { lte: now } },
-      include: { template: true },
-      orderBy: { nextRun: 'asc' },
-      take: 100,
-    });
+export async function claimDueScheduledEmails(now = new Date()) {
+  const due = await prisma.scheduledEmail.findMany({
+    where: { isActive: true, nextRun: { lte: now } },
+    orderBy: { nextRun: 'asc' },
+    take: 100,
+  });
 
-    for (const schedule of due) {
+  const claims = await Promise.all(
+    due.map(async (schedule) => {
       const nextRun = computeNextEmailRun(schedule, now, schedule.nextRun);
       const claimed = await prisma.scheduledEmail.updateMany({
         where: { id: schedule.id, nextRun: schedule.nextRun, isActive: true },
         data: { nextRun },
       });
-      if (claimed.count === 0) continue;
+      return claimed.count > 0 ? { id: schedule.id, nextRun } : null;
+    }),
+  );
+  return claims.filter((c): c is { id: string; nextRun: Date } => c !== null);
+}
 
-      summary.processed++;
-      const result = await runScheduledEmail(schedule);
-      if (result.status === 'SENT') summary.sent++;
-      else if (result.status === 'SKIPPED') summary.skipped++;
-      else summary.failed++;
+/** Envia um agendamento já reservado e registra a auditoria do cron. */
+export async function runClaimedScheduledEmail(scheduledEmailId: string, nextRun: Date) {
+  const schedule = await prisma.scheduledEmail.findUnique({
+    where: { id: scheduledEmailId },
+    include: { template: true },
+  });
+  if (!schedule) return { status: 'SKIPPED' as const };
 
-      await createSystemAuditLog({
-        workspaceId: schedule.workspaceId,
-        userId: schedule.createdById,
-        action: 'RUN_SCHEDULED_EMAIL',
-        entity: 'ScheduledEmail',
-        entityId: schedule.id,
-        newValue: { status: result.status, error: result.error, nextRun },
-      });
-    }
+  const result = await runScheduledEmail(schedule);
+  await createSystemAuditLog({
+    workspaceId: schedule.workspaceId,
+    userId: schedule.createdById,
+    action: 'RUN_SCHEDULED_EMAIL',
+    entity: 'ScheduledEmail',
+    entityId: schedule.id,
+    newValue: { status: result.status, error: result.error, nextRun },
+  });
+  return result;
+}
+
+/**
+ * Reserva os agendamentos vencidos e enfileira um job por e-mail: cada envio
+ * roda isolado (em paralelo, com retry da fila) em vez de um loop sequencial.
+ */
+export async function processDueScheduledEmails(now = new Date()) {
+  try {
+    const claimed = await claimDueScheduledEmails(now);
+    await Promise.all(
+      claimed.map(({ id, nextRun }) =>
+        enqueue('scheduled-emails.run', {
+          scheduledEmailId: id,
+          nextRun: nextRun.toISOString(),
+        }),
+      ),
+    );
+    logger.info('scheduled_emails.enqueued', { count: claimed.length });
+    return { enqueued: claimed.length };
   } catch (error) {
-    console.error('Error processing scheduled emails:', error);
+    logger.error('scheduled_emails.process_failed', { error });
+    return { enqueued: 0 };
   }
-  console.info(JSON.stringify({ event: 'scheduled_emails_processed', ...summary }));
-  return summary;
 }

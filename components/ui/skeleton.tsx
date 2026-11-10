@@ -1,13 +1,27 @@
-import { cn } from '@/lib/utils';
+'use client';
 
-function Skeleton({ className, ...props }: React.ComponentProps<'div'>) {
+import MuiSkeleton from '@mui/material/Skeleton';
+
+/**
+ * Placeholder de carregamento (MUI `Skeleton`, animação "wave"). O tamanho vem
+ * do `className` (ex.: `h-4 w-32`) como antes.
+ */
+export function Skeleton({
+  className,
+  variant = 'rounded',
+  style,
+}: {
+  className?: string;
+  variant?: 'rounded' | 'rectangular' | 'circular' | 'text';
+  style?: React.CSSProperties;
+}) {
   return (
-    <div
+    <MuiSkeleton
       data-slot="skeleton"
-      className={cn('bg-muted animate-pulse rounded-md', className)}
-      {...props}
+      variant={variant}
+      className={className}
+      style={style}
+      sx={{ transform: 'none', maxWidth: '100%' }}
     />
   );
 }
-
-export { Skeleton };

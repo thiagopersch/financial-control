@@ -25,7 +25,7 @@ export function ActionsAccounts({
         return (
           <Card
             key={account.id}
-            className="cursor-pointer overflow-hidden rounded-tl-2xl rounded-bl-2xl border-l-4 transition-all ease-in-out hover:border-l-8 hover:shadow-md"
+            className="hover-elevate cursor-pointer overflow-hidden rounded-tl-2xl rounded-bl-2xl border-l-4 transition-all ease-in-out hover:border-l-8"
             style={{ borderLeftColor: account.color || '#000000' }}
             onClick={() => openEdit(account)}
           >

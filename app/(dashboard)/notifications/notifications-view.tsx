@@ -4,7 +4,7 @@ import { NotificationDetailDialog } from '@/components/notifications/notificatio
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
-import { markAllNotificationsAsRead, markNotificationAsRead } from '@/lib/actions/notifications';
+import { TableSkeleton } from '@/components/ui/page-skeletons';
 import { type Notification, useNotifications } from '@/lib/queries/notifications';
 import type { ColumnDef } from '@tanstack/react-table';
 import { formatDistanceToNow } from 'date-fns';
@@ -12,30 +12,39 @@ import { ptBR } from 'date-fns/locale';
 import { AlertCircle, AlertTriangle, Bell, CheckCheck, Info } from 'lucide-react';
 import { useState } from 'react';
 
-const LIST_LIMIT = 300;
-
 const levelConfig = {
-  INFO: { icon: Info, label: 'Info', className: 'text-sky-500' },
-  WARNING: { icon: AlertTriangle, label: 'Aviso', className: 'text-amber-500' },
-  CRITICAL: { icon: AlertCircle, label: 'Crítico', className: 'text-rose-500' },
+  INFO: { icon: Info, label: 'Info', className: 'text-[var(--mui-palette-info-main)]' },
+  WARNING: {
+    icon: AlertTriangle,
+    label: 'Aviso',
+    className: 'text-[var(--mui-palette-pending-main)]',
+  },
+  CRITICAL: {
+    icon: AlertCircle,
+    label: 'Crítico',
+    className: 'text-[var(--mui-palette-overdue-main)]',
+  },
 };
 
 export function NotificationsView() {
-  const { notifications, unreadCount, refresh, isLoading } = useNotifications(LIST_LIMIT);
+  const {
+    notifications,
+    unreadCount,
+    isLoading,
+    hasMore,
+    loadMore,
+    isLoadingMore,
+    markRead,
+    markAllRead,
+  } = useNotifications();
   const [selected, setSelected] = useState<Notification | null>(null);
 
-  const handleOpenNotification = async (notification: Notification) => {
+  const handleOpenNotification = (notification: Notification) => {
     setSelected(notification);
-    if (!notification.isRead) {
-      await markNotificationAsRead(notification.id);
-      refresh();
-    }
+    if (!notification.isRead) void markRead(notification.id);
   };
 
-  const handleMarkAllRead = async () => {
-    await markAllNotificationsAsRead();
-    refresh();
-  };
+  const handleMarkAllRead = () => void markAllRead();
 
   const columns: ColumnDef<Notification>[] = [
     {
@@ -54,7 +63,7 @@ export function NotificationsView() {
         <div className="flex items-center gap-2">
           <span className="font-medium">{row.original.title}</span>
           {!row.original.isRead && (
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" />
+            <span className="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" />
           )}
         </div>
       ),
@@ -73,7 +82,7 @@ export function NotificationsView() {
         row.original.isRead ? (
           <Badge variant="secondary">Lida</Badge>
         ) : (
-          <Badge className="bg-sky-500/90 hover:bg-sky-500">Não lida</Badge>
+          <Badge variant="default">Não lida</Badge>
         ),
     },
     {
@@ -105,7 +114,9 @@ export function NotificationsView() {
         )}
       </div>
 
-      {!isLoading && notifications.length === 0 ? (
+      {isLoading ? (
+        <TableSkeleton />
+      ) : notifications.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12">
           <Bell className="text-muted-foreground mb-4 h-12 w-12" />
           <h3 className="text-lg font-semibold">Nenhuma notificação</h3>
@@ -119,6 +130,22 @@ export function NotificationsView() {
           data={notifications}
           emptyMessage="Nenhuma notificação encontrada."
           onRowClick={handleOpenNotification}
+          pageSize={50}
+          footer={
+            hasMore ? (
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => loadMore()}
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore ? 'Carregando...' : 'Carregar notificações mais antigas'}
+                </Button>
+              </div>
+            ) : undefined
+          }
         />
       )}
 

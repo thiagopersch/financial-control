@@ -16,8 +16,11 @@ export function getCategoricalColor(index: number): string {
 }
 
 // Fixed status palette — reserved for status meaning, never reused for series identity.
+// Mantido em sincronia manual com `paid`/`pending`/`overdue` (modo claro) em
+// `components/theme/theme.ts`: este arquivo roda no servidor (dados de gráfico
+// vêm de `lib/queries/*`) e não pode importar o tema MUI, que é `'use client'`.
 export const CHART_STATUS_COLORS = {
-  PAID: '#0ca30c',
-  PENDING: '#fab219',
-  OVERDUE: '#d03b3b',
+  PAID: '#007a55', // theme.palette.paid.main (light)
+  PENDING: '#b45309', // theme.palette.pending.main (light)
+  OVERDUE: '#e7000b', // theme.palette.overdue.main (light)
 } as const;

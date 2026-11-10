@@ -93,14 +93,7 @@ export function SuppliersList({
       accessorKey: 'isActive',
       header: 'Status',
       cell: ({ row }) => (
-        <Badge
-          variant="secondary"
-          className={
-            row.original.isActive
-              ? 'border-none bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-              : 'border-none bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-          }
-        >
+        <Badge variant={row.original.isActive ? 'paid' : 'neutral'}>
           {row.original.isActive ? 'Ativo' : 'Inativo'}
         </Badge>
       ),

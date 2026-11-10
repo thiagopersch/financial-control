@@ -20,19 +20,13 @@ interface DebtSummaryTabProps {
   paymentMethods?: { id: string; name: string }[];
 }
 
-const statusBadgeMap: Record<TransactionStatus, { label: string; className: string }> = {
-  PAID: {
-    label: 'Pago',
-    className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  },
-  PENDING: {
-    label: 'Pendente',
-    className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  },
-  OVERDUE: {
-    label: 'Atrasado',
-    className: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
-  },
+const statusBadgeMap: Record<
+  TransactionStatus,
+  { label: string; color: 'paid' | 'pending' | 'overdue' }
+> = {
+  PAID: { label: 'Pago', color: 'paid' },
+  PENDING: { label: 'Pendente', color: 'pending' },
+  OVERDUE: { label: 'Atrasado', color: 'overdue' },
 };
 
 export function DebtSummaryTab({
@@ -169,13 +163,13 @@ export function DebtSummaryTab({
           <h3 className="text-muted-foreground text-sm font-semibold uppercase">Progresso</h3>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground text-sm">Valor pago</span>
-            <span className="font-medium text-emerald-600 dark:text-emerald-400">
+            <span className="font-medium text-[var(--mui-palette-paid-main)]">
               {formatCurrency(debtPaid)}
             </span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground text-sm">Valor restante</span>
-            <span className="font-medium text-red-500">
+            <span className="font-medium text-[var(--mui-palette-expense-main)]">
               {formatCurrency(debt ? debt.currentValue : initialValueNumber)}
             </span>
           </div>
@@ -214,7 +208,7 @@ export function DebtSummaryTab({
                   {format(item.dueDate, 'dd/MM/yyyy', { locale: ptBR })}
                 </span>
                 <span className="w-24 text-right font-medium">{formatCurrency(item.amount)}</span>
-                <Badge variant="secondary" className={statusBadgeMap[item.status].className}>
+                <Badge variant={statusBadgeMap[item.status].color}>
                   {statusBadgeMap[item.status].label}
                 </Badge>
               </div>
@@ -224,7 +218,11 @@ export function DebtSummaryTab({
         {preview.items.length > 0 && (
           <div className="text-muted-foreground flex justify-between border-t pt-2 text-xs">
             <span>Total das parcelas</span>
-            <span className={preview.sum === preview.total ? '' : 'text-amber-600'}>
+            <span
+              className={
+                preview.sum === preview.total ? '' : 'text-[var(--mui-palette-pending-main)]'
+              }
+            >
               {formatCurrency(preview.sum)}
             </span>
           </div>

@@ -1,19 +1,19 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
 import { startOfMonth, subMonths, addMonths, format, eachMonthOfInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
-    const months = parseInt(searchParams.get('months') || '3');
+    // Janela limitada (1–24 meses): `months` vinha sem teto da query string.
+    const months = Math.min(Math.max(parseInt(searchParams.get('months') || '3') || 3, 1), 24);
     const forecastMonths = months;
 
     const now = new Date();
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         type: 'EXPENSE',
         date: { gte: historicalStart, lte: historicalEnd },
       },
-      include: { category: true },
+      select: { amount: true, date: true, category: { select: { name: true } } },
     });
 
     const monthInterval = eachMonthOfInterval({ start: historicalStart, end: historicalEnd });

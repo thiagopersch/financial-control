@@ -92,7 +92,10 @@ export default function RegisterPage() {
   const isBusy = isLoading || isRedirecting;
 
   return (
-    <Card className="relative border-none bg-white/80 shadow-2xl backdrop-blur-xl dark:bg-slate-900/80">
+    <Card
+      elevation={24}
+      className="relative bg-[rgba(var(--mui-palette-background-paperChannel)/0.8)] backdrop-blur-xl"
+    >
       {isRedirecting && (
         <div className="bg-background/80 absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl backdrop-blur-sm">
           <Loader2 className="text-primary h-8 w-8 animate-spin" />
@@ -122,7 +125,7 @@ export default function RegisterPage() {
                       placeholder="Minha Empresa Ltda"
                       disabled={isBusy}
                       maxLength={100}
-                      className="bg-white/50 dark:bg-slate-800/50"
+                      className="bg-[rgba(var(--mui-palette-background-paperChannel)/0.5)]"
                       {...field}
                     />
                   </FormControl>
@@ -142,7 +145,7 @@ export default function RegisterPage() {
                       type="text"
                       disabled={isBusy}
                       maxLength={100}
-                      className="bg-white/50 dark:bg-slate-800/50"
+                      className="bg-[rgba(var(--mui-palette-background-paperChannel)/0.5)]"
                       {...field}
                     />
                   </FormControl>
@@ -164,7 +167,7 @@ export default function RegisterPage() {
                       type="email"
                       disabled={isBusy}
                       maxLength={160}
-                      className="bg-white/50 dark:bg-slate-800/50"
+                      className="bg-[rgba(var(--mui-palette-background-paperChannel)/0.5)]"
                       {...field}
                     />
                   </FormControl>
@@ -185,7 +188,7 @@ export default function RegisterPage() {
                       placeholder="••••••••"
                       disabled={isBusy}
                       maxLength={32}
-                      className="bg-white/50 dark:bg-slate-800/50"
+                      className="bg-[rgba(var(--mui-palette-background-paperChannel)/0.5)]"
                       {...field}
                     />
                   </FormControl>

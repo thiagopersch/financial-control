@@ -1,53 +1,95 @@
 'use client';
 
+import { Slot } from '@/components/ui/slot';
+import MuiTooltip from '@mui/material/Tooltip';
 import * as React from 'react';
-import { Tooltip as TooltipPrimitive } from 'radix-ui';
 
-import { cn } from '@/lib/utils';
+/**
+ * Dica (MUI `Tooltip`) com a API composta de antes:
+ * `<Tooltip><TooltipTrigger asChild>…</TooltipTrigger><TooltipContent>…</TooltipContent></Tooltip>`.
+ */
+type Side = 'top' | 'bottom' | 'left' | 'right';
 
-function TooltipProvider({
-  delayDuration = 0,
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
-  return (
-    <TooltipPrimitive.Provider
-      data-slot="tooltip-provider"
-      delayDuration={delayDuration}
-      {...props}
-    />
-  );
-}
-
-function Tooltip({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
-}
-
-function TooltipTrigger({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
-}
-
-function TooltipContent({
-  className,
-  sideOffset = 0,
+/** Compat: o MUI não precisa de provider para tooltips. */
+export function TooltipProvider({
   children,
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Content>) {
-  return (
-    <TooltipPrimitive.Portal>
-      <TooltipPrimitive.Content
-        data-slot="tooltip-content"
-        sideOffset={sideOffset}
-        className={cn(
-          'bg-foreground text-background data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 z-50 inline-flex w-fit max-w-xs origin-(--radix-tooltip-content-transform-origin) items-center gap-1.5 rounded-md px-3 py-1.5 text-xs has-data-[slot=kbd]:pr-1.5 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm',
-          className,
-        )}
-        {...props}
-      >
-        {children}
-        <TooltipPrimitive.Arrow className="bg-foreground fill-foreground z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px]" />
-      </TooltipPrimitive.Content>
-    </TooltipPrimitive.Portal>
-  );
+}: {
+  children?: React.ReactNode;
+  delayDuration?: number;
+}) {
+  return <>{children}</>;
 }
 
-export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger };
+export function TooltipTrigger(_props: React.ComponentProps<'button'> & { asChild?: boolean }) {
+  return null;
+}
+
+export function TooltipContent(
+  _props: React.ComponentProps<'div'> & {
+    side?: Side;
+    sideOffset?: number;
+    align?: string;
+    hidden?: boolean;
+  },
+) {
+  return null;
+}
+
+export function Tooltip({
+  children,
+  open,
+  onOpenChange,
+  delayDuration,
+}: {
+  children?: React.ReactNode;
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  delayDuration?: number;
+}) {
+  let trigger: React.ReactElement<React.ComponentProps<'button'> & { asChild?: boolean }> | null =
+    null;
+  let content: React.ReactElement<
+    React.ComponentProps<'div'> & { side?: Side; hidden?: boolean }
+  > | null = null;
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return;
+    if (child.type === TooltipTrigger) trigger = child as never;
+    else if (child.type === TooltipContent) content = child as never;
+  });
+  if (!trigger) return null;
+
+  const {
+    asChild,
+    children: triggerChildren,
+    ...triggerProps
+  } = (trigger as React.ReactElement<React.ComponentProps<'button'> & { asChild?: boolean }>).props;
+  const contentProps = (
+    content as React.ReactElement<
+      React.ComponentProps<'div'> & { side?: Side; hidden?: boolean }
+    > | null
+  )?.props;
+
+  const anchor = asChild ? (
+    <Slot {...(triggerProps as Record<string, unknown>)}>{triggerChildren}</Slot>
+  ) : (
+    <button type="button" {...triggerProps}>
+      {triggerChildren}
+    </button>
+  );
+
+  if (!contentProps || contentProps.hidden) return anchor;
+
+  return (
+    <MuiTooltip
+      title={<div className={contentProps.className}>{contentProps.children}</div>}
+      placement={contentProps.side ?? 'top'}
+      open={open}
+      onOpen={() => onOpenChange?.(true)}
+      onClose={() => onOpenChange?.(false)}
+      enterDelay={delayDuration ?? 300}
+    >
+      {anchor}
+    </MuiTooltip>
+  );
+}

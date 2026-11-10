@@ -103,7 +103,11 @@ export function BudgetsTable({
               <span
                 className={cn(
                   'font-semibold',
-                  isOver ? 'text-rose-600' : isWarning ? 'text-amber-600' : 'text-emerald-600',
+                  isOver
+                    ? 'text-[var(--mui-palette-overdue-main)]'
+                    : isWarning
+                      ? 'text-[var(--mui-palette-pending-main)]'
+                      : 'text-[var(--mui-palette-paid-main)]',
                 )}
               >
                 {percent.toFixed(0)}%
@@ -114,10 +118,10 @@ export function BudgetsTable({
               className={cn(
                 'h-1.5',
                 isOver
-                  ? '[&>div]:bg-rose-500'
+                  ? '[&>div]:bg-[var(--mui-palette-overdue-main)]'
                   : isWarning
-                    ? '[&>div]:bg-amber-500'
-                    : '[&>div]:bg-emerald-500',
+                    ? '[&>div]:bg-[var(--mui-palette-pending-main)]'
+                    : '[&>div]:bg-[var(--mui-palette-paid-main)]',
               )}
             />
           </div>

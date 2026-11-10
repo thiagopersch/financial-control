@@ -1,92 +1,158 @@
+'use client';
+
+import Box from '@mui/material/Box';
+import MuiCard from '@mui/material/Card';
+import type { SxProps, Theme } from '@mui/material/styles';
+import Typography from '@mui/material/Typography';
 import * as React from 'react';
 
-import { cn } from '@/lib/utils';
+/**
+ * Cartão do app sobre o MUI `Card` (M3: elevação por padrão, não borda — o
+ * `elevation`/`variant="outlined"` do MUI continuam passáveis via props quando
+ * um card específico precisar de borda em vez de sombra).
+ */
+type DivProps = Omit<React.ComponentProps<'div'>, 'color'> & { sx?: SxProps<Theme> };
 
-function Card({
+/** Funde o `sx` interno do primitivo com o `sx` que o consumidor passar (nunca sobrescreve). */
+function mergeSx(own: SxProps<Theme>, incoming?: SxProps<Theme>): SxProps<Theme> {
+  return [own, ...(Array.isArray(incoming) ? incoming : incoming ? [incoming] : [])];
+}
+
+const CardSizeContext = React.createContext<'default' | 'sm'>('default');
+
+export function Card({
   className,
   size = 'default',
+  children,
+  sx,
   ...props
-}: React.ComponentProps<'div'> & { size?: 'default' | 'sm' }) {
+}: DivProps & { size?: 'default' | 'sm'; elevation?: number; variant?: 'elevation' | 'outlined' }) {
+  const gap = size === 'sm' ? 1.5 : 2;
   return (
-    <div
-      data-slot="card"
-      data-size={size}
-      className={cn(
-        'group/card bg-card text-card-foreground ring-foreground/10 flex flex-col gap-4 overflow-hidden rounded-lg py-4 text-sm ring-1 has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl',
-        className,
-      )}
-      {...props}
-    />
+    <CardSizeContext.Provider value={size}>
+      <MuiCard
+        data-slot="card"
+        data-size={size}
+        className={className}
+        sx={mergeSx({ gap, py: gap, '&:has(> [data-slot=card-footer])': { pb: 0 } }, sx)}
+        {...(props as Record<string, unknown>)}
+      >
+        {children}
+      </MuiCard>
+    </CardSizeContext.Provider>
   );
 }
 
-function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
+export function CardHeader({ className, children, sx, ...props }: DivProps) {
+  const size = React.useContext(CardSizeContext);
   return (
-    <div
+    <Box
       data-slot="card-header"
-      className={cn(
-        'group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-4 group-data-[size=sm]/card:px-3 has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-4 group-data-[size=sm]/card:[.border-b]:pb-3',
-        className,
+      className={className}
+      sx={mergeSx(
+        {
+          display: 'grid',
+          gridAutoRows: 'min-content',
+          alignItems: 'start',
+          gap: 0.5,
+          px: size === 'sm' ? 1.5 : 2,
+          '&:has([data-slot=card-action])': { gridTemplateColumns: '1fr auto' },
+          '&.border-b': { pb: size === 'sm' ? 1.5 : 2 },
+        },
+        sx,
       )}
-      {...props}
-    />
+      {...(props as Record<string, unknown>)}
+    >
+      {children}
+    </Box>
   );
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
+export function CardTitle({ className, children, sx, ...props }: DivProps) {
+  const size = React.useContext(CardSizeContext);
   return (
-    <div
+    <Typography
+      component="div"
+      variant="h6"
       data-slot="card-title"
-      className={cn(
-        'font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm',
-        className,
+      className={className}
+      sx={mergeSx(
+        { fontSize: size === 'sm' ? '0.875rem' : '1rem', fontWeight: 600, lineHeight: 1.35 },
+        sx,
       )}
-      {...props}
-    />
+      {...(props as Record<string, unknown>)}
+    >
+      {children}
+    </Typography>
   );
 }
 
-function CardDescription({ className, ...props }: React.ComponentProps<'div'>) {
+export function CardDescription({ className, children, sx, ...props }: DivProps) {
   return (
-    <div
+    <Typography
+      component="div"
+      variant="body2"
+      color="text.secondary"
       data-slot="card-description"
-      className={cn('text-muted-foreground text-sm', className)}
-      {...props}
-    />
+      className={className}
+      sx={sx}
+      {...(props as Record<string, unknown>)}
+    >
+      {children}
+    </Typography>
   );
 }
 
-function CardAction({ className, ...props }: React.ComponentProps<'div'>) {
+export function CardAction({ className, children, sx, ...props }: DivProps) {
   return (
-    <div
+    <Box
       data-slot="card-action"
-      className={cn('col-start-2 row-span-2 row-start-1 self-start justify-self-end', className)}
-      {...props}
-    />
-  );
-}
-
-function CardContent({ className, ...props }: React.ComponentProps<'div'>) {
-  return (
-    <div
-      data-slot="card-content"
-      className={cn('px-4 group-data-[size=sm]/card:px-3', className)}
-      {...props}
-    />
-  );
-}
-
-function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
-  return (
-    <div
-      data-slot="card-footer"
-      className={cn(
-        'bg-muted/50 flex items-center rounded-b-xl border-t p-4 group-data-[size=sm]/card:p-3',
-        className,
+      className={className}
+      sx={mergeSx(
+        { gridColumnStart: 2, gridRow: '1 / span 2', alignSelf: 'start', justifySelf: 'end' },
+        sx,
       )}
-      {...props}
-    />
+      {...(props as Record<string, unknown>)}
+    >
+      {children}
+    </Box>
   );
 }
 
-export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle };
+export function CardContent({ className, children, sx, ...props }: DivProps) {
+  const size = React.useContext(CardSizeContext);
+  return (
+    <Box
+      data-slot="card-content"
+      className={className}
+      sx={mergeSx({ px: size === 'sm' ? 1.5 : 2 }, sx)}
+      {...(props as Record<string, unknown>)}
+    >
+      {children}
+    </Box>
+  );
+}
+
+export function CardFooter({ className, children, sx, ...props }: DivProps) {
+  const size = React.useContext(CardSizeContext);
+  return (
+    <Box
+      data-slot="card-footer"
+      className={className}
+      sx={mergeSx(
+        {
+          display: 'flex',
+          alignItems: 'center',
+          borderTop: 1,
+          borderColor: 'divider',
+          bgcolor: 'action.hover',
+          p: size === 'sm' ? 1.5 : 2,
+        },
+        sx,
+      )}
+      {...(props as Record<string, unknown>)}
+    >
+      {children}
+    </Box>
+  );
+}

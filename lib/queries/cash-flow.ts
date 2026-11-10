@@ -1,33 +1,20 @@
 import useSWR from 'swr';
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
-export interface CashFlowData {
-  date: string;
-  income: number;
-  expense: number;
-  balance: number;
+export interface CashFlowResponse<TChart = unknown, TSummary = unknown> {
+  chartData: TChart[];
+  summary: TSummary | null;
 }
 
-export interface CashFlowSummary {
-  totalIncome: number;
-  totalExpense: number;
-  finalBalance: number;
-}
-
-export function useCashFlow(days: number = 30) {
-  const { data, error, isLoading, mutate } = useSWR<{
-    data: CashFlowData[];
-    summary: CashFlowSummary;
-  }>(`/api/cash-flow?days=${days}`, fetcher, {
-    revalidateOnFocus: false,
-  });
-
+/** Projeção de fluxo de caixa para os próximos `days` dias. */
+export function useCashFlow<TChart, TSummary>(days: string | number) {
+  const { data, error, isLoading, mutate } = useSWR<CashFlowResponse<TChart, TSummary>>(
+    `/api/cash-flow?days=${days}`,
+  );
   return {
-    data: data?.data || [],
-    summary: data?.summary || null,
+    chartData: data?.chartData ?? [],
+    summary: data?.summary ?? null,
     isLoading,
-    isError: error,
+    isError: !!error,
     refresh: mutate,
   };
 }

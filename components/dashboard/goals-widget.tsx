@@ -1,11 +1,11 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatCurrency } from '@/lib/utils';
 import type { GoalData } from '@/types/goal';
+import Fab from '@mui/material/Fab';
 import { Plus, Target, Trash2, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -56,7 +56,7 @@ export function GoalsWidget({
   if (goals.length === 0)
     return (
       <Link href="/goals" className="block h-full w-full">
-        <Card className="h-full w-full cursor-pointer transition-all hover:shadow-md">
+        <Card className="hover-elevate h-full w-full cursor-pointer">
           <CardHeader>
             <CardTitle>Metas Financeiras</CardTitle>
             <CardDescription>Planeje seus sonhos e objetivos.</CardDescription>
@@ -79,7 +79,7 @@ export function GoalsWidget({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <Card className="border-primary/20 relative h-full w-full overflow-hidden shadow-sm transition-all hover:shadow-md">
+        <Card className="hover-elevate relative h-full w-full overflow-hidden">
           <div
             className="absolute top-0 bottom-0 left-0 w-1.5"
             style={{ backgroundColor: goals[0].color ?? '#10b981' }}
@@ -87,16 +87,18 @@ export function GoalsWidget({
           {onDeposit && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
+                {/* M3: Fab — botão de ação flutuante circular com elevação. */}
+                <Fab
                   onClick={handleDepositClick}
-                  className={`bg-primary hover:bg-primary/90 absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-full text-white shadow-md transition-all ${
+                  color="primary"
+                  size="small"
+                  aria-label="Depositar"
+                  className={`absolute top-2 right-2 z-10 transition-all ${
                     isHovered ? 'scale-100 opacity-100' : 'scale-75 opacity-0'
                   }`}
-                  title="Depositar"
-                  size="icon"
                 >
                   <Plus className="h-4 w-4" />
-                </Button>
+                </Fab>
               </TooltipTrigger>
               <TooltipContent>Depositar na meta</TooltipContent>
             </Tooltip>
@@ -105,16 +107,17 @@ export function GoalsWidget({
           {onDeleteClick && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
+                <Fab
                   onClick={handleDeleteClick}
-                  className={`bg-destructive hover:bg-destructive/90 absolute top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full text-white shadow-md transition-all ${
+                  color="error"
+                  size="small"
+                  aria-label="Excluir"
+                  className={`absolute top-2 z-10 transition-all ${
                     onDeposit ? 'right-14' : 'right-2'
                   } ${isHovered ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`}
-                  title="Excluir"
-                  size="icon"
                 >
                   <Trash2 className="h-4 w-4" />
-                </Button>
+                </Fab>
               </TooltipTrigger>
               <TooltipContent>Excluir meta</TooltipContent>
             </Tooltip>
@@ -164,7 +167,7 @@ export function GoalsWidget({
         {goals.slice(0, 3).map((goal) => (
           <Card
             key={goal.id}
-            className="border-primary/20 relative h-full w-full cursor-pointer overflow-hidden shadow-sm transition-all hover:shadow-md"
+            className="hover-elevate relative h-full w-full cursor-pointer overflow-hidden"
           >
             <div
               className="absolute top-0 bottom-0 left-0 w-1.5"

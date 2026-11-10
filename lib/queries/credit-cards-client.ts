@@ -21,7 +21,7 @@ export interface CreditCardDTO {
   usagePercentage: number;
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { fetcher } from '@/lib/queries/fetcher';
 
 const creditCardsKey = '/api/credit-cards';
 

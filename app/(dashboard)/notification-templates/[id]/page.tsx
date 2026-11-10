@@ -1,7 +1,6 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import { hasPermission } from '@/lib/permissions/has-permission';
 import { getNotificationTemplate } from '@/lib/queries/notification-templates';
-import { getServerSession } from 'next-auth';
 import { notFound, redirect } from 'next/navigation';
 import { TemplateBuilder } from '@/components/notification-templates/builder/template-builder';
 
@@ -11,7 +10,7 @@ export default async function EditNotificationTemplatePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
   if (!hasPermission(session.user.permissions, 'notification-templates', 'UPDATE')) {
     redirect('/notification-templates');

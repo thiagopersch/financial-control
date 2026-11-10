@@ -119,7 +119,7 @@ export function PaymentMethodsList({
 
       {totalCount === 0 ? (
         <div className="bg-muted/30 flex flex-col items-center justify-center rounded-xl border-2 border-dashed py-12">
-          <div className="bg-background mb-4 rounded-full p-4 shadow-sm">
+          <div className="bg-background mb-4 rounded-full p-4">
             <Wallet className="text-muted-foreground h-8 w-8" />
           </div>
           <h3 className="text-lg font-medium">Nenhum meio de pagamento encontrado</h3>

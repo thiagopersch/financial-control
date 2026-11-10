@@ -1,8 +1,8 @@
 'use server';
 
-import { checkGoalAlerts } from '@/lib/actions/notifications';
 import { requirePermission } from '@/lib/permissions/require-permission';
 import prisma from '@/lib/prisma';
+import { enqueue } from '@/lib/queue';
 import { createAuditLog } from '@/lib/services/audit';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
@@ -174,7 +174,10 @@ export async function depositToGoal(id: string, amount: number) {
       },
     });
 
-    await checkGoalAlerts(session);
+    await enqueue('alerts.goal', {
+      workspaceId: session.user.workspaceId,
+      userId: session.user.id,
+    });
 
     revalidatePath('/goals');
     revalidatePath('/dashboard');

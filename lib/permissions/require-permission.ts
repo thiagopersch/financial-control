@@ -1,7 +1,7 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import { hasPermission } from '@/lib/permissions/has-permission';
 import type { PermissionAction } from '@prisma/client';
-import { getServerSession, type Session } from 'next-auth';
+import { type Session } from 'next-auth';
 
 export class ForbiddenError extends Error {
   constructor(message = 'Sem permissão para executar esta ação') {
@@ -19,7 +19,7 @@ export async function requirePermission(
   resource: string,
   action: PermissionAction,
 ): Promise<Session> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) throw new ForbiddenError('Não autenticado');
   if (!hasPermission(session.user.permissions, resource, action)) {
     throw new ForbiddenError();

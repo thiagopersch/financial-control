@@ -1,5 +1,7 @@
 'use client';
 
+import Box from '@mui/material/Box';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { ActionsDataTable } from '@/components/ui/actions-data-table';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,8 +13,8 @@ import { formatCompetence, isSameCompetence } from '@/lib/utils/competence';
 import { showError, showSuccess } from '@/lib/utils/toast';
 import {
   getStaticTransactionSituation,
+  getTransactionRowSx,
   getTransactionSituation,
-  TRANSACTION_ROW_CLASSES,
   TRANSACTION_SITUATION_LEGEND,
 } from '@/lib/utils/transaction-status';
 import {
@@ -35,7 +37,7 @@ import {
   RepeatIcon,
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore, useOptimistic, useTransition } from 'react';
 import { DeleteConfirmModal } from './delete-confirm-modal';
 import type { TransactionTotals } from '@/lib/utils/transaction-totals';
 import { TransactionsTotals } from './transactions-totals';
@@ -71,15 +73,21 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-function SituacaoBadge({ transaction }: { transaction: SerializedTransaction }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => setMounted(true));
-    return () => clearTimeout(timer);
-  }, []);
+/**
+ * A situação depende do horário atual: até a tabela hidratar mostra um
+ * placeholder. `mounted` vem da tabela (um único estado), não de um efeito por
+ * linha — antes cada linha renderizava duas vezes.
+ */
+const subscribeNoop = () => () => {};
 
-  if (!mounted)
-    return <div className="h-6 w-16 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />;
+function SituacaoBadge({
+  transaction,
+  mounted,
+}: {
+  transaction: SerializedTransaction;
+  mounted: boolean;
+}) {
+  if (!mounted) return <Skeleton className="h-6 w-16" />;
 
   if (transaction.type === TransactionType.INCOME) {
     return <div className="text-muted-foreground ml-4">--</div>;
@@ -87,10 +95,9 @@ function SituacaoBadge({ transaction }: { transaction: SerializedTransaction }) 
 
   if (transaction.status === TransactionStatus.PAID) {
     return (
-      <div className="flex w-fit items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400">
-        <CheckCircle className="h-3.5 w-3.5" />
+      <Badge variant="paid" icon={<CheckCircle className="h-3.5 w-3.5" />}>
         Em dia
-      </div>
+      </Badge>
     );
   }
 
@@ -98,36 +105,36 @@ function SituacaoBadge({ transaction }: { transaction: SerializedTransaction }) 
 
   if (situation === 'DUE_TODAY') {
     return (
-      <div className="flex w-fit items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-600 dark:bg-amber-900/20 dark:text-amber-400">
-        <Clock className="h-3.5 w-3.5" />
+      <Badge variant="dueSoon" icon={<Clock className="h-3.5 w-3.5" />}>
         Vence Hoje
-      </div>
+      </Badge>
     );
   }
 
   if (situation === 'OVERDUE') {
     return (
-      <div className="flex w-fit animate-pulse items-center gap-1.5 rounded-md bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
-        <AlertCircle className="h-3.5 w-3.5" />
+      <Badge
+        variant="overdue"
+        className="animate-pulse"
+        icon={<AlertCircle className="h-3.5 w-3.5" />}
+      >
         Vencida
-      </div>
+      </Badge>
     );
   }
 
   if (situation === 'DUE_TOMORROW') {
     return (
-      <div className="flex w-fit items-center gap-1.5 rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
-        <Calendar className="h-3.5 w-3.5" />
+      <Badge variant="dueSoon" icon={<Calendar className="h-3.5 w-3.5" />}>
         Vence Amanhã
-      </div>
+      </Badge>
     );
   }
 
   return (
-    <div className="flex w-fit items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400">
-      <CheckCircle className="h-3.5 w-3.5" />
+    <Badge variant="paid" icon={<CheckCircle className="h-3.5 w-3.5" />}>
       Em dia
-    </div>
+    </Badge>
   );
 }
 
@@ -149,14 +156,28 @@ export function TransactionsTable({
   const [deletingTransaction, setDeletingTransaction] = useState<SerializedTransaction | null>(
     null,
   );
-  const [mounted, setMounted] = useState(false);
+  // `true` só no client após hidratar (datas/situação dependem do fuso e do horário atual).
+  const mounted = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
   const [processingId, setProcessingId] = useState<string | null>(null);
+  // UI otimista: a linha muda na hora; se a action falhar, o React volta ao estado do servidor.
+  const [, startOptimistic] = useTransition();
+  const [optimisticTransactions, applyOptimistic] = useOptimistic(
+    transactions,
+    (state, patch: { id: string } & Partial<SerializedTransaction>) =>
+      state.map((t) => (t.id === patch.id ? { ...t, ...patch } : t)),
+  );
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const handleMarkAsPaid = (t: SerializedTransaction) =>
+    startOptimistic(async () => {
+      applyOptimistic({ id: t.id, status: TransactionStatus.PAID });
+      await markAsPaid(t);
+    });
 
-  const handleMarkAsPaid = async (t: SerializedTransaction) => {
+  const markAsPaid = async (t: SerializedTransaction) => {
     setProcessingId(t.id);
     try {
       const result = await markTransactionAsPaid(t.id);
@@ -177,7 +198,13 @@ export function TransactionsTable({
     }
   };
 
-  const handleToggleAutoMove = async (t: SerializedTransaction, checked: boolean) => {
+  const handleToggleAutoMove = (t: SerializedTransaction, checked: boolean) =>
+    startOptimistic(async () => {
+      applyOptimistic({ id: t.id, autoMoveEnabled: checked } as never);
+      await toggleAutoMove(t, checked);
+    });
+
+  const toggleAutoMove = async (t: SerializedTransaction, checked: boolean) => {
     setProcessingId(t.id);
     try {
       const result = await toggleTransactionAutoMove(t.id, checked);
@@ -194,18 +221,9 @@ export function TransactionsTable({
   };
 
   const statusMap = {
-    [TransactionStatus.PAID]: {
-      label: 'Pago',
-      className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-    },
-    [TransactionStatus.PENDING]: {
-      label: 'Pendente',
-      className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-    },
-    [TransactionStatus.OVERDUE]: {
-      label: 'Atrasado',
-      className: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
-    },
+    [TransactionStatus.PAID]: { label: 'Pago', color: 'paid' as const },
+    [TransactionStatus.PENDING]: { label: 'Pendente', color: 'pending' as const },
+    [TransactionStatus.OVERDUE]: { label: 'Atrasado', color: 'overdue' as const },
   };
 
   const updateParam = (key: string, value: string) => {
@@ -222,20 +240,23 @@ export function TransactionsTable({
         const t = row.original;
         return (
           <div className="flex items-center gap-3">
-            <div
-              className={cn(
-                'rounded-lg p-2',
-                t.type === TransactionType.INCOME
-                  ? 'bg-emerald-100 dark:bg-emerald-900/30'
-                  : 'bg-rose-100 dark:bg-rose-900/30',
-              )}
+            <Box
+              className="p-2"
+              sx={{
+                borderRadius: 2,
+                bgcolor: `rgba(var(--mui-palette-${
+                  t.type === TransactionType.INCOME ? 'income' : 'expense'
+                }-mainChannel) / 0.14)`,
+                color: t.type === TransactionType.INCOME ? 'income.main' : 'expense.main',
+                display: 'flex',
+              }}
             >
               {t.type === TransactionType.INCOME ? (
-                <ArrowUpCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <ArrowUpCircle className="h-4 w-4" />
               ) : (
-                <ArrowDownCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                <ArrowDownCircle className="h-4 w-4" />
               )}
-            </div>
+            </Box>
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold">
                 {t.description || t.category.name}
@@ -304,7 +325,7 @@ export function TransactionsTable({
         }
 
         return (
-          <div className="border-none text-sm whitespace-nowrap" suppressHydrationWarning>
+          <div className="text-sm whitespace-nowrap" suppressHydrationWarning>
             <div>{mounted ? format(new Date(t.date), 'dd/MM/yyyy', { locale: ptBR }) : '-'}</div>
           </div>
         );
@@ -334,16 +355,12 @@ export function TransactionsTable({
       cell: ({ row }) => {
         const t = row.original;
         return (
-          <div
-            className={cn(
-              'text-sm font-bold whitespace-nowrap',
-              t.type === TransactionType.INCOME
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-rose-600 dark:text-rose-400',
-            )}
+          <Box
+            className="text-sm font-bold whitespace-nowrap"
+            sx={{ color: t.type === TransactionType.INCOME ? 'income.main' : 'expense.main' }}
           >
             {t.type === TransactionType.INCOME ? '+' : '-'} {formatCurrency(Number(t.amount))}
-          </div>
+          </Box>
         );
       },
     },
@@ -358,17 +375,13 @@ export function TransactionsTable({
           return <div className="text-muted-foreground ml-4">--</div>;
         }
 
-        return (
-          <Badge variant="secondary" className={cn('border-none', statusMap[status].className)}>
-            {statusMap[status].label}
-          </Badge>
-        );
+        return <Badge variant={statusMap[status].color}>{statusMap[status].label}</Badge>;
       },
     },
     {
       id: 'situacao',
       header: 'Situação',
-      cell: ({ row }) => <SituacaoBadge transaction={row.original} />,
+      cell: ({ row }) => <SituacaoBadge transaction={row.original} mounted={mounted} />,
     },
     {
       accessorKey: 'paidAt',
@@ -451,7 +464,15 @@ export function TransactionsTable({
         >
           {TRANSACTION_SITUATION_LEGEND.map((item) => (
             <li key={item.label} className="flex items-center gap-1.5">
-              <span className={cn('size-2 rounded-full', item.dotClassName)} />
+              <Box
+                component="span"
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  bgcolor: `${item.role}.main`,
+                }}
+              />
               {item.label}
             </li>
           ))}
@@ -459,12 +480,12 @@ export function TransactionsTable({
       )}
       <DataTable
         columns={columns}
-        data={transactions}
+        data={optimisticTransactions}
         emptyMessage="Nenhuma transação encontrada."
-        getRowClassName={(transaction) =>
+        getRowSx={(transaction) =>
           transaction.id === deletingTransaction?.id
-            ? 'bg-red-100/60 hover:bg-red-100/60 dark:bg-red-950/40'
-            : TRANSACTION_ROW_CLASSES[getRowSituation(transaction)]
+            ? { bgcolor: 'rgba(var(--mui-palette-error-mainChannel) / 0.12)' }
+            : getTransactionRowSx(getRowSituation(transaction))
         }
         manualPagination={{
           page,

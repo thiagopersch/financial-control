@@ -1,9 +1,8 @@
 import { PermissionProfileFormPage } from '@/app/(dashboard)/permission-profiles/components/permission-profile-form-page';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import { hasPermission } from '@/lib/permissions/has-permission';
 import { getPermissionProfileById } from '@/lib/queries/permission-profiles';
 import { getPermissionCatalogGrouped } from '@/lib/services/permission-profiles';
-import { getServerSession } from 'next-auth';
 import { notFound, redirect } from 'next/navigation';
 
 export default async function EditPermissionProfilePage({
@@ -11,7 +10,7 @@ export default async function EditPermissionProfilePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
   if (!hasPermission(session.user.permissions, 'permission-profiles', 'UPDATE')) {
     redirect('/permission-profiles');

@@ -1,6 +1,5 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
 
 export interface WorkspaceUserOption {
   id: string;
@@ -20,7 +19,7 @@ export async function getWorkspaceUsers({
 }: { activeOnly?: boolean; includeIds?: (string | null | undefined)[] } = {}): Promise<
   WorkspaceUserOption[]
 > {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return [];
 
   const ids = includeIds.filter((id): id is string => !!id);

@@ -1,13 +1,12 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import { hasPermission } from '@/lib/permissions/has-permission';
 import { getNotificationTemplates } from '@/lib/queries/notification-templates';
 import { getWorkspaceUsers } from '@/lib/queries/users';
-import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { NotificationTemplatesClient } from './notification-templates-client';
 
 export default async function NotificationTemplatesPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
   if (!hasPermission(session.user.permissions, 'notification-templates', 'VIEW')) {
     redirect('/dashboard');

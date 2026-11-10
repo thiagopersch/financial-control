@@ -110,7 +110,7 @@ export function DebtDetail({
       accessorKey: 'amount',
       header: 'Valor',
       cell: ({ row }) => (
-        <span className="font-medium text-rose-600 dark:text-rose-400">
+        <span className="font-medium text-[var(--mui-palette-expense-main)]">
           {formatCurrency(row.original.amount)}
         </span>
       ),
@@ -198,13 +198,15 @@ export function DebtDetail({
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Já pago:</span>
-              <span className="font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="font-medium text-[var(--mui-palette-paid-main)]">
                 {formatCurrency(debtPaid)}
               </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Falta Pagar:</span>
-              <span className="font-medium text-red-500">{formatCurrency(debtRemaining)}</span>
+              <span className="font-medium text-[var(--mui-palette-expense-main)]">
+                {formatCurrency(debtRemaining)}
+              </span>
             </div>
             {debt.interestRate != null && (
               <div className="flex justify-between text-sm">
@@ -248,7 +250,9 @@ export function DebtDetail({
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Valor restante:</span>
-              <span className="font-medium text-red-500">{formatCurrency(debtRemaining)}</span>
+              <span className="font-medium text-[var(--mui-palette-expense-main)]">
+                {formatCurrency(debtRemaining)}
+              </span>
             </div>
             {debt.installments != null && (
               <div className="flex justify-between text-sm">

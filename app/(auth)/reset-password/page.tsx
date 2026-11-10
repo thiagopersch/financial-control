@@ -64,7 +64,10 @@ export default function ResetPasswordPage() {
   const isBusy = isLoading || isRedirecting;
 
   return (
-    <Card className="relative border-none bg-white/80 shadow-2xl backdrop-blur-xl dark:bg-slate-900/80">
+    <Card
+      elevation={24}
+      className="relative bg-[rgba(var(--mui-palette-background-paperChannel)/0.8)] backdrop-blur-xl"
+    >
       {isRedirecting && (
         <div className="bg-background/80 absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl backdrop-blur-sm">
           <Loader2 className="text-primary h-8 w-8 animate-spin" />

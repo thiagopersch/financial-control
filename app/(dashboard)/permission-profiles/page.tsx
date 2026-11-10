@@ -1,12 +1,11 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import { hasPermission } from '@/lib/permissions/has-permission';
 import { getPermissionProfiles } from '@/lib/queries/permission-profiles';
-import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { PermissionProfilesClient } from './permission-profiles-client';
 
 export default async function PermissionProfilesPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
   if (!hasPermission(session.user.permissions, 'permission-profiles', 'VIEW')) {
     redirect('/dashboard');

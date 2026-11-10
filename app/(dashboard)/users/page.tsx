@@ -1,12 +1,11 @@
 import { UserList } from '@/components/users/user-list';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import { hasPermission } from '@/lib/permissions/has-permission';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 
 export default async function UsersPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
   if (!hasPermission(session.user.permissions, 'users', 'VIEW')) {
     redirect('/dashboard');

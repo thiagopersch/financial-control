@@ -1,80 +1,177 @@
 'use client';
 
+import Box from '@mui/material/Box';
+import MuiTab, { type TabProps } from '@mui/material/Tab';
+import MuiTabs from '@mui/material/Tabs';
 import * as React from 'react';
-import { cva, type VariantProps } from 'class-variance-authority';
-import { Tabs as TabsPrimitive } from 'radix-ui';
 
-import { cn } from '@/lib/utils';
+/**
+ * Abas (MUI `Tabs`/`Tab`) com a API composta de antes:
+ * `<Tabs value onValueChange><TabsList><TabsTrigger value/></TabsList><TabsContent value/></Tabs>`.
+ */
+interface TabsContextValue {
+  value: string;
+  setValue: (value: string) => void;
+  orientation: 'horizontal' | 'vertical';
+}
 
-function Tabs({
-  className,
+const TabsContext = React.createContext<TabsContextValue | null>(null);
+
+function useTabs() {
+  const ctx = React.useContext(TabsContext);
+  if (!ctx) throw new Error('Tabs components must be used inside <Tabs>');
+  return ctx;
+}
+
+export function Tabs({
+  value,
+  defaultValue,
+  onValueChange,
   orientation = 'horizontal',
-  ...props
-}: React.ComponentProps<typeof TabsPrimitive.Root>) {
+  className,
+  children,
+}: {
+  value?: string;
+  defaultValue?: string;
+  onValueChange?: (value: string) => void;
+  orientation?: 'horizontal' | 'vertical';
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  const [internal, setInternal] = React.useState(defaultValue ?? '');
+  const current = value ?? internal;
+  const ctx = React.useMemo(
+    () => ({
+      value: current,
+      setValue: (next: string) => {
+        if (value === undefined) setInternal(next);
+        onValueChange?.(next);
+      },
+      orientation,
+    }),
+    [current, value, onValueChange, orientation],
+  );
   return (
-    <TabsPrimitive.Root
-      data-slot="tabs"
-      data-orientation={orientation}
-      className={cn('group/tabs flex gap-2 data-horizontal:flex-col', className)}
-      {...props}
-    />
+    <TabsContext.Provider value={ctx}>
+      <Box
+        data-slot="tabs"
+        data-orientation={orientation}
+        className={className}
+        sx={{
+          display: 'flex',
+          gap: 1,
+          flexDirection: orientation === 'horizontal' ? 'column' : 'row',
+        }}
+      >
+        {children}
+      </Box>
+    </TabsContext.Provider>
   );
 }
 
-const tabsListVariants = cva(
-  'group/tabs-list text-muted-foreground inline-flex w-fit items-center justify-center rounded-lg p-[3px] group-data-horizontal/tabs:h-8 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none',
-  {
-    variants: {
-      variant: {
-        default: 'bg-muted',
-        line: 'gap-1 bg-transparent',
-      },
-    },
-    defaultVariants: {
-      variant: 'default',
-    },
-  },
-);
-
-function TabsList({
+export function TabsList({
   className,
   variant = 'default',
-  ...props
-}: React.ComponentProps<typeof TabsPrimitive.List> & VariantProps<typeof tabsListVariants>) {
+  children,
+}: {
+  className?: string;
+  variant?: 'default' | 'line';
+  children?: React.ReactNode;
+}) {
+  const { value, setValue, orientation } = useTabs();
+  const isLine = variant === 'line';
   return (
-    <TabsPrimitive.List
+    <MuiTabs
       data-slot="tabs-list"
       data-variant={variant}
-      className={cn(tabsListVariants({ variant }), className)}
-      {...props}
-    />
+      value={value || false}
+      onChange={(_e, next: string) => setValue(next)}
+      orientation={orientation}
+      variant="scrollable"
+      scrollButtons="auto"
+      allowScrollButtonsMobile
+      className={className}
+      slotProps={isLine ? undefined : { indicator: { style: { display: 'none' } } }}
+      sx={{
+        minHeight: 32,
+        width: 'fit-content',
+        maxWidth: '100%',
+        ...(isLine ? {} : { bgcolor: 'action.hover', borderRadius: 1, p: '3px' }),
+      }}
+    >
+      {children}
+    </MuiTabs>
   );
 }
 
-function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+export function TabsTrigger({
+  value,
+  className,
+  children,
+  disabled,
+  ...muiInjected
+}: {
+  value: string;
+  className?: string;
+  children?: React.ReactNode;
+  disabled?: boolean;
+} & Omit<Partial<TabProps>, 'children' | 'value' | 'className'>) {
   return (
-    <TabsPrimitive.Trigger
+    <MuiTab
+      {...(muiInjected as TabProps)}
+      value={value}
+      disabled={disabled}
+      disableRipple
+      className={className}
+      label={children}
       data-slot="tabs-trigger"
-      className={cn(
-        "text-foreground/60 hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring dark:text-muted-foreground dark:hover:text-foreground relative inline-flex h-[calc(100%-1px)] flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 text-sm font-medium whitespace-nowrap transition-all group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 has-data-[icon=inline-end]:pr-1 has-data-[icon=inline-start]:pl-1 group-data-[variant=default]/tabs-list:data-active:shadow-sm group-data-[variant=line]/tabs-list:data-active:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        'group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent dark:group-data-[variant=line]/tabs-list:data-active:border-transparent dark:group-data-[variant=line]/tabs-list:data-active:bg-transparent',
-        'data-active:bg-background data-active:text-foreground dark:data-active:border-input dark:data-active:bg-input/30 dark:data-active:text-foreground',
-        'after:bg-foreground after:absolute after:opacity-0 after:transition-opacity group-data-horizontal/tabs:after:inset-x-0 group-data-horizontal/tabs:after:bottom-[-5px] group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-0 group-data-vertical/tabs:after:-right-1 group-data-vertical/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100',
-        className,
-      )}
-      {...props}
+      sx={{
+        minHeight: 26,
+        minWidth: 0,
+        px: 1.25,
+        py: 0.5,
+        fontSize: '0.875rem',
+        borderRadius: 0.75,
+        color: 'text.secondary',
+        flexDirection: 'row',
+        gap: 0.75,
+        '& svg': { width: 16, height: 16 },
+        // M3: abas usam realce de cor, não um controle segmentado com sombra.
+        '&.Mui-selected': { color: 'text.primary', bgcolor: 'background.paper' },
+        '& .MuiTab-iconWrapper': { m: 0 },
+      }}
     />
   );
 }
 
-function TabsContent({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Content>) {
+export function TabsContent({
+  value,
+  className,
+  children,
+  forceMount,
+}: {
+  value: string;
+  className?: string;
+  children?: React.ReactNode;
+  forceMount?: boolean;
+}) {
+  const { value: current } = useTabs();
+  const active = current === value;
+  if (!active && !forceMount) return null;
   return (
-    <TabsPrimitive.Content
+    <Box
       data-slot="tabs-content"
-      className={cn('flex-1 text-sm outline-none', className)}
-      {...props}
-    />
+      role="tabpanel"
+      hidden={!active}
+      className={className}
+      sx={{ flex: 1, fontSize: '0.875rem', outline: 'none' }}
+    >
+      {children}
+    </Box>
   );
 }
 
-export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants };
+/** Compat: o visual vem do MUI. */
+export function tabsListVariants(_opts?: { variant?: 'default' | 'line' }) {
+  return '';
+}

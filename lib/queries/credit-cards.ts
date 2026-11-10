@@ -1,10 +1,9 @@
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth/session';
 import prisma from '@/lib/prisma';
 import {
   getCreditCardCurrentUsage,
   getCreditCardsCurrentUsage,
 } from '@/lib/queries/credit-card-usage';
-import { getServerSession } from 'next-auth';
 
 export type CreditCardDTO = {
   id: string;
@@ -28,7 +27,7 @@ export type CreditCardDTO = {
 };
 
 export async function getCreditCards(): Promise<CreditCardDTO[]> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return [];
 
   try {
@@ -81,7 +80,7 @@ export async function getCreditCards(): Promise<CreditCardDTO[]> {
 }
 
 export async function getCreditCardById(id: string): Promise<CreditCardDTO | null> {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session) return null;
 
   try {
