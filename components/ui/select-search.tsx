@@ -45,7 +45,8 @@ export function SelectSearch({
   disabled,
   clearable = true,
   id,
-  ...aria
+  'aria-invalid': ariaInvalid,
+  'aria-describedby': ariaDescribedBy,
 }: SelectSearchProps) {
   const selected = React.useMemo(
     () => options.find((o) => o.value === value) ?? null,
@@ -83,11 +84,16 @@ export function SelectSearch({
         <InputBase
           ref={params.slotProps.input.ref}
           onMouseDown={params.slotProps.input.onMouseDown}
-          inputProps={{ ...params.slotProps.htmlInput, id: id ?? params.id, ...aria }}
+          inputProps={{
+            ...params.slotProps.htmlInput,
+            id: id ?? params.id,
+            'aria-invalid': ariaInvalid,
+            'aria-describedby': ariaDescribedBy,
+          }}
           placeholder={placeholder}
           disabled={params.disabled}
           fullWidth
-          error={aria['aria-invalid'] === true}
+          error={ariaInvalid === true}
           endAdornment={params.slotProps.input.endAdornment}
           startAdornment={
             selected?.icon ? (
